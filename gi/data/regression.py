@@ -8,12 +8,12 @@ from torch.utils.data.dataset import T_co
 
 logger = logging.getLogger(__name__)
 
-def generate_regression_data(train: bool, size: int, batch_size: int, shuffle: bool, seed: int = None) -> DataLoader:
+def generate_regression_data(train: bool, size: int, batch_size: int, shuffle: bool, seed: int = None, type: int = 1) -> DataLoader:
     """Returns dataloader of a toy regression dataset.
     """
     if train:
         return DataLoader(
-            RegressionDataset(size=size, l_lim=0.0, u_lim=0.5),
+            RegressionDataset(size=size, l_lim=0.0, u_lim=0.5, type=type),
             batch_size=batch_size, 
             shuffle=shuffle,
             drop_last=True,  # This should be set to true, else it will disrupt average calculations
@@ -22,7 +22,7 @@ def generate_regression_data(train: bool, size: int, batch_size: int, shuffle: b
         )
     else:
         return DataLoader(
-            RegressionDataset(size=size, l_lim=-0.2, u_lim=1.4),
+            RegressionDataset(size=size, l_lim=-0.2, u_lim=1.4, type=type),
             batch_size=batch_size, 
             shuffle=shuffle,
             drop_last=True,  # This should be set to true, else it will disrupt average calculations
@@ -35,15 +35,20 @@ class RegressionDataset(Dataset):
     def __init__(
         self,
         size: int,
-        l_lim: float,
-        u_lim: float,
+        l_lim: float = 0,
+        u_lim: float = 1,
         train: bool = False,
-        seed: Union[int, None] = 0
-    ) -> None:
-        """Creating the regression dataset used in the paper.
-        Values ashere to the following equation, where ɛ~𝒩(0,0.02).
+        random: bool = False,
+        seed: Union[int, None] = 0,
+        type: Union[int, None] = 1
 
-        y = x + 0.3sin(2π(x+ɛ)) + 0.3sin(4π(x+ɛ)) + ɛ
+    ) -> None:
+        """Creating the regression dataset.
+        Depending on type, values ashere to the following equations:
+
+        Type 1: y = x + 0.3sin(2π(x+ɛ)) + 0.3sin(4π(x+ɛ)) + ɛ; ɛ~𝒩(0,0.02).
+        Type 2: y = 2sin(5x) + 3|x|*ɛ; ɛ ~ U[0,1].
+        Type 3: y = x^3 + ɛ; ɛ ~𝒩(0,9).  // Ober's paper regression
 
         :param size: size of vector to generate
         :type size: int
@@ -59,13 +64,37 @@ class RegressionDataset(Dataset):
         self.size = size
         self.seed = seed
 
-        if self.seed is not None:
-            torch.manual_seed(self.seed)
+        if self.seed is not None: torch.manual_seed(self.seed)
 
-        self.x = torch.unsqueeze(torch.linspace(l_lim, u_lim, self.size, requires_grad=False), dim=1)
+        if random:
+            # random on [l_lim, u_lim]
+            self.x = torch.unsqueeze(torch.rand(self.size)*(u_lim - l_lim) + l_lim, dim=1)
+        else:
+            # linear
+            self.x = torch.unsqueeze(torch.linspace(l_lim, u_lim, self.size, requires_grad=False), dim=1) 
+            
 
-        epsilon = torch.randn(self.x.size()) * 0.02
-        self.y = self.x + 0.3*torch.sin(2*np.pi*(self.x + epsilon)) + 0.3*torch.sin(4*np.pi*(self.x + epsilon)) + epsilon
+        assert type in [1, 2, 3]
+        if type == 1:
+            epsilon = torch.randn(self.x.size()) * 0.02
+            self.y = self.x + 0.3*torch.sin(2*np.pi*(self.x + epsilon)) + 0.3*torch.sin(4*np.pi*(self.x + epsilon)) + epsilon
+        elif type == 2: 
+            self.y = 2* torch.sin(5*self.x) + 3*torch.abs(self.x) * torch.rand(self.x.size())
+        elif type == 3:
+
+            self.x = torch.zeros(size, 1)
+            self.x[:int(size/2), :] = torch.rand(int(size/2), 1)*2. - 4.
+            self.x[int(size/2):, :] = torch.rand(int(size/2), 1)*2. + 2.
+
+            self.y = self.x**3. + 3*torch.randn(size, 1)
+
+            # Rescale the outputs to have unit variance
+            scale = self.y.std()
+            self.y /= scale
+
+        else:
+            raise NotImplementedError
+
 
     def __len__(self):
         return self.size
