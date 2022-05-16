@@ -1,0 +1,6 @@
+[submodule "pvi"]
+	path = pvi
+	url = git@github.com:mbronckers/pvi.git
+[submodule "bayesfunc"]
+	path = bayesfunc
+	url = git@github.com:mbronckers/bayesfunc.git
