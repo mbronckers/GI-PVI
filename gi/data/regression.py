@@ -5,30 +5,31 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataset import T_co
+from config import HyperParamConfig, DataLoaderConfig
 
 logger = logging.getLogger(__name__)
 
-def generate_regression_data(train: bool, size: int, batch_size: int, shuffle: bool, seed: int = None, type: int = 1) -> DataLoader:
-    """Returns dataloader of a toy regression dataset.
-    """
-    if train:
-        return DataLoader(
-            RegressionDataset(size=size, l_lim=0.0, u_lim=0.5, type=type),
-            batch_size=batch_size, 
-            shuffle=shuffle,
-            drop_last=True,  # This should be set to true, else it will disrupt average calculations
-            pin_memory=True,
-            num_workers=0
-        )
-    else:
-        return DataLoader(
-            RegressionDataset(size=size, l_lim=-0.2, u_lim=1.4, type=type),
-            batch_size=batch_size, 
-            shuffle=shuffle,
-            drop_last=True,  # This should be set to true, else it will disrupt average calculations
-            pin_memory=True,
-            num_workers=0
-        )
+REGRESSION_CONFIG = HyperParamConfig(
+    name = "Regression",
+
+    # Dimensions
+    batch_size=40,
+    epochs = 1000,
+    input_dim = 1,
+    output_dim = 1,
+    hidden_units = 100,
+
+    # Training
+    elbo_samples = 5,
+    inference_samples = 10,
+    regression_likelihood_noise = 0.1,
+
+    # Optimiser
+    lr = 1e-3,
+    step_size = 100, 
+    gamma = 0.10,
+    shuffle = True
+)
 
 
 class RegressionDataset(Dataset):
@@ -37,7 +38,6 @@ class RegressionDataset(Dataset):
         size: int,
         l_lim: float = 0,
         u_lim: float = 1,
-        train: bool = False,
         random: bool = False,
         seed: Union[int, None] = 0,
         type: Union[int, None] = 1
