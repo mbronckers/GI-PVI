@@ -61,6 +61,8 @@ class RegressionDataset(Dataset):
         """
         super().__init__()
 
+        assert type in [1, 2, 3], "Type must be one of {1, 2, 3}"
+
         self.size = size
         self.seed = seed
 
@@ -73,8 +75,6 @@ class RegressionDataset(Dataset):
             # linear
             self.x = torch.unsqueeze(torch.linspace(l_lim, u_lim, self.size, requires_grad=False), dim=1) 
             
-
-        assert type in [1, 2, 3]
         if type == 1:
             epsilon = torch.randn(self.x.size()) * 0.02
             self.y = self.x + 0.3*torch.sin(2*np.pi*(self.x + epsilon)) + 0.3*torch.sin(4*np.pi*(self.x + epsilon)) + epsilon

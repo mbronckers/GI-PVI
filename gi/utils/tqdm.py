@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 def train_with_tqdm(net: nn.Module, train_data: DataLoader, epochs: int, eval_data: DataLoader = None):
     """Wrapper for training models that will print the progress with tqdm nicely.
 
-    (Commented out) This function will also save the latest model, and metrics for display in Tensorboard.
-
     :param net: network to be trained
     :type net: nn.Module
     :param train_data: training data
@@ -35,18 +33,12 @@ def train_with_tqdm(net: nn.Module, train_data: DataLoader, epochs: int, eval_da
             # Run a training step
             loss = net.train_step(train_data)
 
-            # Write loss to tensorboard
-            # net.writer.add_scalar('Training Loss', loss, epoch)
-
             # If you want to check the parameter values, switch log level to debug
             logger.debug(net.optimizer.param_groups)
 
             # if eval_data is not None and not epoch % 20:
             if eval_data is not None:
                 net.evaluate(eval_data)
-
-                # Write accuracy to tensorboard
-                # net.writer.add_scalar(f'Training {net.eval_metric}', net.eval_score, epoch)
 
                 # Update tqdm progress bar
                 t_epoch.set_postfix_str(f'Loss: {loss:.5f}, {net.eval_metric}: {net.eval_score:.5f}')
