@@ -1,13 +1,15 @@
 import lab as B
 from plum import convert
 from matrix import AbstractMatrix, Diagonal, structured
+from sympy import Q
 import torch
 
 class Normal:
-    def __init__(self, mean, var):
+    def __init__(self, mean, var, dtype=None):
         self.mean = mean
         self.var = convert(var, AbstractMatrix)
-        
+        self.dtype = dtype if dtype else mean.dtype
+
     @classmethod
     def from_naturalnormal(cls, dist):
         return cls(mean=B.mm(B.pd_inv(dist.prec), dist.lam), var=B.pd_inv(dist.prec))
@@ -25,20 +27,21 @@ class Normal:
             + B.ratio(self.var, other.var)
             + B.logdet(other.var)
             - B.logdet(self.var)
-            - B.cast(self.dtype, self.dim)
+            - B.cast(self.dtype, torch.tensor(self.var.shape)) #     original: - B.cast(self.dtype, self.dim)
         ) / 2
-    
+
     def __eq__(self, __o: "Normal") -> bool:
         return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
 
 class NaturalNormal:
-    def __init__(self, lam, prec):
+    def __init__(self, lam, prec, dtype=None):
         """
         :param lam: first natural parameter of Normal dist = precision x mean
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision 
         """
         self.lam = lam 
         self.prec = convert(prec, AbstractMatrix)
+        self.dtype = dtype if dtype else lam.dtype
     
     @classmethod
     def from_normal(cls, dist):
@@ -63,7 +66,7 @@ class NaturalNormal:
             B.sum(ratio**2)
             - B.logdet(B.mm(ratio, ratio, tr_a=True))
             + B.sum(B.mm(other.prec, diff) * diff)
-            - B.cast(self.dtype, self.dim)
+            - B.cast(self.dtype, torch.tensor(self.prec.shape))
         )
     
     def sample(self, key: B.RandomState, num: B.Int = 1):
