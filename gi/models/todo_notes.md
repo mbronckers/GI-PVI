@@ -1,0 +1,2 @@
+- lab has no pd_inverse(), replaced it with inv()
+    - matrix has pd_inv() and is supposed to add it to B?

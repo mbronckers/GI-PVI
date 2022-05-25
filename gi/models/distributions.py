@@ -1,7 +1,7 @@
 import lab as B
 from plum import convert
 from matrix import AbstractMatrix, Diagonal, structured
-from gi.utils import pd_inverse, cholesky_inverse
+import torch
 
 class Normal:
     def __init__(self, mean, var):
@@ -10,8 +10,8 @@ class Normal:
         
     @classmethod
     def from_naturalnormal(cls, dist):
-        return cls(mean=B.mm(B.pd_inverse(dist.prec), dist.lam), var=B.pd_inverse(dist.prec))
-    
+        return cls(mean=B.mm(B.pd_inv(dist.prec), dist.lam), var=B.pd_inv(dist.prec))
+
     def kl(self, other: "Normal"):
         """Compute the KL divergence with respect to another normal
         distribution.
@@ -28,11 +28,14 @@ class Normal:
             - B.cast(self.dtype, self.dim)
         ) / 2
     
+    def __eq__(self, __o: "Normal") -> bool:
+        return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
+
 class NaturalNormal:
     def __init__(self, lam, prec):
         """
         :param lam: first natural parameter of Normal dist = precision x mean
-        :param prec: second natural parameter of Normal dist = -0.5 x precision \propto precision 
+        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision 
         """
         self.lam = lam 
         self.prec = convert(prec, AbstractMatrix)
@@ -41,8 +44,10 @@ class NaturalNormal:
     def from_normal(cls, dist):
         """
         Convert class:Normal into class:NaturalNormal
+        - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
+        
         """
-        return cls(B.mm(B.pd_inverse(dist.var), dist.mean), B.pd_inverse(dist.var))
+        return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
     
     def kl(self, other: "NaturalNormal"):
         """Compute the Kullback-Leibler divergence with respect to another normal
@@ -66,7 +71,7 @@ class NaturalNormal:
         Sample from distribution using the natural parameters
         """
         key, noise = B.randn(key, B.dtype(self.lam), num, *B.shape(self.lam)) # Sample our noise (epsilon)
-        sample = B.mm(B.pd_inverse(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
+        sample = B.mm(B.inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
         
         if not structured(sample):
             sample = B.dense(sample)
@@ -78,6 +83,10 @@ class NaturalNormal:
             self.lam + other.lam, 
             self.prec + other.prec
             )
+
+    def __eq__(self, __o: "NaturalNormal") -> bool:
+        return (torch.all(torch.isclose(self.lam, __o.lam)) and torch.all(torch.isclose(self.prec, __o.prec))).item()
+
     
 class NormalPseudoObservation:
     def __init__(self, yz, nz):
@@ -91,10 +100,10 @@ class NormalPseudoObservation:
     def __call__(self, z):
 
         """
-        :param z: inducing inputs of that layer which are equal to the outputs of the prev layer inducing inputs, i.e. phi(U_{\ell-1}) [samples x M x Din]
+        :param z: inducing inputs of that layer which are equal to the outputs of the prev layer inducing inputs, i.e. phi(U_{\\ell-1}) [samples x M x Din]
         """
         # (Dout, M, M).
-        prec_yv = 
+        # prec_yv = 
         prec_yv = torch.diag(self.nz)
         # (S, Dout, Din, Din).
         prec_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(z, 1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [S x 1 x M x Din] = [ S x Dout x Din x Din ]
