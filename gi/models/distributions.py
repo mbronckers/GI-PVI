@@ -21,6 +21,8 @@ class Normal:
             other (:class:`.random.Normal`): Other normal.
         Returns:
             scalar: KL divergence.
+
+        See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
         return (
             B.iqf_diag(other.var, other.mean - self.mean)[..., 0]
@@ -59,6 +61,8 @@ class NaturalNormal:
             other (:class:`.NaturalNormal`): Other.
         Returns:
             scalar: KL divergence with respect to `other`.
+        
+        See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
         ratio = B.solve(B.chol(self.prec), B.chol(other.prec))
         diff = self.mean - other.mean

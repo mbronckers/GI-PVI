@@ -9,8 +9,8 @@ class GIBNN:
         """
         :param ps: priors. dict<k=layer_name, v=_p>
         :param ts: pseudo-likelihoods. dict<k='layer x', v=dict<k='client x', v=t>>
-        :param zs: inducing inputs
-        :param S: number of samples to propagate through
+        :param zs: client-local inducing intputs. dict<k=client_name, v=inducing inputs>
+        :param S: number of samples to draw (and thus propagate)
 
         TODO: 
         - want to pass client-local inducing inputs
@@ -26,14 +26,15 @@ class GIBNN:
             zs[client_name] = B.tile(z, S, 1, 1)
             
         for i, (layer_name, p) in enumerate(ps.items()):
-            q = p
+            q = p # prior
             for t in ts[layer_name].values():
                 q *= t.compute_factor(zs[client_name])
             
-            # w is [S, Din, Dout].
-            key, w = q.sample(key, (S,))
-            self._cache[layer_name] = {"w": w, "kl": q.kl(p)}
+            # Sample weights from posterior distribution q
+            key, w = q.sample(key, (S,)) # w is [S, Din, Dout].
+            self._cache[layer_name] = {"w": w, "kl": q.kl(p)}   # save weight samples and the KL div for every layer
 
+            # Propagate client-local inducing inputs <z> 
             for client_name, z in zs.items():
                 z = w @ z # update z
                 if i < len(ps.keys()): # non-final layer
