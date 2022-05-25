@@ -19,28 +19,37 @@ class GIBNN:
 
         - copy of dict is (too?) expensive
         """
-        # _zs = {"layer1": zs}
+        _zs = {} # dict to store propagated inducing inputs
+
         for client_name, z in zs.items():
             assert len(z.shape) == 2
             # z is [M, D]. Change to [S, M, D]]
             zs[client_name] = B.tile(z, S, 1, 1)
             
         for i, (layer_name, p) in enumerate(ps.items()):
+
+            # Compute new posterior distribution by multiplying client factors
             q = p # prior
             for t in ts[layer_name].values():
                 q *= t.compute_factor(zs[client_name])
             
-            # Sample weights from posterior distribution q
+            # Sample weights from posterior distribution q, compute KL, and save results
             key, w = q.sample(key, (S,)) # w is [S, Din, Dout].
-            self._cache[layer_name] = {"w": w, "kl": q.kl(p)}   # save weight samples and the KL div for every layer
+            kl_qp = q.kl(p)  # Compute KL div
+            self._cache[layer_name] = {"w": w, "kl": kl_qp}   # save weight samples and the KL div for every layer
+
+            # Save new posterior as new prior 
+            ps[layer_name] = q # or p = q?
 
             # Propagate client-local inducing inputs <z> 
-            for client_name, z in zs.items():
+            inducing_inputs = zs if i == 0 else _zs
+            for client_name, z in inducing_inputs.items():
                 z = w @ z # update z
                 if i < len(ps.keys()): # non-final layer
                     z = self.nonlinearity(z) # forward and updating the inducing inputs
-                    
-                zs[client_name] = z
+                
+                # Always store in _zs
+                _zs[client_name] = z 
                 
         return key, self._cache
                 
