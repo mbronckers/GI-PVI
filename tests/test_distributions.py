@@ -10,6 +10,10 @@ import numpy as np
 import lab as B
 import lab.torch
 import torch
+import pytest
+import logging
+
+logger = logging.getLogger(__name__)
 
 def approx(x, y, **kwargs):
     x = B.to_numpy(B.dense(x))
@@ -32,6 +36,8 @@ def _test_kl_normal(n1: gi.distributions.Normal, n2: gi.distributions.Normal):
     
     approx(gi_kl, torch_kl)
     
+    return True
+    
 def _test_kl_naturalnormal(n1: gi.distributions.NaturalNormal, n2: gi.distributions.NaturalNormal):
     gi_kl = n1.kl(n2)
     
@@ -48,6 +54,8 @@ def _test_kl_naturalnormal(n1: gi.distributions.NaturalNormal, n2: gi.distributi
     
     approx(gi_kl, torch_kl)
 
+    return True
+
 def test_kl():
     key = B.create_random_state(torch.float64, seed=0)
     
@@ -60,17 +68,22 @@ def test_kl():
     
     n1 = gi.distributions.Normal(m1, C1)
     n2 = gi.distributions.Normal(m2, C2)
-    _test_kl_normal(n1, n2)
+    assert _test_kl_normal(n1, n2) == True
     
     # B.squeeze doesn't accept axes... Use this instead.
     lam1 = B.mm(B.pd_inv(C1), m1)[..., 0]
     lam2 = B.mm(B.pd_inv(C2), m2)[..., 0]
     n1 = gi.distributions.NaturalNormal(lam1, B.pd_inv(C1))
     n2 = gi.distributions.NaturalNormal(lam2, B.pd_inv(C2))
-    _test_kl_naturalnormal(n1, n2)
-
+    assert _test_kl_naturalnormal(n1, n2) == True
     
 if __name__ == "__main__":
+    logger.info("Starting tests...")
+
+    # Set default type
     B.default_dtype = torch.float64
 
+    # Run tests
     test_kl()
+
+    logger.info("Completed tests.")
