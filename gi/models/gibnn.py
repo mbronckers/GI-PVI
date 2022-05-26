@@ -29,7 +29,7 @@ class GIBNN:
         for i, (layer_name, p) in enumerate(ps.items()):
 
             # Compute new posterior distribution by multiplying client factors
-            q = p # prior
+            q = p # prior (posterior)
             for t in ts[layer_name].values():
                 q *= t.compute_factor(zs[client_name])
             

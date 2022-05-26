@@ -1,3 +1,5 @@
+from typing import Optional
+
 class Client:
     """
     Client class that contains: client-local data, the parameters of its factor, and a function how to build the factor.
@@ -10,9 +12,9 @@ class Client:
     :param yz: Pseudo observations
     :param nz: Pseudo noise
     """
-    def __init__(self, data, name, z, yz, nz):
+    def __init__(self, data, name: Optional[str], z, yz, nz):
         self.data = data
-        self.name = name
+        self.name = name if name else None
         self.z = z
         self.yz = yz
         self.nz = nz
