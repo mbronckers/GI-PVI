@@ -12,41 +12,46 @@ class GIBNN:
         :param zs: client-local inducing intputs. dict<k=client_name, v=inducing inputs>
         :param S: number of samples to draw (and thus propagate)
 
-        TODO: 
-        - want to pass client-local inducing inputs
-        - want to propagate each client's inducing inputs, storing them to pass them to the next layer
-        - but want to have the original (0th layer) inducing inputs stored after this sample_posterior function call. 
-
-        - copy of dict is (too?) expensive
+        M inducing points, 
+        D input space dimensionality
         """
         _zs = {} # dict to store propagated inducing inputs
 
-        for client_name, z in zs.items():
-            assert len(z.shape) == 2
+        for client_name, client_z in zs.items():
+            assert len(client_z.shape) == 2
             # z is [M, D]. Change to [S, M, D]]
-            zs[client_name] = B.tile(z, S, 1, 1)
+            zs[client_name] = B.tile(client_z, S, 1, 1)
             
         for i, (layer_name, p) in enumerate(ps.items()):
 
             # Compute new posterior distribution by multiplying client factors
             q = p # prior (posterior)
             for t in ts[layer_name].values():
-                q *= t.compute_factor(zs[client_name])
+                q *= t(zs[client_name])
             
             # Sample weights from posterior distribution q, compute KL, and save results
-            key, w = q.sample(key, (S,)) # w is [S, Din, Dout].
-            kl_qp = q.kl(p)  # Compute KL div
+            key, w = q.sample(key) # w is [S, Din, Dout]. q already has S passed via zs
+            
+            # Get rid of last dimension.
+            w = w[..., 0]
+    
+            # Compute KL div
+            kl_qp = q.kl(p)  
+            
+            # Sum across output dimensions.
+            kl_qp = B.sum(kl_qp, -1)
+            
             self._cache[layer_name] = {"w": w, "kl": kl_qp}   # save weight samples and the KL div for every layer
 
             # Propagate client-local inducing inputs <z> 
             inducing_inputs = zs if i == 0 else _zs
-            for client_name, z in inducing_inputs.items():
-                z = w @ z # update z
+            for client_name, client_z in inducing_inputs.items():
+                client_z = B.mm(client_z, w, tr_b=True) # update z
                 if i < len(ps.keys()): # non-final layer
-                    z = self.nonlinearity(z) # forward and updating the inducing inputs
+                    client_z = self.nonlinearity(client_z) # forward and updating the inducing inputs
                 
                 # Always store in _zs
-                _zs[client_name] = z 
+                _zs[client_name] = client_z 
                 
         return key, self._cache
                 
@@ -55,9 +60,9 @@ class GIBNN:
             return None
             
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
-            x = layer_dict["w"] @ x
+            x = B.mm(x, layer_dict["w"], tr_b=True)
             if i < len(self._cache.keys()): # non-final layer
-                z = self.nonlinearity(z)
+                x = self.nonlinearity(x)
                 
         return x
     

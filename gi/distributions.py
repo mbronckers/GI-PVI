@@ -31,10 +31,42 @@ class Normal:
             - B.cast(self.dtype, self.dim) 
         ) / 2
         
+    def logpdf(self, x):
+        """Compute the log-pdf.
+        Args:
+            x (input): Values to compute the log-pdf of.
+        Returns:
+            list[tensor]: Log-pdf for every input in `x`. If it can be
+                determined that the list contains only a single log-pdf,
+                then the list is flattened to a scalar.
+        """
+        x = B.uprank(x)
+
+        # Handle missing data. We don't handle missing data for batched computation.
+        if B.rank(x) == 2 and B.shape(x, 1) == 1:
+            available = B.jit_to_numpy(~B.isnan(x[:, 0]))
+            if not B.all(available):
+                # Take the elements of the mean, variance, and inputs corresponding to
+                # the available data.
+                available_mean = B.take(self.mean, available)
+                available_var = B.submatrix(self.var, available)
+                available_x = B.take(x, available)
+                return Normal(available_mean, available_var).logpdf(available_x)
+
+        logpdfs = (
+            -(
+                B.logdet(self.var)[..., None]  # Correctly line up with `iqf_diag`.
+                + B.cast(self.dtype, self.dim) * B.cast(self.dtype, B.log_2_pi)
+                + B.iqf_diag(self.var, B.subtract(x, self.mean))
+            )
+            / 2
+        )
+        return logpdfs[..., 0] if B.shape(logpdfs, -1) == 1 else logpdfs
+        
     @property
     def dtype(self):
         """dtype: Data type of the variance."""
-        return B.dtype(self.var)
+        return B.default_dtype
 
     @property
     def dim(self):
@@ -112,7 +144,11 @@ class NaturalNormal:
         """
         Sample from distribution using the natural parameters
         """
-        key, noise = B.randn(key, B.dtype(self.lam), num, *B.shape(self.lam)) # Sample our noise (epsilon)
+        if num > 1:
+            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # Sample our noise (epsilon)
+        else:
+            key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam)) # Sample our noise (epsilon)
+            
         sample = B.mm(B.inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
         
         if not structured(sample):
@@ -144,11 +180,25 @@ class NormalPseudoObservation:
         """
         :param z: inducing inputs of that layer which are equal to the outputs of the prev layer inducing inputs, i.e. phi(U_{\\ell-1}) [samples x M x Din]
         """
+        # (S, 1, M, Din)
+        _z = B.expand_dims(z, 1)
+        
+        # (1, Dout, M, 1).
+        _yz = B.expand_dims(B.transpose(self.yz, (-1, -2)))
+        _yz = B.expand_dims(_yz, -1)
+        
         # (Dout, M, M).
-        prec_yv = B.diag(self.nz)
+        prec_yz = B.diag_construct(self.nz)
+        
+        # (1, Dout, M, M).
+        _prec_yz = B.expand_dims(prec_yz, 0)
+        
         # (S, Dout, Din, Din).
-        prec_w = B.sum(B.mm(prec_yv, z) * z, -1)
-        lam_w = B.sum(B.mm(prec_yv, self.yv) * z, -1)
+        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))
+        
+        # (S, Dout, Din, 1)
+        lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))
+        # lam_w = B.sum(B.mm(prec_yz, self.yz) * z, -1)
         # prec_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(z, 1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [S x 1 x M x Din] = [ S x Dout x Din x Din ]
         # lam_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(torch.unsqueeze(self.yz, 0), -1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [ 1 x Dout x M x 1 ]
         return NaturalNormal(lam_w, prec_w)
