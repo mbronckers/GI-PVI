@@ -57,7 +57,7 @@ def _test_kl_naturalnormal(n1: gi.distributions.NaturalNormal, n2: gi.distributi
     return True
 
 def test_kl():
-    key = B.create_random_state(torch.float64, seed=0)
+    key = B.create_random_state(B.default_dtype, seed=0)
     
     n = 100
     key, m1 = B.randn(key, B.default_dtype, n)
