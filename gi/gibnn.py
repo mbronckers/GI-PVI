@@ -38,9 +38,6 @@ class GIBNN:
             kl_qp = q.kl(p)  # Compute KL div
             self._cache[layer_name] = {"w": w, "kl": kl_qp}   # save weight samples and the KL div for every layer
 
-            # Save new posterior as new prior 
-            ps[layer_name] = q # or p = q?
-
             # Propagate client-local inducing inputs <z> 
             inducing_inputs = zs if i == 0 else _zs
             for client_name, z in inducing_inputs.items():

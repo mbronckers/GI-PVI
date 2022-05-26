@@ -7,7 +7,7 @@ class Client:
     :param data: {X, Y}
     :param name: Client name. Optional
     :param z: Global inducing points. (we have client-local inducing points)
-    :param yz: Pseudo observations
+    :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
     def __init__(self, data, name, z, yz, nz):
