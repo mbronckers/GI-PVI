@@ -5,10 +5,9 @@ from sympy import Q
 import torch
 
 class Normal:
-    def __init__(self, mean, var, dtype=None):
+    def __init__(self, mean, var):
         self.mean = mean
         self.var = convert(var, AbstractMatrix)
-        self.dtype = dtype if dtype else mean.dtype
 
     @classmethod
     def from_naturalnormal(cls, dist):
@@ -29,22 +28,44 @@ class Normal:
             + B.ratio(self.var, other.var)
             + B.logdet(other.var)
             - B.logdet(self.var)
-            - B.cast(self.dtype, torch.tensor(self.var.shape)) #     original: - B.cast(self.dtype, self.dim)
+            - B.cast(self.dtype, self.dim) 
         ) / 2
+        
+    @property
+    def dtype(self):
+        """dtype: Data type of the variance."""
+        return B.dtype(self.var)
+
+    @property
+    def dim(self):
+        """int: Dimensionality."""
+        return B.shape_matrix(self.var)[0]
 
     def __eq__(self, __o: "Normal") -> bool:
         return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
 
 class NaturalNormal:
-    def __init__(self, lam, prec, dtype=None):
+    def __init__(self, lam, prec):
         """
         :param lam: first natural parameter of Normal dist = precision x mean
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision 
         """
         self.lam = lam 
         self.prec = convert(prec, AbstractMatrix)
-        self.dtype = dtype if dtype else lam.dtype
+        
+        self._mean = None
+        self._var = None
     
+    @property
+    def dtype(self):
+        """dtype: Data type of the precision."""
+        return B.dtype(self.prec)
+
+    @property
+    def dim(self):
+        """int: Dimensionality."""
+        return B.shape_matrix(self.prec)[0]
+
     @classmethod
     def from_normal(cls, dist):
         """
@@ -53,6 +74,20 @@ class NaturalNormal:
         
         """
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
+    
+    @property
+    def mean(self):
+        """column vector: Mean."""
+        if self._mean is None:
+            self._mean = B.cholsolve(B.chol(self.prec), self.lam)
+        return self._mean
+
+    @property
+    def var(self):
+        """matrix: Variance."""
+        if self._var is None:
+            self._var = B.pd_inv(self.prec)
+        return self._var
     
     def kl(self, other: "NaturalNormal"):
         """Compute the Kullback-Leibler divergence with respect to another normal
@@ -70,7 +105,7 @@ class NaturalNormal:
             B.sum(ratio**2)
             - B.logdet(B.mm(ratio, ratio, tr_a=True))
             + B.sum(B.mm(other.prec, diff) * diff)
-            - B.cast(self.dtype, torch.tensor(self.prec.shape))
+            - B.cast(self.dtype, self.dim)
         )
     
     def sample(self, key: B.RandomState, num: B.Int = 1):
@@ -110,9 +145,10 @@ class NormalPseudoObservation:
         :param z: inducing inputs of that layer which are equal to the outputs of the prev layer inducing inputs, i.e. phi(U_{\\ell-1}) [samples x M x Din]
         """
         # (Dout, M, M).
-        # prec_yv = 
-        prec_yv = torch.diag(self.nz)
+        prec_yv = B.diag(self.nz)
         # (S, Dout, Din, Din).
-        prec_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(z, 1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [S x 1 x M x Din] = [ S x Dout x Din x Din ]
-        lam_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(torch.unsqueeze(self.yz, 0), -1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [ 1 x Dout x M x 1 ]
+        prec_w = B.sum(B.mm(prec_yv, z) * z, -1)
+        lam_w = B.sum(B.mm(prec_yv, self.yv) * z, -1)
+        # prec_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(z, 1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [S x 1 x M x Din] = [ S x Dout x Din x Din ]
+        # lam_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(torch.unsqueeze(self.yz, 0), -1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [ 1 x Dout x M x 1 ]
         return NaturalNormal(lam_w, prec_w)
