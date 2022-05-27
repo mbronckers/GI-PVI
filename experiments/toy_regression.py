@@ -15,6 +15,9 @@ import torch
 import torch.nn as nn
 
 from varz import Vars
+import logging
+
+logger = logging.getLogger(__name__)
 
 def generate_data(key, size):
     """ Toy regression dataset from paper """
@@ -137,6 +140,8 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
 
 
 if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
+
     B.default_dtype = torch.float64
     key = B.create_random_state(B.default_dtype, seed=0)
     
@@ -145,7 +150,6 @@ if __name__ == "__main__":
     
     # Define model (i.e. define prior).
     model = gi.GIBNN(nn.functional.relu)
-    
 
     # Build one client
     M = 10 # number of inducing points
@@ -181,6 +185,7 @@ if __name__ == "__main__":
     S = 1 # number of inference samples
     mb_idx = 0 # minibatch idx
     for i in range(100):
+        
         # Construct i-th {x, y} training batch batch 
         inds = B.range(batch_size) + mb_idx
         x_mb = B.take(x_tr, inds) # take() is for JAX
@@ -190,5 +195,8 @@ if __name__ == "__main__":
         key, elbo = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
         loss = -elbo
         loss.backward()
+
+        logger.debug(f"Epoch {i} - loss: {loss.item}")
+
         opt.step()
         opt.zero_grad()

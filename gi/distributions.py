@@ -57,7 +57,7 @@ class Normal:
             -(
                 B.logdet(self.var)[..., None]  # Correctly line up with `iqf_diag`.
                 + B.cast(self.dtype, self.dim) * B.cast(self.dtype, B.log_2_pi)
-                + B.iqf_diag(self.var, B.subtract(x, self.mean))
+                + B.iqf_diag(self.var, B.subtract(x, self.mean)[..., None]) # compute diag of matrix product of (a, b) with a being PD
             )
             / 2
         )
