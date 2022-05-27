@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 if torch.cuda.is_available():
     logger.info('CUDA available - Lab/PyTorch will use GPU')
     dev = 'cuda:0'
-    B.set_global_device("gpu:0")
+    B.set_global_device(dev)
 else:
     logger.info('CUDA unavailable - Lab/PyTorch will use CPU')
     dev = 'cpu'
