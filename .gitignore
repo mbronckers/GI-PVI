@@ -138,3 +138,5 @@ data/
 # Other artifacts
 saved_models/
 uci/
+*todo_notes.md
+*gibnn_test.ipynb

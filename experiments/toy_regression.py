@@ -134,13 +134,15 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     # Compute the expected log-likelihood.
     exp_ll = likelihood(out).logpdf(y)
     exp_ll = exp_ll.mean(0).sum() # take mean across inference samples and sum
+    
+    logger.debug(f"ll: {exp_ll}")
 
     # Mini-batching estimator of ELBO
     return key, ((N / len(x)) * exp_ll) - kl
 
 
 if __name__ == "__main__":
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     B.default_dtype = torch.float64
     key = B.create_random_state(B.default_dtype, seed=0)
@@ -184,7 +186,7 @@ if __name__ == "__main__":
     batch_size = min(100, N)
     S = 1 # number of inference samples
     mb_idx = 0 # minibatch idx
-    for i in range(100):
+    for i in range(1000):
         
         # Construct i-th {x, y} training batch batch 
         inds = B.range(batch_size) + mb_idx
@@ -196,7 +198,8 @@ if __name__ == "__main__":
         loss = -elbo
         loss.backward()
 
-        logger.debug(f"Epoch {i} - loss: {loss.item}")
+        if i%100 == 0:
+            logger.info(f"Epoch {i} - loss: {int(loss.item())}")
 
         opt.step()
         opt.zero_grad()

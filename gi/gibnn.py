@@ -18,9 +18,11 @@ class GIBNN:
         _zs = {} # dict to store propagated inducing inputs
 
         for client_name, client_z in zs.items():
-            assert len(client_z.shape) == 2
+            # assert len(client_z.shape) == 2
+            
             # z is [M, D]. Change to [S, M, D]]
-            zs[client_name] = B.tile(client_z, S, 1, 1)
+            if len(client_z.shape) == 2:
+                zs[client_name] = B.tile(client_z, S, 1, 1)
             
         for i, (layer_name, p) in enumerate(ps.items()):
 
