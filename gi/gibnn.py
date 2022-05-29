@@ -21,7 +21,8 @@ class GIBNN:
             # assert len(client_z.shape) == 2
             
             # z is [M, D]. Change to [S, M, D]]
-            if len(client_z.shape) == 2:
+            if len(client_z.shape) == 2: 
+                # We only need to tile once because we are modifying original zs
                 zs[client_name] = B.tile(client_z, S, 1, 1)
             
         for i, (layer_name, p) in enumerate(ps.items()):

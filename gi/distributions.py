@@ -170,9 +170,9 @@ class NormalPseudoObservation:
     def __init__(self, yz, nz):
         """
         :param yz: inducing point observation (pseudo-observations)
-        :param nz: inducing point noise
+        :param nz: inducing point noise (precision)
         """
-        self.yz = yz
+        self.yz = yz 
         self.nz = nz
         
     def __call__(self, z):
