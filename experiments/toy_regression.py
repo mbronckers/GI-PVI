@@ -288,7 +288,7 @@ if __name__ == "__main__":
             if args.plot: 
                 plot(fdir=fdir, fname=f"{start_time}_{i}", 
                     x1=zs["client0"].mean(0), y1=ts[list(ts.keys())[-1]]["client0"].yz, x2=x_mb, y2=y_mb, 
-                    desc1="Variational params", desc2="Training data", title="Epoch {i}")
+                    desc1="Variational params", desc2="Training data", title=f"Epoch {i}")
         
         opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
         opt.zero_grad()

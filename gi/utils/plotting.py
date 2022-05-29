@@ -30,7 +30,8 @@ def plot(fdir, fname, x1, y1, x2, y2,
     ax.legend()
     # ax.set_xlabel(f'{}')
     # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
-    # ax.set_ylabel(ylabel)
+    if xlabel != None: ax.set_xlabel(xlabel)
+    if ylabel != None: ax.set_ylabel(ylabel)
     if title != None: ax.set_title(title)
     ax.legend(loc='upper right', prop={'size': 12})
 
