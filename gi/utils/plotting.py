@@ -31,6 +31,7 @@ def plot(fdir, fname, x1, y1, x2, y2,
     # ax.set_xlabel(f'{}')
     # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
     # ax.set_ylabel(ylabel)
+    if title != None: ax.set_title(title)
     ax.legend(loc='upper right', prop={'size': 12})
 
     plt.savefig(os.path.join(fdir, f'{fname}.png'), pad_inches=0.2, bbox_inches='tight')

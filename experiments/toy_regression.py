@@ -204,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', '-v', action='store_true', help='Sets the log level to DEBUG')
     parser.add_argument('--seed', type=int, help='seed', nargs='?', default=0)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
-    parser.add_argument('--plot', '-p', type=bool, action='store_true', help='Plot results')
+    parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
     # parser.add_argument('--task', choices=['reg', 'class'], help='Task')
     args = parser.parse_args()
 
@@ -266,7 +266,6 @@ if __name__ == "__main__":
     mb_idx = 0 # minibatch idx
     epochs = args.epochs
     
-    
     # Logging
     log_step = 100 # report change in param values every <log_step> epochs
     olds = {} # to keep track of old parameter values
@@ -289,7 +288,7 @@ if __name__ == "__main__":
             if args.plot: 
                 plot(fdir=fdir, fname=f"{start_time}_{i}", 
                     x1=zs["client0"].mean(0), y1=ts[list(ts.keys())[-1]]["client0"].yz, x2=x_mb, y2=y_mb, 
-                    desc1="Variational params", desc2="Training data")
+                    desc1="Variational params", desc2="Training data", title="Epoch {i}")
         
         opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
         opt.zero_grad()
