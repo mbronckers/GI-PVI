@@ -8,20 +8,20 @@ from typing import Callable
 file_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.abspath(os.path.join(file_dir, "..")))
 
+import argparse
 import logging
 from pathlib import Path
 
 import gi
 import lab as B
 import lab.torch
+import numpy as np
+import slugify
 import torch
 import torch.nn as nn
 from gi.utils.plotting import plot
-
-import argparse 
-
 from varz import Vars, namespace
-import numpy as np
+from wbml import experiment, out
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, help='seed', nargs='?', default=0)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
-    # parser.add_argument('--task', choices=['reg', 'class'], help='Task')
+    parser.add_argument('--name', '-n', type=str, help='Experiment name', default="")
     args = parser.parse_args()
 
     # Logging settings
@@ -218,10 +218,13 @@ if __name__ == "__main__":
     _start = datetime.utcnow().strftime("%Y-%m-%d-%H.%M")
     
     # Create directory for saving plots
-    file_dir = os.path.dirname(__file__)
-    save_dir = os.path.join(file_dir, "../plots/")
-    fdir = os.path.join(save_dir, _start)
-    Path(fdir).mkdir(parents=True, exist_ok=True)
+    if args.plot:
+        if args.name != "":
+            name = f"{_start}_{slugify.slugify(args.name)}"
+        file_dir = os.path.dirname(__file__)
+        save_dir = os.path.join(file_dir, "../plots/")
+        fdir = os.path.join(save_dir, _start)
+        Path(fdir).mkdir(parents=True, exist_ok=True)
 
     # Lab variable initialization
     B.default_dtype = torch.float64
@@ -283,9 +286,10 @@ if __name__ == "__main__":
         loss.backward()
 
         if i%100 == 0: 
-            logger.info(f"Epoch {i} - loss (elbo): {int(loss.item())}")
+            logger.info(f"Epoch {i} - loss (-elbo): {int(loss.item())}")
+            # out.kv("Loss (ELBO)", loss.item())
 
-            if args.plot: 
+            if args.plot:
                 plot(fdir=fdir, fname=f"{start_time}_{i}", 
                     x1=zs["client0"].mean(0), y1=ts[list(ts.keys())[-1]]["client0"].yz, x2=x_mb, y2=y_mb, 
                     desc1="Variational params", desc2="Training data", 

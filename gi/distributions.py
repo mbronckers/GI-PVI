@@ -131,14 +131,15 @@ class NaturalNormal:
         
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))
-        diff = self.mean - other.mean
-        return 0.5 * (
-            B.sum(ratio**2)
-            - B.logdet(B.mm(ratio, ratio, tr_a=True))
-            + B.sum(B.mm(other.prec, diff) * diff)
-            - B.cast(self.dtype, self.dim)
+        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
+        diff = self.mean - other.mean                           # mu1 - mu0
+        _kl = 0.5 * (
+            B.sum(ratio**2)                                     # 
+            - B.logdet(B.mm(ratio, ratio, tr_a=True))           # ratio^T @ ratio
+            + B.sum(B.mm(other.prec, diff) * diff)              # (diff)^T @ prec @ diff
+            - B.cast(self.dtype, self.dim)                      # subtract dimension |K| scalar
         )
+        return _kl
     
     def sample(self, key: B.RandomState, num: B.Int = 1):
         """
@@ -152,7 +153,7 @@ class NaturalNormal:
         sample = B.mm(B.inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
         
         if not structured(sample):
-            sample = B.dense(sample)
+            sample = B.dense(sample) # transform Tensor to Dense matrix
         
         return key, sample
         
