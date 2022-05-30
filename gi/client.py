@@ -12,7 +12,7 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
-    def __init__(self, data: Optional, name: Optional[str], z, yz, nz):
+    def __init__(self, data, name: Optional[str], z, yz, nz):
         self.data = data if data else None
         self.name = name if name else None
         self.z = z

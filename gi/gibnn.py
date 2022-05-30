@@ -18,43 +18,43 @@ class GIBNN:
         _zs = {} # dict to store propagated inducing inputs
 
         for client_name, client_z in zs.items():
-            # assert len(client_z.shape) == 2
+            assert len(client_z.shape) == 2
             
             # z is [M, D]. Change to [S, M, D]]
-            if len(client_z.shape) == 2: 
-                # We only need to tile once because we are modifying original zs
-                # zs[client_name] = B.tile(client_z, S, 1, 1)
-                _zs[client_name] = B.tile(client_z, S, 1, 1)
+            if len(client_z.shape) == 2:
+                _zs[client_name] = B.tile(client_z, S, 1, 1) # only tile intermediate results
+                # zs[client_name] = B.tile(client_z, S, 1, 1) # if we tile zs, we only need to tile once bc modifying original zs
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
             # Compute new posterior distribution by multiplying client factors
-            q = p # prior (posterior)
+            q = p  # prior 
             for t in ts[layer_name].values():
-                q *= t(_zs[client_name])
+                # q *= t(zs[client_name])    # propagate first layer's inducing inputs
+                q *= t(_zs[client_name])    # propagate prev layer's inducing outputs
             
-            # Sample weights from posterior distribution q. q already has S passed via zs
-            key, w = q.sample(key) # w is [S, Din, Dout] of layer i.
+            # Sample weights from posterior distribution q. q already has S passed via _zs
+            key, w = q.sample(key) # w is [S, Dout, Din] of layer i.
             
             # Get rid of last dimension.
-            w = w[..., 0] # [2, 50, 1] = [S, Dout, Din] // conflicts with above
+            w = w[..., 0] # [S, Dout, Din]
     
             # Compute KL div
             kl_qp = q.kl(p)  # [S, Dlatent] = [S, Dout]
             
-            # Sum across output dimensions.
-            kl_qp = B.sum(kl_qp, -1) # [S]
-            
+            # Sum across output dimensions. [S]
+            kl_qp = B.sum(kl_qp, -1) 
+
             self._cache[layer_name] = {"w": w, "kl": kl_qp}   # save weight samples and the KL div for every layer
-
-            # Propagate client-local inducing inputs <z> 
+            
+            # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             # inducing_inputs = zs if i == 0 else _zs
-            inducing_inputs = _zs if i == 0 else _zs
-
+            inducing_inputs = _zs
             for client_name, client_z in inducing_inputs.items():
-                client_z = B.mm(client_z, w, tr_b=True) # update z
-                if i < len(ps.keys()): # non-final layer
-                    client_z = self.nonlinearity(client_z) # forward and updating the inducing inputs
+                client_z = B.mm(client_z, w, tr_b=True)         # update z
+                
+                if i < len(ps.keys()):                          # non-final layer
+                    client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
                 
                 # Always store in _zs
                 _zs[client_name] = client_z 

@@ -30,12 +30,12 @@ def generate_data(key, size):
     x = B.zeros(B.default_dtype, size, 1)
     
     key, x[:int(size / 2), :] = B.rand(key, B.default_dtype, int(size / 2), 1)
-    x[:int(size / 2)] * 2. - 4.
+    x[:int(size / 2)] = x[:int(size / 2)] * 2. - 4.
     key, x[int(size / 2):] = B.rand(key, B.default_dtype, int(size / 2), 1)
-    x[:int(size / 2), :] * 2. + 2.
+    x[int(size / 2):] = x[int(size / 2):] * 2. + 2.
     
     key, eps = B.randn(key, B.default_dtype, size, 1)
-    y = x ** 3. + 3 * eps
+    y = x ** 3. + 3**eps
 
     # Rescale the outputs to have unit variance
     scale = B.std(y)
@@ -141,8 +141,8 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
         
     # Compute the expected log-likelihood.
     exp_ll = likelihood(out).logpdf(y)
-    exp_ll = exp_ll.mean(0).sum() # take mean across inference samples and sum
-    kl = kl.mean() # across inference samples
+    exp_ll = exp_ll.mean(0).sum()       # take mean across inference samples and sum
+    kl = kl.mean()                      # across inference samples
     
     # Mini-batching estimator of ELBO
     elbo = ((N / len(x)) * exp_ll) - kl
@@ -218,12 +218,11 @@ if __name__ == "__main__":
     _start = datetime.utcnow().strftime("%Y-%m-%d-%H.%M")
     
     # Create directory for saving plots
-    if args.plot:
-        if args.name != "":
-            name = f"{_start}_{slugify.slugify(args.name)}"
+    if args.plot:        
+        name = f"{_start}_{slugify.slugify(args.name)}" if args.name != "" else _start
         file_dir = os.path.dirname(__file__)
         save_dir = os.path.join(file_dir, "../plots/")
-        fdir = os.path.join(save_dir, _start)
+        fdir = os.path.join(save_dir, name)
         Path(fdir).mkdir(parents=True, exist_ok=True)
 
     # Lab variable initialization
@@ -273,6 +272,11 @@ if __name__ == "__main__":
     log_step = 100 # report change in param values every <log_step> epochs
     olds = {} # to keep track of old parameter values
     
+    plot(fdir=fdir, fname=f"regression_data",
+    x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
+    desc1="Training data", desc2="Testing data",
+    xlabel="x", ylabel="y", title=f"Regression data")
+
     for i in range(epochs):
         
         # Construct i-th minibatch {x, y} training data
@@ -287,14 +291,17 @@ if __name__ == "__main__":
 
         if i%100 == 0: 
             logger.info(f"Epoch {i} - loss (-elbo): {int(loss.item())}")
-            # out.kv("Loss (ELBO)", loss.item())
 
             if args.plot:
-                plot(fdir=fdir, fname=f"{start_time}_{i}", 
-                    x1=zs["client0"].mean(0), y1=ts[list(ts.keys())[-1]]["client0"].yz, x2=x_mb, y2=y_mb, 
+                _inducing_inputs = zs["client0"]
+                _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
+
+                plot(fdir=fdir, fname=f"{start_time}_{i}",
+                    x1=_inducing_inputs, y1=_pseudo_outputs, x2=x_tr, y2=y_tr, 
                     desc1="Variational params", desc2="Training data", 
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
         
-        opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
+        # opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
+        opt.step()
         opt.zero_grad()
 
