@@ -16,7 +16,7 @@ def scatter_plot(fdir, fname, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor,
         desc1: str, desc2: str,  xlabel: Optional[str]=None, ylabel: Optional[str]=None, title: Optional[str]=None):
     
     assert os.path.exists(fdir)
-    logger.info(f"Saving plot in {fdir}")
+    logger.debug(f"Saving plot in {fdir}")
 
     fig, ax = plt.subplots(1, 1, figsize=(10,10))
     lw = 2 # linewidth=lw

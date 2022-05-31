@@ -158,7 +158,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     
     logger.debug(f"elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}")
 
-    return key, elbo
+    return key, elbo, exp_ll, kl
 
 @namespace("zs")
 def add_zs(vs, zs):
@@ -207,6 +207,9 @@ def track(opt, vs, var_names, i, epoch):
     return opt
 
 if __name__ == "__main__":
+    import warnings
+    warnings.filterwarnings("ignore")
+
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--verbose', '-v', action='store_true', help='Sets the log level to DEBUG')
@@ -220,7 +223,7 @@ if __name__ == "__main__":
     if args.verbose: 
         logging.getLogger().setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.INFO)
     np.set_printoptions(linewidth=np.inf)
     start_time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
     _start = datetime.utcnow().strftime("%Y-%m-%d-%H.%M")
@@ -302,13 +305,13 @@ if __name__ == "__main__":
         y_mb = B.take(y_tr, inds)
         mb_idx = (mb_idx + batch_size) % len(x_tr)
         
-        key, elbo = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
+        key, elbo, exp_ll, kl = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
         elbos.append(elbo.detach().cpu().item())
         loss = -elbo
         loss.backward()
 
-        if i%log_step == 0: 
-            logger.info(f"Epoch {i} - loss (-elbo): {int(loss.item())}")
+        if i%log_step == 0:
+            logger.info(f"Epoch {i:3} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}")
 
             if args.plot:
                 _inducing_inputs = zs["client0"]
@@ -323,4 +326,5 @@ if __name__ == "__main__":
         opt.step()
         opt.zero_grad()
 
-    line_plot(fdir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
+    if args.plot: 
+        line_plot(fdir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
