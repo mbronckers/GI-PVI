@@ -75,7 +75,7 @@ class GIBNN:
 
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
             x = B.mm(x, layer_dict["w"], tr_b=True)
-            if i < len(self._cache.keys()): # non-final layer
+            if i < len(self._cache.keys()) - 1: # non-final layer
                 x = self.nonlinearity(x)
                 
         return x
