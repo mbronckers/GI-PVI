@@ -26,10 +26,11 @@ class GIBNN:
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
+            # Init posterior to prior
+            q = p 
+            
             # Compute new posterior distribution by multiplying client factors
-            q = p  # prior 
             for t in ts[layer_name].values():
-                # q *= t(zs[client_name])    # propagate first layer's inducing inputs
                 q *= t(_zs[client_name])    # propagate prev layer's inducing outputs
             
             # Sample weights from posterior distribution q. q already has S passed via _zs
@@ -47,7 +48,6 @@ class GIBNN:
             self._cache[layer_name] = {"w": w, "kl": kl_qp}   # save weight samples and the KL div for every layer
             
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
-            # inducing_inputs = zs if i == 0 else _zs
             inducing_inputs = _zs
             for client_name, client_z in inducing_inputs.items():
                 client_z = B.mm(client_z, w, tr_b=True)         # update z

@@ -97,17 +97,13 @@ def build_z(key: B.RandomState, M: B.Int, x, y):
 
     :returns: key, z, y
     """
-    # Initialize zs, yz to first batch of training data
     if M <= len(x):
         # Select random subset of size M of training points x
         key, perm = B.randperm(key, B.default_dtype, len(x))
         idx = perm[:M]
-        z = x[idx]
-        yz = y[idx]
-    # if M > len(x), generate random N(0, 1) initializations beyond len(x)
-    else: 
-        z = x
-        yz = y
+        z, yz = x[idx], y[idx]
+    else:
+        z, yz = x, y
         key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:]) # Generate z_, yz_ 
         key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
         z = B.concat(z, z_)
@@ -119,20 +115,22 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
     """
     Builds likelihood factors per layer for one client
 
+    For the final layer, the pseudo observations are init to the passed <yz> (usually, the training data output y)
+    For non-final layers, the pseudo obersvations <_yz> ~ N(0, 1)
+
     :return ts: Dictionary of likelihood factors for each layer.
     :rtype: dict<k=layer_name, v=NormalPseudoObservation>
     """
     ts = {}
     num_layers = len(dims) - 1
     for i in range(num_layers):   
-        _nz = B.ones(dims[i + 1], M) * nz_init
-        
-        if i < num_layers - 1: # draw intermediate layer _yz ~ N(0, 1)
-            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) 
+        _nz = B.ones(dims[i + 1], M) * nz_init          # construct inducing noise (precision)
+
+        if i < num_layers - 1: 
+            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])
             t = gi.NormalPseudoObservation(_yz, _nz)
-        else:
-            # final layer
-            t = gi.NormalPseudoObservation(yz, _nz)
+        else: 
+            t = gi.NormalPseudoObservation(yz, _nz) # final layer
             
         ts[f"layer{i}"] = t
         
