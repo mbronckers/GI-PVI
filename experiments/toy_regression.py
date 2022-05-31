@@ -39,7 +39,7 @@ def generate_data(key, size):
 
     # Rescale the outputs to have unit variance
     scale = B.std(y)
-    y /= scale
+    y = y/scale
     
     return key, x, y
 
@@ -49,12 +49,14 @@ def generate_test_data(key, size):
     
     key, x = B.rand(key, B.default_dtype, int(size), 1)
     x = x * 4. - 2.
-    key, eps = B.randn(key, B.default_dtype, size, 1)
-    y = x ** 3. + 3 * eps
+    
+    # Paper specifies ε from N(0, 9), but this does not align with their plots. I suspect (3*ε) from U[0,1]
+    key, eps = B.rand(key, B.default_dtype, int(size), 1)
+    y = x ** 3. + 3*eps
 
     # Rescale the outputs to have unit variance
     scale = B.std(y)
-    y /= scale
+    y = y/scale
     
     return key, x, y
 
