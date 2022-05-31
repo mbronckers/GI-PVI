@@ -158,7 +158,6 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
 @namespace("zs")
 def add_zs(vs, zs):
     """ Add client inducing points to optimizable params in vs """
-    # TODO: for some reason, the (client-local) inducing points do not change across epochs
     for client_name, client_z in zs.items():
         vs.unbounded(client_z, name=f"{client_name}_z")
 
@@ -234,7 +233,8 @@ if __name__ == "__main__":
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     
     # Generate regression data
-    key, x_tr, y_tr = generate_data(key, size=100)
+    N = 1000 # number of training points
+    key, x_tr, y_tr = generate_data(key, size=N)
     key, x_te, y_te = generate_test_data(key, size=50)
     
     # Define model (i.e. define prior).
@@ -266,7 +266,6 @@ if __name__ == "__main__":
     
     # Optimizer parameters
     opt = torch.optim.Adam(vs.get_vars(), lr=1e-2)
-    N = len(x_tr)
     batch_size = min(100, N)
     S = 2 # number of inference samples
     mb_idx = 0 # minibatch idx
