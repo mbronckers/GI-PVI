@@ -205,5 +205,4 @@ class NormalPseudoObservation:
         return NaturalNormal(lam_w, prec_w)
 
     def __repr__(self) -> str:
-        return f"yz: \n{self.yz},\n\
-                nz: {self.nz}"
+        return f"yz: {self.yz}, \nnz: {self.nz} \n"

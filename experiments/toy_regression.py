@@ -123,11 +123,11 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
     :rtype: dict<k=layer_name, v=NormalPseudoObservation>
     """
     ts = {}
-    for i in range(len(dims) - 1):
-        
+    num_layers = len(dims) - 1
+    for i in range(num_layers):   
         _nz = B.ones(dims[i + 1], M) * nz_init
         
-        if i < (len(dims)-1): # draw intermediate layer _yz ~ N(0, 1)
+        if i < num_layers - 1: # draw intermediate layer _yz ~ N(0, 1)
             key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) 
             t = gi.NormalPseudoObservation(_yz, _nz)
         else:
@@ -307,7 +307,7 @@ if __name__ == "__main__":
         mb_idx = (mb_idx + batch_size) % len(x_tr)
         
         key, elbo = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
-        elbos.append(elbo.squeeze().detach().cpu())
+        elbos.append(elbo.detach().cpu().item())
         loss = -elbo
         loss.backward()
 
@@ -319,15 +319,10 @@ if __name__ == "__main__":
                 _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
 
                 scatter_plot(fdir=fdir, fname=f"{start_time}_{i}",
-                    x1=_inducing_inputs, y1=_pseudo_outputs, x2=x_tr, y2=y_tr, 
-                    desc1="Variational params", desc2="Training data", 
+                    x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
+                    desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
         
-                scatter_plot(fdir=fdir, fname=f"{start_time}_{i}",
-                    x1=z, y1=yz, x2=_inducing_inputs, y2=_pseudo_outputs, 
-                    desc1="Init (z, yz)", desc2="ts['layer2'].yz", 
-                    xlabel="x", ylabel="y", title=f"Epoch {i}")
-
         # opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
         opt.step()
         opt.zero_grad()
