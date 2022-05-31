@@ -322,8 +322,8 @@ if __name__ == "__main__":
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
         
-        # opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
-        opt.step()
+        opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
+        # opt.step()
         opt.zero_grad()
 
     if args.plot: 

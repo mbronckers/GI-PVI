@@ -131,16 +131,16 @@ class NaturalNormal:
         
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
-        diff = self.mean - other.mean                           # mu1 - mu0
+        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))                 # M in wiki
+        diff = self.mean - other.mean                                          # mu1 - mu0
         _kl = 0.5 * (
-            B.sum(ratio**2)                                     # 
-            - B.logdet(B.mm(ratio, ratio, tr_a=True))           # ratio^T @ ratio
-            + B.sum(B.mm(other.prec, diff) * diff)              # (diff)^T @ prec @ diff
-            - B.cast(self.dtype, self.dim)                      # subtract dimension |K| scalar
+            B.sum(B.sum(ratio**2, -1), -1)                                      
+            - B.logdet(B.mm(ratio, ratio, tr_a=True))                          # ratio^T @ ratio
+            + B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)              # (diff)^T @ prec @ diff
+            - B.cast(self.dtype, self.dim)                                     # subtract dimension |K| scalar
         )
         return _kl
-    
+
     def sample(self, key: B.RandomState, num: B.Int = 1):
         """
         Sample from distribution using the natural parameters
@@ -203,10 +203,6 @@ class NormalPseudoObservation:
         lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))
         
         return NaturalNormal(lam_w, prec_w)
-
-        # lam_w = B.sum(B.mm(prec_yz, self.yz) * z, -1)
-        # prec_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(z, 1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [S x 1 x M x Din] = [ S x Dout x Din x Din ]
-        # lam_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(torch.unsqueeze(self.yz, 0), -1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [ 1 x Dout x M x 1 ]
 
     def __repr__(self) -> str:
         return f"yz: {self.yz}, \nnz: {self.nz} \n"
