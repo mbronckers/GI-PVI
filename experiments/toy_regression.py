@@ -52,7 +52,7 @@ def generate_test_data(key, size):
     key, x = B.rand(key, B.default_dtype, int(size), 1)
     x = x * 4. - 2.
     
-    # Paper specifies ε from N(0, 9), but this does not align with their plots. I suspect (3*ε) from U[0,1]
+    # Paper specifies \\eps from N(0, 9), but this does not align with their plots. I suspect (3*\\eps) from U[0,1]
     key, eps = B.rand(key, B.default_dtype, int(size), 1)
     y = x ** 3. + 3*eps
 
@@ -74,9 +74,7 @@ def generate_data2(key, size, xmin, xmax):
     return key, x, y, eps1, eps2
 
 def build_prior(*dims: B.Int):
-    """
-    :param dims: BNN dimensionality [Din x *D_latents x Dout]
-    """
+    """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
     ps = {}
     for i in range(len(dims) - 1):
         mean = B.zeros(B.default_dtype, dims[i + 1], dims[i], 1) # Dout x Din x 1

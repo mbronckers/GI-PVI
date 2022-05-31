@@ -166,7 +166,9 @@ class NaturalNormal:
     def __eq__(self, __o: "NaturalNormal") -> bool:
         return (torch.all(torch.isclose(self.lam, __o.lam)) and torch.all(torch.isclose(self.prec, __o.prec))).item()
 
-    
+    def __repr__(self) -> str:
+        return f"lam: {self.lam}, \nprec: {self.prec} \n"
+
 class NormalPseudoObservation:
     def __init__(self, yz, nz):
         """

@@ -21,8 +21,7 @@ class GIBNN:
             assert len(client_z.shape) == 2
             
             # z is [M, D]. Change to [S, M, D]]
-            if len(client_z.shape) == 2:
-                _zs[client_name] = B.tile(client_z, S, 1, 1) # only tile intermediate results
+            _zs[client_name] = B.tile(client_z, S, 1, 1) # only tile intermediate results
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
@@ -45,14 +44,15 @@ class GIBNN:
             # Sum across output dimensions. [S]
             kl_qp = B.sum(kl_qp, -1) 
 
-            self._cache[layer_name] = {"w": w, "kl": kl_qp}   # save weight samples and the KL div for every layer
-            
+            # Save posterior w samples and KL to cache
+            self._cache[layer_name] = {"w": w, "kl": kl_qp}
+
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             inducing_inputs = _zs
             for client_name, client_z in inducing_inputs.items():
                 client_z = B.mm(client_z, w, tr_b=True)         # update z
                 
-                if i < len(ps.keys()):                          # non-final layer
+                if i < len(ps.keys()) - 1:                      # non-final layer
                     client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
                 
                 # Always store in _zs
@@ -61,9 +61,18 @@ class GIBNN:
         return key, self._cache
                 
     def propagate(self, x):
+        """Propagates input through BNN using S cached posterior weight samples. 
+
+        :param x: input data
+
+        Returns: output values from propagating x through BNN
+        """
         if self._cache is None:
             return None
-            
+
+        if len(x.shape) == 2:
+            x = B.tile(x, self.S, 1, 1)
+
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
             x = B.mm(x, layer_dict["w"], tr_b=True)
             if i < len(self._cache.keys()): # non-final layer
@@ -73,6 +82,11 @@ class GIBNN:
     
     def __call__(self, x):
         return self.propagate(x)
+
+    @property
+    def S(self):
+        """ Returns cached number of weight samples """
+        return self._cache['layer0']['w'].shape[0]
 
     @property
     def cache(self):
