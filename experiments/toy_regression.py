@@ -5,6 +5,8 @@ import sys
 from datetime import datetime
 from typing import Callable
 
+from matplotlib.pyplot import scatter
+
 file_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.abspath(os.path.join(file_dir, "..")))
 
@@ -19,7 +21,7 @@ import numpy as np
 import slugify
 import torch
 import torch.nn as nn
-from gi.utils.plotting import plot
+from gi.utils.plotting import line_plot, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
@@ -86,27 +88,32 @@ def build_prior(*dims: B.Int):
 
 def build_z(key: B.RandomState, M: B.Int, x, y):
     """
-    Build M inducing points from data (x, y)
+    Build M inducing points from data (x, y).
+    - If M < len(x), select a random M-sized subset from x
+    - If M > len(x), init len(x) points to x, then randomly sample from N(0,1)
 
     :param zs: inducing inputs
     :param yz: pseudo (inducing) outputs for final layer
 
     :returns: key, z, y
     """
+    # Initialize zs, yz to first batch of training data
     if M <= len(x):
-        key, idx = B.randperm(key, B.default_dtype, M)
+        # Select random subset of size M of training points x
+        key, perm = B.randperm(key, B.default_dtype, len(x))
+        idx = perm[:M]
         z = x[idx]
         yz = y[idx]
-    else:
+    # if M > len(x), generate random initializations beyond len(x)
+    else: 
         z = x
         yz = y
-        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:])
+        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:]) # Generate z_, yz_ from N(0, 1)
         key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
         z = B.concat(z, z_)
         yz = B.concat(yz, yz_)
         
-    return key, z, y
-    
+    return key, z, yz
 
 def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
     """
@@ -122,7 +129,7 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
             t = gi.NormalPseudoObservation(yz, _nz)
         else:
             _nz = B.ones(dims[i + 1], M) * nz_init
-            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # draw yz ~ N(0, 1)
+            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # draw intermediate layer _yz ~ N(0, 1)
             t = gi.NormalPseudoObservation(_yz, _nz)
             
         ts[f"layer{i}"] = t
@@ -246,6 +253,12 @@ if __name__ == "__main__":
     key, z, yz = build_z(key, M, x_tr, y_tr)
     t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=1e-3)
 
+    if args.plot:
+        scatter_plot(fdir=fdir, fname=f"inducing_points",
+                    x1=x_tr, y1=y_tr, x2=z, y2=yz,
+                    desc1="Training data", desc2="Initial inducing points",
+                    xlabel="x", ylabel="y", title=f"Data")
+
     # Collect clients
     ts = {k: {"client0": v} for k, v in t.items()} # flip order bc ts = dict<k=layer, v=pseudo obs>
     zs = {"client0": z}
@@ -274,11 +287,14 @@ if __name__ == "__main__":
     # Logging
     log_step = 100 # report change in param values every <log_step> epochs
     olds = {} # to keep track of old parameter values
-    
-    plot(fdir=fdir, fname=f"regression_data",
-    x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
-    desc1="Training data", desc2="Testing data",
-    xlabel="x", ylabel="y", title=f"Regression data")
+    elbos = []
+
+    # Plot data
+    if args.plot:
+        scatter_plot(fdir=fdir, fname=f"regression_data",
+                    x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
+                    desc1="Training data", desc2="Testing data",
+                    xlabel="x", ylabel="y", title=f"Regression data")
 
     for i in range(epochs):
         
@@ -289,6 +305,7 @@ if __name__ == "__main__":
         mb_idx = (mb_idx + batch_size) % len(x_tr)
         
         key, elbo = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
+        elbos.append(elbo)
         loss = -elbo
         loss.backward()
 
@@ -299,7 +316,7 @@ if __name__ == "__main__":
                 _inducing_inputs = zs["client0"]
                 _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
 
-                plot(fdir=fdir, fname=f"{start_time}_{i}",
+                scatter_plot(fdir=fdir, fname=f"{start_time}_{i}",
                     x1=_inducing_inputs, y1=_pseudo_outputs, x2=x_tr, y2=y_tr, 
                     desc1="Variational params", desc2="Training data", 
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
@@ -308,3 +325,4 @@ if __name__ == "__main__":
         opt.step()
         opt.zero_grad()
 
+    line_plot(fdir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
