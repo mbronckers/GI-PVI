@@ -23,7 +23,6 @@ class GIBNN:
             # z is [M, D]. Change to [S, M, D]]
             if len(client_z.shape) == 2:
                 _zs[client_name] = B.tile(client_z, S, 1, 1) # only tile intermediate results
-                # zs[client_name] = B.tile(client_z, S, 1, 1) # if we tile zs, we only need to tile once bc modifying original zs
 
         for i, (layer_name, p) in enumerate(ps.items()):
 

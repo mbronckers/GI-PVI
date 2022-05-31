@@ -104,11 +104,11 @@ def build_z(key: B.RandomState, M: B.Int, x, y):
         idx = perm[:M]
         z = x[idx]
         yz = y[idx]
-    # if M > len(x), generate random initializations beyond len(x)
+    # if M > len(x), generate random N(0, 1) initializations beyond len(x)
     else: 
         z = x
         yz = y
-        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:]) # Generate z_, yz_ from N(0, 1)
+        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:]) # Generate z_, yz_ 
         key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
         z = B.concat(z, z_)
         yz = B.concat(yz, yz_)
@@ -124,13 +124,15 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
     """
     ts = {}
     for i in range(len(dims) - 1):
-        if i == len(dims) - 1: # final layer
-            _nz = B.ones(dims[i + 1], M) * nz_init
-            t = gi.NormalPseudoObservation(yz, _nz)
-        else:
-            _nz = B.ones(dims[i + 1], M) * nz_init
-            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # draw intermediate layer _yz ~ N(0, 1)
+        
+        _nz = B.ones(dims[i + 1], M) * nz_init
+        
+        if i < (len(dims)-1): # draw intermediate layer _yz ~ N(0, 1)
+            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) 
             t = gi.NormalPseudoObservation(_yz, _nz)
+        else:
+            # final layer
+            t = gi.NormalPseudoObservation(yz, _nz)
             
         ts[f"layer{i}"] = t
         
@@ -158,7 +160,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     # Mini-batching estimator of ELBO
     elbo = ((N / len(x)) * exp_ll) - kl
     
-    logger.debug(f"elbo: {round(elbo.item(), 0):10.1f}, ll: {round(exp_ll.item(), 0):10.1f}, kl: {round(kl.item(), 1):10.1f}")
+    logger.debug(f"elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}")
 
     return key, elbo
 
@@ -254,7 +256,7 @@ if __name__ == "__main__":
     t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=1e-3)
 
     if args.plot:
-        scatter_plot(fdir=fdir, fname=f"inducing_points",
+        scatter_plot(fdir=fdir, fname=f"init_zs",
                     x1=x_tr, y1=y_tr, x2=z, y2=yz,
                     desc1="Training data", desc2="Initial inducing points",
                     xlabel="x", ylabel="y", title=f"Data")
@@ -305,11 +307,11 @@ if __name__ == "__main__":
         mb_idx = (mb_idx + batch_size) % len(x_tr)
         
         key, elbo = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
-        elbos.append(elbo)
+        elbos.append(elbo.squeeze().detach().cpu())
         loss = -elbo
         loss.backward()
 
-        if i%100 == 0: 
+        if i%log_step == 0: 
             logger.info(f"Epoch {i} - loss (-elbo): {int(loss.item())}")
 
             if args.plot:
@@ -321,6 +323,11 @@ if __name__ == "__main__":
                     desc1="Variational params", desc2="Training data", 
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
         
+                scatter_plot(fdir=fdir, fname=f"{start_time}_{i}",
+                    x1=z, y1=yz, x2=_inducing_inputs, y2=_pseudo_outputs, 
+                    desc1="Init (z, yz)", desc2="ts['layer2'].yz", 
+                    xlabel="x", ylabel="y", title=f"Epoch {i}")
+
         # opt, olds = track_change(opt, vs, ['ts.layer2_client0_yz', 'ts.layer0_client0_nz'], i, 100, olds)
         opt.step()
         opt.zero_grad()

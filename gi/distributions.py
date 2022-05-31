@@ -173,8 +173,8 @@ class NormalPseudoObservation:
         :param yz: inducing point observation (pseudo-observations)
         :param nz: inducing point noise (precision)
         """
-        self.yz = yz 
-        self.nz = nz
+        self.yz = yz    # [M x Dout]
+        self.nz = nz    # [Dout x M]
         
     def __call__(self, z):
 
@@ -203,3 +203,7 @@ class NormalPseudoObservation:
         # prec_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(z, 1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [S x 1 x M x Din] = [ S x Dout x Din x Din ]
         # lam_w = torch.unsqueeze(z.transpose(-1, -2), 1) @ torch.unsqueeze(prec_yv, 0) @ torch.unsqueeze(torch.unsqueeze(self.yz, 0), -1) # [ S x 1 x Din x M ] @ [ 1 x Dout x M x M ] @ [ 1 x Dout x M x 1 ]
         return NaturalNormal(lam_w, prec_w)
+
+    def __repr__(self) -> str:
+        return f"yz: \n{self.yz},\n\
+                nz: {self.nz}"
