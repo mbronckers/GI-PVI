@@ -211,7 +211,6 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser()
-    
     parser.add_argument('--verbose', '-v', action='store_true', help='Sets the log level to DEBUG')
     parser.add_argument('--seed', type=int, help='seed', nargs='?', default=0)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
@@ -253,7 +252,8 @@ if __name__ == "__main__":
     ps = build_prior(1, 50, 50, 1)
     key, z, yz = build_z(key, M, x_tr, y_tr)
     t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=1e-3)
-
+    clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
+    
     if args.plot:
         scatter_plot(fdir=fdir, fname=f"init_zs",
                     x1=x_tr, y1=y_tr, x2=z, y2=yz,
@@ -261,9 +261,17 @@ if __name__ == "__main__":
                     xlabel="x", ylabel="y", title=f"Data")
 
     # Collect clients
-    ts = {k: {"client0": v} for k, v in t.items()} # flip order bc ts = dict<k=layer, v=pseudo obs>
-    zs = {"client0": z}
-
+    ts = {}
+    zs = {}
+    for client_name, client in clients.items():
+        _t = client.t
+        for layer_name, layer_t in _t.items():
+            if layer_name not in ts: ts[layer_name] = {}
+            ts[layer_name][client_name] = layer_t
+        zs[client_name] = client.z
+    
+    # ts = {k: {"client0": v} for k, v in t.items()} # flip order bc ts = dict<k=layer, v=pseudo obs>
+    
     # Initialize variable containers for optimizable params with appropriate constraints
     vs = Vars(B.default_dtype)
     
@@ -322,8 +330,10 @@ if __name__ == "__main__":
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
         
-        opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
-        # opt.step()
+        # opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
+        opt.step()
+        for client_name, client in clients.items(): # Build clients using current states of vs
+            client.update_nz(vs)
         opt.zero_grad()
 
     if args.plot: 

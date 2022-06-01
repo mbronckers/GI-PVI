@@ -83,7 +83,8 @@ class NaturalNormal:
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision 
         """
         self.lam = lam 
-        self.prec = convert(prec, AbstractMatrix)
+        # self.prec = convert(prec, AbstractMatrix)
+        self.prec = prec
         
         self._mean = None
         self._var = None
@@ -205,4 +206,9 @@ class NormalPseudoObservation:
         return NaturalNormal(lam_w, prec_w)
 
     def __repr__(self) -> str:
-        return f"yz: {self.yz}, \nnz: {self.nz} \n"
+        return (
+                f"yz: {self.yz}" 
+                + "\n"
+                + f"nz: {self.nz}"
+                + "\n"
+        )
