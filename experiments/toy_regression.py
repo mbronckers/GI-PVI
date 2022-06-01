@@ -174,6 +174,16 @@ def add_ts(vs, ts):
             vs.unbounded(t.yz, name=f"{client_name}_{layer_name}_yz")
             vs.positive(t.nz, name=f"{client_name}_{layer_name}_nz")
 
+def rebuild(vs, likelihood, clients):
+    """For positive variables in vs, 
+    we need to re-initialize the values of the objects 
+    to the latest vars in vs for gradient purposes"""
+
+    _idx = vs.name_to_index["output_var"] 
+    likelihood.var = vs.transforms[_idx](vs.get_vars("output_var")[_idx])
+    for client_name, client in clients.items():
+        client.update_nz(vs)
+
 def track_change(opt, vs, var_names, i, epoch, olds):
     """ Steps optimizer and reports delta for variables when iteration%epoch == 0"""
     _olds = olds
@@ -269,9 +279,7 @@ if __name__ == "__main__":
             if layer_name not in ts: ts[layer_name] = {}
             ts[layer_name][client_name] = layer_t
         zs[client_name] = client.z
-    
-    # ts = {k: {"client0": v} for k, v in t.items()} # flip order bc ts = dict<k=layer, v=pseudo obs>
-    
+        
     # Initialize variable containers for optimizable params with appropriate constraints
     vs = Vars(B.default_dtype)
     
@@ -285,7 +293,8 @@ if __name__ == "__main__":
     
     # Set requirement for gradients    
     vs.requires_grad(True, *vs.names) # By default, no variable requires a gradient in Varz
-    
+    rebuild(vs, likelihood, clients)
+
     # Optimizer parameters
     opt = torch.optim.Adam(vs.get_vars(), lr=1e-2)
     batch_size = min(100, N)
@@ -294,7 +303,7 @@ if __name__ == "__main__":
     epochs = args.epochs
     
     # Logging
-    log_step = 100 # report change in param values every <log_step> epochs
+    log_step = 100 # report every <log_step> epochs
     olds = {} # to keep track of old parameter values
     elbos = []
 
@@ -332,8 +341,7 @@ if __name__ == "__main__":
         
         # opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
         opt.step()
-        for client_name, client in clients.items(): # Build clients using current states of vs
-            client.update_nz(vs)
+        rebuild(vs, likelihood, clients) # Rebuild clients & likelihood
         opt.zero_grad()
 
     if args.plot: 
