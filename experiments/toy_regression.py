@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from datetime import datetime
 from typing import Callable
@@ -25,7 +26,7 @@ from gi.utils.plotting import line_plot, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 def generate_data(key, size):
     """ Toy regression dataset from paper """
@@ -242,20 +243,50 @@ if __name__ == "__main__":
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
     args = parser.parse_args()
 
-    # Logging settings
-    logger_level = logging.DEBUG if args.verbose else logger.INFO
-    logging.getLogger().setLevel(logger_level)
+    # Create experiment directory
+    _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
+    _root = os.path.join("_experiments", f"{_time}_{slugify.slugify(args.name)}")
+    _wd = experiment.WorkingDirectory(_root, observe=True, seed=args.seed)
+    _log_level = logging.DEBUG if args.verbose else logging.INFO
+    _plot_dir = os.path.join(_root, "plots")
+    Path(_plot_dir).mkdir(parents=True, exist_ok=True)
+
+    # Save script
+    path = os.path.abspath(sys.argv[0])
+    if os.path.exists(path):
+        shutil.copy(path, _wd.file("script.py"))
+    else:
+        out("Could not save calling script.")
+
+    # Logging related
+    _format = '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
+    # Remove all handlers associated with the root logger object.
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    logging.basicConfig(
+        filename=os.path.join(_root, "log.log"),
+        level=_log_level, 
+        format=_format,
+        datefmt='%H:%M:%S'
+    )
+
+    console = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter('[%(asctime)s] %(pathname)s %(levelname)-7s - %(message)s')
+    console.setFormatter(formatter)
+    console.setLevel(logging.DEBUG)
+
+    fhandler = logging.FileHandler(filename=f"{_root}/log.log", mode='a')
+    fhandler.setFormatter(formatter)
+    logger = logging.getLogger(__name__)
+    logger.addHandler(console)
+    logger.addHandler(fhandler)
+    logger.setLevel(_log_level)
     np.set_printoptions(linewidth=np.inf)
-    start_time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
-    _start = datetime.utcnow().strftime("%Y-%m-%d-%H.%M")
-    
-    # Create directory for saving plots
-    if args.plot:        
-        name = f"{_start}_{slugify.slugify(args.name)}" if args.name != "" else _start
-        file_dir = os.path.dirname(__file__)
-        save_dir = os.path.join(file_dir, "../plots/")
-        fdir = os.path.join(save_dir, name)
-        Path(fdir).mkdir(parents=True, exist_ok=True)
+
+    # Log program info
+    logger.debug(f"Root {_root}")
+    logger.debug(f"Time: {_time}")
+    logger.debug(f"Seed: {args.seed}")
 
     # Lab variable initialization
     B.default_dtype = torch.float64
@@ -272,13 +303,13 @@ if __name__ == "__main__":
     # Build one client
     M = args.M # number of inducing points
     ps = build_prior(1, 50, 50, 1)
-    key, z, yz = build_z(key, M, x_tr, y_tr, args.random)
+    key, z, yz = build_z(key, M, x_tr, y_tr, args.random_z)
     t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=1e-3)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
     
     # Plot initial inducing points
     if args.plot:
-        scatter_plot(fdir=fdir, fname=f"init_zs",
+        scatter_plot(fdir=_plot_dir, fname=f"init_zs",
                     x1=x_tr, y1=y_tr, x2=z, y2=yz,
                     desc1="Training data", desc2="Initial inducing points",
                     xlabel="x", ylabel="y", title=f"Data")
@@ -322,7 +353,7 @@ if __name__ == "__main__":
 
     # Plot data
     if args.plot:
-        scatter_plot(fdir=fdir, fname=f"regression_data",
+        scatter_plot(fdir=_plot_dir, fname=f"regression_data",
                     x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
                     desc1="Training data", desc2="Testing data",
                     xlabel="x", ylabel="y", title=f"Regression data")
@@ -347,7 +378,7 @@ if __name__ == "__main__":
                 _inducing_inputs = zs["client0"]
                 _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
 
-                scatter_plot(fdir=fdir, fname=f"{start_time}_{i}",
+                scatter_plot(fdir=_plot_dir, fname=f"{_time}_{i}",
                     x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
@@ -358,6 +389,6 @@ if __name__ == "__main__":
         opt.zero_grad()
 
     if args.plot: 
-        line_plot(fdir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
+        line_plot(_plot_dir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
 
     

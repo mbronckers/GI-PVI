@@ -135,6 +135,7 @@ dmypy.json
 # Data directory
 data/
 plots/
+experiments/_experiments/
 
 # Other artifacts
 saved_models/
