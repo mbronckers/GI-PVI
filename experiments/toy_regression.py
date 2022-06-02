@@ -47,14 +47,15 @@ def generate_data(key, size):
 
 def generate_test_data(key, size):
     """ Toy (test) regression dataset from paper """
-    x = B.zeros(B.default_dtype, size)
+    x = B.zeros(B.default_dtype, size, 1)
     
     key, x = B.rand(key, B.default_dtype, int(size), 1)
     x = x * 4. - 2.
     
-    key, eps = B.randn(key, B.default_dtype, size, 1)
+    key, eps = B.rand(key, B.default_dtype, size, 1)
     y = x ** 3. + 3*eps
-
+    print(B.mean(eps))
+    
     # Rescale the outputs to have unit variance
     scale = B.std(y)
     y = y/scale
@@ -83,7 +84,7 @@ def build_prior(*dims: B.Int):
         
     return ps
 
-def build_z(key: B.RandomState, M: B.Int, x, y):
+def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     """
     Build M inducing points from data (x, y).
     - If M < len(x), select a random M-sized subset from x
@@ -91,9 +92,15 @@ def build_z(key: B.RandomState, M: B.Int, x, y):
 
     :param zs: inducing inputs
     :param yz: pseudo (inducing) outputs for final layer
+    :param random: if true, we entirely init z to random samples from N(0,1)
 
     :returns: key, z, y
     """
+    if random:
+        key, z = B.randn(key, B.default_dtype, M, *x.shape[1:]) 
+        key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])
+        return key, z, yz
+
     if M <= len(x):
         # Select random subset of size M of training points x
         key, perm = B.randperm(key, B.default_dtype, len(x))
@@ -230,13 +237,14 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
     parser.add_argument('--name', '-n', type=str, help='Experiment name', default="")
+    parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=100)
+    parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
+    parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
     args = parser.parse_args()
 
     # Logging settings
-    if args.verbose: 
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    logger_level = logging.DEBUG if args.verbose else logger.INFO
+    logging.getLogger().setLevel(logger_level)
     np.set_printoptions(linewidth=np.inf)
     start_time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
     _start = datetime.utcnow().strftime("%Y-%m-%d-%H.%M")
@@ -254,7 +262,7 @@ if __name__ == "__main__":
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     
     # Generate regression data
-    N = 1000 # number of training points
+    N = args.N      # number of training points
     key, x_tr, y_tr = generate_data(key, size=N)
     key, x_te, y_te = generate_test_data(key, size=50)
     
@@ -262,12 +270,13 @@ if __name__ == "__main__":
     model = gi.GIBNN(nn.functional.relu)
 
     # Build one client
-    M = 100 # number of inducing points
+    M = args.M # number of inducing points
     ps = build_prior(1, 50, 50, 1)
-    key, z, yz = build_z(key, M, x_tr, y_tr)
+    key, z, yz = build_z(key, M, x_tr, y_tr, args.random)
     t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=1e-3)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
     
+    # Plot initial inducing points
     if args.plot:
         scatter_plot(fdir=fdir, fname=f"init_zs",
                     x1=x_tr, y1=y_tr, x2=z, y2=yz,
@@ -331,7 +340,7 @@ if __name__ == "__main__":
         loss = -elbo
         loss.backward()
 
-        if i%log_step == 0:
+        if i%log_step == 0 or i == (epochs-1):
             logger.info(f"Epoch {i:3} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}")
 
             if args.plot:
