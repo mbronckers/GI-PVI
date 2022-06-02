@@ -52,8 +52,7 @@ def generate_test_data(key, size):
     key, x = B.rand(key, B.default_dtype, int(size), 1)
     x = x * 4. - 2.
     
-    # Paper specifies \\eps from N(0, 9), but this does not align with their plots. I suspect (3*\\eps) from U[0,1]
-    key, eps = B.rand(key, B.default_dtype, int(size), 1)
+    key, eps = B.randn(key, B.default_dtype, size, 1)
     y = x ** 3. + 3*eps
 
     # Rescale the outputs to have unit variance
@@ -175,17 +174,22 @@ def add_ts(vs, ts):
             vs.positive(t.nz, name=f"{client_name}_{layer_name}_nz")
 
 def rebuild(vs, likelihood, clients):
-    """For positive variables in vs, 
-    we need to re-initialize the values of the objects 
-    to the latest vars in vs for gradient purposes"""
+    """
+    For positive (constrained) variables in vs, 
+        we need to re-initialize the values of the objects 
+        to the latest vars in vs for gradient purposes
+    
+    :param likelihood: update the output variance
+    :param clients: update the pseudo precision
+    """
 
     _idx = vs.name_to_index["output_var"] 
-    likelihood.var = vs.transforms[_idx](vs.get_vars("output_var")[_idx])
+    likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
     for client_name, client in clients.items():
         client.update_nz(vs)
 
 def track_change(opt, vs, var_names, i, epoch, olds):
-    """ Steps optimizer and reports delta for variables when iteration%epoch == 0"""
+    """ Steps optimizer and reports delta for variables when iteration%epoch == 0 """
     _olds = olds
 
     opt.step()
@@ -346,3 +350,5 @@ if __name__ == "__main__":
 
     if args.plot: 
         line_plot(fdir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
+
+    

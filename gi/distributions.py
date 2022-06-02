@@ -8,7 +8,6 @@ class Normal:
     def __init__(self, mean, var):
         self.mean = mean
         self.var = convert(var, AbstractMatrix)
-        # self.var = var
 
     @classmethod
     def from_naturalnormal(cls, dist):
