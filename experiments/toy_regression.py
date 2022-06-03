@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(_root_dir))
 
 import argparse
 import logging
+import logging.config
 from pathlib import Path
 
 import gi
@@ -262,28 +263,9 @@ if __name__ == "__main__":
         out("Could not save calling script.")
 
     #### Logging ####
-    _format = '[%(asctime)s] {%(filename)-15s} %(levelname)s - %(message)s'
-    # Remove all handlers associated with the root logger object.
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-    logging.basicConfig(
-        # filename=os.path.join(_results_dir, "log.log"),
-        level=_log_level, 
-        format=_format,
-        datefmt='%H:%M:%S'
-    )
+    logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir})
+    logger = logging.getLogger()
 
-    console = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('[%(asctime)s] %(filename)-15s %(levelname)-7s - %(message)s')
-    console.setFormatter(formatter)
-    console.setLevel(logging.DEBUG)
-
-    fhandler = logging.FileHandler(filename=f"{_results_dir}/log.log", mode='a')
-    fhandler.setFormatter(formatter)
-    logger = logging.getLogger(__name__)
-    logger.addHandler(console)
-    logger.addHandler(fhandler)
-    logger.setLevel(_log_level)
     np.set_printoptions(linewidth=np.inf)
 
     # Log program info
