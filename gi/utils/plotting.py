@@ -39,6 +39,8 @@ def scatter_plot(fdir, fname, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor,
     if ylabel != None: ax.set_ylabel(ylabel)
     if title != None: ax.set_title(title)
     ax.legend(loc='upper right', prop={'size': 12})
+    
+    plot.tweak(ax)
 
     plt.savefig(os.path.join(fdir, f'{fname}.png'), pad_inches=0.2, bbox_inches='tight')
 
@@ -62,5 +64,7 @@ def line_plot(fdir, fname, x, y, desc, xlabel=None, ylabel=None, title=None):
     if ylabel != None: ax.set_ylabel(ylabel)
     if title != None: ax.set_title(title)
     ax.legend(loc='upper right', prop={'size': 12})
+
+    plot.tweak(ax)
 
     plt.savefig(os.path.join(fdir, f'{fname}.png'), pad_inches=0.2, bbox_inches='tight')

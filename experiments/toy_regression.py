@@ -28,8 +28,6 @@ from gi.utils.plotting import line_plot, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
-# logger = logging.getLogger(__name__)
-
 def generate_data(key, size):
     """ Toy regression dataset from paper """
     x = B.zeros(B.default_dtype, size, 1)
@@ -236,7 +234,7 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose', '-v', action='store_true', help='Sets the log level to DEBUG')
+    # parser.add_argument('--verbose', '-v', action='store_true', help='Sets the log level to DEBUG')
     parser.add_argument('--seed', type=int, help='seed', nargs='?', default=0)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
@@ -251,7 +249,6 @@ if __name__ == "__main__":
     _results_dir_name = "results" # "_experiments"
     _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
-    _log_level = logging.DEBUG if args.verbose else logging.INFO
     _plot_dir = os.path.join(_results_dir, "plots")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
 
@@ -263,7 +260,7 @@ if __name__ == "__main__":
         out("Could not save calling script.")
 
     #### Logging ####
-    logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir})
+    logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir, 'console_level': _log_level})
     logger = logging.getLogger()
 
     np.set_printoptions(linewidth=np.inf)
