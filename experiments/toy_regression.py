@@ -9,7 +9,8 @@ from typing import Callable
 from matplotlib.pyplot import scatter
 
 file_dir = os.path.dirname(__file__)
-sys.path.insert(0, os.path.abspath(os.path.join(file_dir, "..")))
+_root_dir = os.path.abspath(os.path.join(file_dir, ".."))
+sys.path.insert(0, os.path.abspath(_root_dir))
 
 import argparse
 import logging
@@ -159,13 +160,14 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     exp_ll = likelihood(out).logpdf(y)
     exp_ll = exp_ll.mean(0).sum()       # take mean across inference samples and sum
     kl = kl.mean()                      # across inference samples
-    
+    error = B.sum(y - out.mean(0))
+
     # Mini-batching estimator of ELBO
     elbo = ((N / len(x)) * exp_ll) - kl
     
-    logger.debug(f"elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}")
+    logger.debug(f"elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
 
-    return key, elbo, exp_ll, kl
+    return key, elbo, exp_ll, kl, error
 
 @namespace("zs")
 def add_zs(vs, zs):
@@ -245,10 +247,11 @@ if __name__ == "__main__":
 
     # Create experiment directory
     _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
-    _root = os.path.join("_experiments", f"{_time}_{slugify.slugify(args.name)}")
-    _wd = experiment.WorkingDirectory(_root, observe=True, seed=args.seed)
+    _results_dir_name = "results" # "_experiments"
+    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
+    _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
     _log_level = logging.DEBUG if args.verbose else logging.INFO
-    _plot_dir = os.path.join(_root, "plots")
+    _plot_dir = os.path.join(_results_dir, "plots")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
 
     # Save script
@@ -258,24 +261,24 @@ if __name__ == "__main__":
     else:
         out("Could not save calling script.")
 
-    # Logging related
-    _format = '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
+    #### Logging ####
+    _format = '[%(asctime)s] {%(filename)-15s} %(levelname)s - %(message)s'
     # Remove all handlers associated with the root logger object.
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.basicConfig(
-        filename=os.path.join(_root, "log.log"),
+        # filename=os.path.join(_results_dir, "log.log"),
         level=_log_level, 
         format=_format,
         datefmt='%H:%M:%S'
     )
 
     console = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('[%(asctime)s] %(pathname)s %(levelname)-7s - %(message)s')
+    formatter = logging.Formatter('[%(asctime)s] %(filename)-15s %(levelname)-7s - %(message)s')
     console.setFormatter(formatter)
     console.setLevel(logging.DEBUG)
 
-    fhandler = logging.FileHandler(filename=f"{_root}/log.log", mode='a')
+    fhandler = logging.FileHandler(filename=f"{_results_dir}/log.log", mode='a')
     fhandler.setFormatter(formatter)
     logger = logging.getLogger(__name__)
     logger.addHandler(console)
@@ -284,7 +287,7 @@ if __name__ == "__main__":
     np.set_printoptions(linewidth=np.inf)
 
     # Log program info
-    logger.debug(f"Root {_root}")
+    logger.debug(f"Root {_results_dir}")
     logger.debug(f"Time: {_time}")
     logger.debug(f"Seed: {args.seed}")
 
@@ -350,6 +353,7 @@ if __name__ == "__main__":
     log_step = 100 # report every <log_step> epochs
     olds = {} # to keep track of old parameter values
     elbos = []
+    errors = []
 
     # Plot data
     if args.plot:
@@ -366,13 +370,16 @@ if __name__ == "__main__":
         y_mb = B.take(y_tr, inds)
         mb_idx = (mb_idx + batch_size) % len(x_tr)
         
-        key, elbo, exp_ll, kl = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
+        key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
+
         elbos.append(elbo.detach().cpu().item())
+        errors.append(error.item())
+
         loss = -elbo
         loss.backward()
 
         if i%log_step == 0 or i == (epochs-1):
-            logger.info(f"Epoch {i:3} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}")
+            logger.info(f"Epoch {i:3} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
 
             if args.plot:
                 _inducing_inputs = zs["client0"]
