@@ -238,8 +238,7 @@ if __name__ == "__main__":
     
     # Plot initial inducing points
     if args.plot:
-        _ax = scatter_plot(fdir=_plot_dir, fname=f"init_zs",
-                    x1=x_tr, y1=y_tr, x2=z, y2=yz,
+        _ax = scatter_plot(x1=x_tr, y1=y_tr, x2=z, y2=yz,
                     desc1="Training data", desc2="Initial inducing points",
                     xlabel="x", ylabel="y", title=f"Inducing points and training data")
         plt.savefig(os.path.join(_plot_dir, "init_zs.png"), pad_inches=0.2, bbox_inches='tight')
@@ -287,8 +286,7 @@ if __name__ == "__main__":
 
     # Plot data
     if args.plot:
-        _ax = scatter_plot(fdir=_plot_dir, fname=f"regression_data",
-                    x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
+        _ax = scatter_plot(x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
                     desc1="Training data", desc2="Testing data",
                     xlabel="x", ylabel="y", title=f"Regression data")
         plt.savefig(os.path.join(_plot_dir, 'regression_data.png'), pad_inches=0.2, bbox_inches='tight')
@@ -320,8 +318,7 @@ if __name__ == "__main__":
                 _inducing_inputs = zs["client0"]
                 _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
 
-                scatter_plot(fdir=_plot_dir, fname=f"{_time}_{i}",
-                    x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
+                scatter_plot(x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
                 plt.savefig(os.path.join(_plot_dir, f'{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')
@@ -334,7 +331,7 @@ if __name__ == "__main__":
         opt.zero_grad()
 
     if args.plot: 
-        _ax = line_plot(_plot_dir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
+        _ax = line_plot(x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
         plt.savefig(os.path.join(_plot_dir, 'elbo.png'), pad_inches=0.2, bbox_inches='tight')
 
 
@@ -380,7 +377,7 @@ if __name__ == "__main__":
 
         # Plot model predictions
         if args.plot:
-            _ax = scatter_plot(_plot_dir, "eval_preds", x_te, y_te, x_te, y_pred.mean(0), "Eval data", "Model predictions", "x", "y", f"Model predictions on eval data ({_S} samples")
+            _ax = scatter_plot(x_te, y_te, x_te, y_pred.mean(0), "Eval data", "Model predictions", "x", "y", f"Model predictions on eval data ({_S} samples")
             
             _preds_idx = [f'preds_{i}' for i in range(_S)]
             quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
