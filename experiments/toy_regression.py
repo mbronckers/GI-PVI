@@ -169,6 +169,37 @@ def load_vs(fpath):
 
     return vs
 
+def eval_logging(x_te, y_te, y_pred, 
+                pred_error, pred_var,
+                _results_dir, plot):
+    _S = y_pred.shape[0] # number of inference samples
+
+    # Log test error and variance
+    logger.info(f"Test error (RMSE): {round(pred_error.item(), 1):3}, test var: {round(y_pred.var().item(), 1):3}")
+
+    # Save model predictions
+    _results_eval = pd.DataFrame({
+        'x_test': x_te.squeeze().detach().cpu(),
+        'y_test': y_te.squeeze().detach().cpu(),
+        'pred_errors': (y_te - y_pred.mean(0)).squeeze().detach().cpu(),
+        'pred_var': pred_var.squeeze().detach().cpu()
+    })
+    
+    for num_sample in range(_S): 
+        _results_eval[f'preds_{num_sample}'] = y_pred[num_sample].squeeze().detach().cpu()
+    
+    _results_eval.to_csv(os.path.join(_results_dir, "model/eval.csv"), index=False)
+
+    # Plot model predictions
+    if plot:
+        _ax = scatter_plot(x_te, y_te, x_te, y_pred.mean(0), "Eval data", "Model predictions", "x", "y", f"Model predictions on eval data ({_S} samples")
+
+        _preds_idx = [f'preds_{i}' for i in range(_S)]
+        quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
+        _ax = plot_confidence(_ax, x_te.squeeze().detach().cpu(), quartiles, all=False)
+        _ax.legend()
+        plt.savefig(os.path.join(_plot_dir, 'eval_preds.png'), pad_inches=0.2, bbox_inches='tight')
+
 
 if __name__ == "__main__":
     import warnings
@@ -323,7 +354,6 @@ if __name__ == "__main__":
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
                 plt.savefig(os.path.join(_plot_dir, f'{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')
 
-
         # opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
         
         opt.step()
@@ -334,22 +364,14 @@ if __name__ == "__main__":
         _ax = line_plot(x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
         plt.savefig(os.path.join(_plot_dir, 'elbo.png'), pad_inches=0.2, bbox_inches='tight')
 
-
-    # Save parameter state
+    # Save metrics and parameter state
     _vs_state_dict = dict(zip(vs.names, [vs[_name] for _name in vs.names]))
     torch.save(_vs_state_dict, os.path.join(_results_dir, 'model/_vs.pt'))
-
-    # Save data/metrics
-    _results_training = pd.DataFrame({
-        'lls': lls,
-        'kls': kls,
-        'elbos': elbos,
-        'errors': errors,
-    })
+    _results_training = pd.DataFrame({'lls': lls, 'kls': kls, 'elbos': elbos, 'errors': errors})
     _results_training.index.name = "epoch"
     _results_training.to_csv(os.path.join(_results_dir, "metrics/training.csv"))
 
-    # Eval test dataset
+    # Run eval on test dataset
     with torch.no_grad():
         
         # Resample <_S> inference weights
@@ -361,26 +383,5 @@ if __name__ == "__main__":
         pred_error = (B.sum((y_te - y_pred.mean(0))**2))/len(y_te)
         pred_var = y_pred.var(0)
 
-        # Log test error and variance
-        logger.info(f"Test error (RMSE): {round(pred_error.item(), 1):3}, test var: {round(y_pred.var().item(), 1):3}")
+        eval_logging(x_te, y_te, y_pred, pred_error, pred_var, _results_dir, args.plot)
 
-        # Save model predictions
-        _results_eval = pd.DataFrame({
-            'x_test': x_te.squeeze().detach().cpu(),
-            'y_test': y_te.squeeze().detach().cpu(),
-            'pred_errors': (y_te - y_pred.mean(0)).squeeze().detach().cpu(),
-            'pred_var': pred_var.squeeze().detach().cpu()
-        })
-        for num_sample in range(y_pred.shape[0]):
-            _results_eval[f'preds_{num_sample}'] = y_pred[num_sample].squeeze().detach().cpu()
-        _results_eval.to_csv(os.path.join(_results_dir, "model/eval.csv"), index=False)
-
-        # Plot model predictions
-        if args.plot:
-            _ax = scatter_plot(x_te, y_te, x_te, y_pred.mean(0), "Eval data", "Model predictions", "x", "y", f"Model predictions on eval data ({_S} samples")
-            
-            _preds_idx = [f'preds_{i}' for i in range(_S)]
-            quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
-            _ax = plot_confidence(_ax, x_te.squeeze().detach().cpu(), quartiles, all=False)
-            _ax.legend()
-            plt.savefig(os.path.join(_plot_dir, 'eval_preds.png'), pad_inches=0.2, bbox_inches='tight')
