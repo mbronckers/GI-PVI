@@ -21,6 +21,7 @@ import gi
 import lab as B
 import lab.torch
 import numpy as np
+import pandas as pd
 import slugify
 import torch
 import torch.nn as nn
@@ -152,6 +153,19 @@ def rebuild(vs, likelihood, clients):
     likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
     for client_name, client in clients.items():
         client.update_nz(vs)
+
+def load_vs(fpath):
+    """ Load saved vs state dict into new Varz container object"""
+
+    _vs_state_dict = torch.load(fpath)
+
+    for idx, name in enumerate(_vs_state_dict.keys()):
+        if name.__contains__("output_var") or \
+            name.__contains__("nz"):
+
+            vs.positive(_vs_state_dict[name], name=name)
+        else:
+            vs.unbounded(_vs_state_dict[name], name=name)
 
 if __name__ == "__main__":
     import warnings
@@ -315,15 +329,43 @@ if __name__ == "__main__":
         line_plot(_plot_dir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
 
 
-    # TODO: save parameter stateSave model parameters state
-    _vs_state = dict(zip(vs.names, vs.get_latent_vars()))
-    _wd.save(_vs_state, "model/vs_state")
+    # Save parameter state
+    _vs_state_dict = dict(zip(vs.names, [vs[_name] for _name in vs.names]))
+    torch.save(_vs_state_dict, os.path.join(_results_dir, 'model/_vs.pt'))
 
     # Save data/metrics
-    _wd.save(lls, "metrics/lls")
-    _wd.save(kls, "metrics/kls")
-    _wd.save(elbos, "metrics/elbos")
-    _wd.save(errors, "metrics/errors")
+    _results_training = pd.DataFrame({
+        'lls': lls,
+        'kls': kls,
+        'elbos': elbos,
+        'errors': errors,
+    })
+    _results_training.index.name = "epoch"
+    _results_training.to_csv(os.path.join(_results_dir, "metrics/training.csv"))
 
-    # TODO: test dataset
-    
+    # Eval test dataset
+    with torch.no_grad():
+        
+        # Resample 10 inference weights
+        _S = 10
+        key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_tr, y_tr, ps, ts, zs, _S, N)
+
+        y_pred = model.propagate(x_te)
+        pred_error = (B.sum((y_te - y_pred.mean(0))**2))/len(y_te) # rmse
+        pred_var = y_pred.var(0)
+
+        logger.info(f"Test error (RMSE): {round(pred_error.item(), 1):3}")
+        scatter_plot(fdir=_plot_dir, fname=f"eval_data",
+                    x1=x_te, y1=y_te, x2=x_te, y2=y_pred.mean(0), 
+                    desc1="Testing data", desc2="Predictions",
+                    xlabel="x", ylabel="y", title=f"Eval performance ({_S} inference samples)")
+
+        _results_eval = pd.DataFrame({
+            'x_test': x_te.squeeze().detach().cpu(),
+            'y_test': y_te.squeeze().detach().cpu(),
+            'pred_errors': (y_te - y_pred.mean(0)).squeeze().detach().cpu(),
+            'pred_var': pred_var.squeeze().detach().cpu()
+        })
+        for num_sample in range(y_pred.shape[0]):
+            _results_eval[f'preds_{num_sample}'] = y_pred[num_sample].squeeze().detach().cpu()
+        _results_eval.to_csv(os.path.join(_results_dir, "model/eval.csv"), index=False)
