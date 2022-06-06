@@ -1,8 +1,10 @@
 import lab as B
 import lab.torch
+import numpy as np
+import torch 
 
-def generate_data(key, size):
-    """ Toy regression dataset from paper """
+def generate_train_data(key, size):
+    """ Toy regression dataset from paper only on domain [-4, -2] U [2, 4] """
     x = B.zeros(B.default_dtype, size, 1)
     
     key, x[:int(size / 2), :] = B.rand(key, B.default_dtype, int(size / 2), 1)
@@ -19,22 +21,33 @@ def generate_data(key, size):
     
     return key, x, y
 
-def generate_test_data(key, size):
+def generate_data(key, size):
     """ Toy (test) regression dataset from paper """
     x = B.zeros(B.default_dtype, size, 1)
     
     key, x = B.rand(key, B.default_dtype, int(size), 1)
-    x = x * 4. - 2.
+    max, min = 4., -4.
+
+    x = x * (max-min) + min
     
-    key, eps = B.rand(key, B.default_dtype, size, 1)
+    key, eps = B.randn(key, B.default_dtype, int(size), 1)
     y = x ** 3. + 3*eps
-    print(B.mean(eps))
     
     # Rescale the outputs to have unit variance
     scale = B.std(y)
     y = y/scale
     
     return key, x, y
+
+def split_data(x, y):
+    """ Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""
+
+    idx_te = torch.logical_and((x >= -2.), x <= 2.)
+    idx_tr = torch.logical_or((x < -2.), x > 2.)
+    x_te, y_te = x[idx_te], y[idx_te]
+    x_tr, y_tr = x[idx_tr], y[idx_tr]
+    
+    return x_tr, y_tr, x_te, y_te
 
 def generate_data2(key, size, xmin, xmax):
     

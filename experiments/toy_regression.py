@@ -28,6 +28,9 @@ from gi.utils.plotting import line_plot, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
+from debug import track, track_change
+from dgp import generate_data, split_data
+
 
 def build_prior(*dims: B.Int):
     """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
@@ -119,8 +122,6 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     # Mini-batching estimator of ELBO
     elbo = ((N / len(x)) * exp_ll) - kl
     
-    logger.debug(f"elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
-
     return key, elbo, exp_ll, kl, error
 
 @namespace("zs")
@@ -152,44 +153,11 @@ def rebuild(vs, likelihood, clients):
     for client_name, client in clients.items():
         client.update_nz(vs)
 
-def track_change(opt, vs, var_names, i, epoch, olds):
-    """ Steps optimizer and reports delta for variables when iteration%epoch == 0 """
-    _olds = olds
-
-    opt.step()
-
-    if i%epoch==0:
-        # Report deltas
-        for var_name in var_names:
-            if _olds != {}:
-                _delta = vs[var_name].detach().cpu().squeeze() - _olds[var_name]
-            else:
-                _delta = vs[var_name].detach().cpu().squeeze()
-
-            logger.debug(f"Δ{var_name}: {np.array(_delta)}")
-
-        # Update olds
-        for var_name in var_names:
-            _old = vs[var_name].detach().cpu().squeeze()
-            _olds[var_name] = _old
-
-    return opt, olds
-
-def track(opt, vs, var_names, i, epoch):
-    opt.step()
-
-    for var_name in var_names:
-        _v = vs[var_name].detach().cpu().squeeze()
-        if i%epoch == 0: logger.debug(f"{var_name}: {np.array(_v)}")
-
-    return opt
-
 if __name__ == "__main__":
     import warnings
     warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument('--verbose', '-v', action='store_true', help='Sets the log level to DEBUG')
     parser.add_argument('--seed', type=int, help='seed', nargs='?', default=0)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
@@ -203,6 +171,7 @@ if __name__ == "__main__":
     _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
     _results_dir_name = "results" # "_experiments"
     _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
+    
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
     _plot_dir = os.path.join(_results_dir, "plots")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
@@ -215,7 +184,7 @@ if __name__ == "__main__":
         out("Could not save calling script.")
 
     #### Logging ####
-    logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir, 'console_level': _log_level})
+    logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir})
     logger = logging.getLogger()
 
     np.set_printoptions(linewidth=np.inf)
@@ -231,8 +200,9 @@ if __name__ == "__main__":
     
     # Generate regression data
     N = args.N      # number of training points
-    key, x_tr, y_tr = generate_data(key, size=N)
-    key, x_te, y_te = generate_test_data(key, size=50)
+    key, x, y = generate_data(key, size=N)
+    x_tr, y_tr, x_te, y_te = split_data(x_te, y_te)
+
     
     # Define model (i.e. define prior).
     model = gi.GIBNN(nn.functional.relu)
@@ -296,6 +266,7 @@ if __name__ == "__main__":
                     desc1="Training data", desc2="Testing data",
                     xlabel="x", ylabel="y", title=f"Regression data")
 
+    # Run training
     for i in range(epochs):
         
         # Construct i-th minibatch {x, y} training data
@@ -306,6 +277,7 @@ if __name__ == "__main__":
         
         key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
 
+        logger.debug(f"[{i:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
         elbos.append(elbo.detach().cpu().item())
         errors.append(error.item())
 
@@ -325,6 +297,7 @@ if __name__ == "__main__":
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
         
         # opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
+        
         opt.step()
         rebuild(vs, likelihood, clients) # Rebuild clients & likelihood
         opt.zero_grad()
