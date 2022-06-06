@@ -117,7 +117,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     exp_ll = likelihood(out).logpdf(y)
     exp_ll = exp_ll.mean(0).sum()       # take mean across inference samples and sum
     kl = kl.mean()                      # across inference samples
-    error = B.sum(y - out.mean(0))
+    error = (B.sum((y - out.mean(0))**2))/N # rmse
 
     # Mini-batching estimator of ELBO
     elbo = ((N / len(x)) * exp_ll) - kl
@@ -164,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument('--name', '-n', type=str, help='Experiment name', default="")
     parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=100)
     parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
+    # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
     args = parser.parse_args()
 
@@ -171,10 +172,15 @@ if __name__ == "__main__":
     _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
     _results_dir_name = "results" # "_experiments"
     _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
-    
+
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
+
     _plot_dir = os.path.join(_results_dir, "plots")
+    _metrics_dir = os.path.join(_results_dir, "metrics")
+    _model_dir = os.path.join(_results_dir, "model")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
+    Path(_model_dir).mkdir(parents=True, exist_ok=True)
+    Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
 
     # Save script
     path = os.path.abspath(sys.argv[0])
@@ -201,10 +207,9 @@ if __name__ == "__main__":
     # Generate regression data
     N = args.N      # number of training points
     key, x, y = generate_data(key, size=N)
-    x_tr, y_tr, x_te, y_te = split_data(x_te, y_te)
-
+    x_tr, y_tr, x_te, y_te = split_data(x, y)
     
-    # Define model (i.e. define prior).
+    # Define model
     model = gi.GIBNN(nn.functional.relu)
 
     # Build one client
@@ -250,7 +255,7 @@ if __name__ == "__main__":
     opt = torch.optim.Adam(vs.get_vars(), lr=1e-2)
     batch_size = min(100, N)
     S = 2 # number of inference samples
-    mb_idx = 0 # minibatch idx
+    mb_idx = 100 # minibatch idx
     epochs = args.epochs
     
     # Logging
@@ -258,6 +263,8 @@ if __name__ == "__main__":
     olds = {} # to keep track of old parameter values
     elbos = []
     errors = []
+    kls = []
+    lls = []
 
     # Plot data
     if args.plot:
@@ -270,16 +277,18 @@ if __name__ == "__main__":
     for i in range(epochs):
         
         # Construct i-th minibatch {x, y} training data
-        inds = B.range(batch_size) + mb_idx
+        inds = (B.range(batch_size) + batch_size*i) % len(x_tr)
         x_mb = B.take(x_tr, inds) # take() is for JAX
         y_mb = B.take(y_tr, inds)
-        mb_idx = (mb_idx + batch_size) % len(x_tr)
         
         key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
 
         logger.debug(f"[{i:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
+        
         elbos.append(elbo.detach().cpu().item())
         errors.append(error.item())
+        kls.append(kl.detach().cpu().item())
+        lls.append(exp_ll.detach().cpu().item())
 
         loss = -elbo
         loss.backward()
@@ -305,4 +314,16 @@ if __name__ == "__main__":
     if args.plot: 
         line_plot(_plot_dir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
 
+
+    # TODO: save parameter stateSave model parameters state
+    _vs_state = dict(zip(vs.names, vs.get_latent_vars()))
+    _wd.save(_vs_state, "model/vs_state")
+
+    # Save data/metrics
+    _wd.save(lls, "metrics/lls")
+    _wd.save(kls, "metrics/kls")
+    _wd.save(elbos, "metrics/elbos")
+    _wd.save(errors, "metrics/errors")
+
+    # TODO: test dataset
     

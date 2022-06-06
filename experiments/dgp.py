@@ -44,8 +44,8 @@ def split_data(x, y):
 
     idx_te = torch.logical_and((x >= -2.), x <= 2.)
     idx_tr = torch.logical_or((x < -2.), x > 2.)
-    x_te, y_te = x[idx_te], y[idx_te]
-    x_tr, y_tr = x[idx_tr], y[idx_tr]
+    x_te, y_te = x[idx_te][:, None], y[idx_te][:, None]
+    x_tr, y_tr = x[idx_tr][:, None], y[idx_tr][:, None]
     
     return x_tr, y_tr, x_te, y_te
 
