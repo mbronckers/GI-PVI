@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from typing import Callable
 
-from matplotlib.pyplot import scatter
+from matplotlib import pyplot as plt
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -25,7 +25,7 @@ import pandas as pd
 import slugify
 import torch
 import torch.nn as nn
-from gi.utils.plotting import line_plot, scatter_plot
+from gi.utils.plotting import line_plot, plot_confidence, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
@@ -155,17 +155,20 @@ def rebuild(vs, likelihood, clients):
         client.update_nz(vs)
 
 def load_vs(fpath):
-    """ Load saved vs state dict into new Varz container object"""
-
+    """ Load saved vs state dict into new Vars container object"""
+    assert os.path.exists(fpath)
     _vs_state_dict = torch.load(fpath)
 
+    vs: Vars = vars(B.default_dtype)
     for idx, name in enumerate(_vs_state_dict.keys()):
         if name.__contains__("output_var") or \
             name.__contains__("nz"):
-
             vs.positive(_vs_state_dict[name], name=name)
         else:
             vs.unbounded(_vs_state_dict[name], name=name)
+
+    return vs
+
 
 if __name__ == "__main__":
     import warnings
@@ -235,10 +238,12 @@ if __name__ == "__main__":
     
     # Plot initial inducing points
     if args.plot:
-        scatter_plot(fdir=_plot_dir, fname=f"init_zs",
+        _ax = scatter_plot(fdir=_plot_dir, fname=f"init_zs",
                     x1=x_tr, y1=y_tr, x2=z, y2=yz,
                     desc1="Training data", desc2="Initial inducing points",
-                    xlabel="x", ylabel="y", title=f"Data")
+                    xlabel="x", ylabel="y", title=f"Inducing points and training data")
+        plt.savefig(os.path.join(_plot_dir, "init_zs.png"), pad_inches=0.2, bbox_inches='tight')
+        
 
     # Collect clients
     ts = {}
@@ -282,11 +287,12 @@ if __name__ == "__main__":
 
     # Plot data
     if args.plot:
-        scatter_plot(fdir=_plot_dir, fname=f"regression_data",
+        _ax = scatter_plot(fdir=_plot_dir, fname=f"regression_data",
                     x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
                     desc1="Training data", desc2="Testing data",
                     xlabel="x", ylabel="y", title=f"Regression data")
-
+        plt.savefig(os.path.join(_plot_dir, 'regression_data.png'), pad_inches=0.2, bbox_inches='tight')
+    
     # Run training
     for i in range(epochs):
         
@@ -318,7 +324,9 @@ if __name__ == "__main__":
                     x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
-        
+                plt.savefig(os.path.join(_plot_dir, f'{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')
+
+
         # opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
         
         opt.step()
@@ -326,7 +334,8 @@ if __name__ == "__main__":
         opt.zero_grad()
 
     if args.plot: 
-        line_plot(_plot_dir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
+        _ax = line_plot(_plot_dir, f"elbo", x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
+        plt.savefig(os.path.join(_plot_dir, 'elbo.png'), pad_inches=0.2, bbox_inches='tight')
 
 
     # Save parameter state
@@ -346,20 +355,19 @@ if __name__ == "__main__":
     # Eval test dataset
     with torch.no_grad():
         
-        # Resample 10 inference weights
+        # Resample <_S> inference weights
         _S = 10
         key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_tr, y_tr, ps, ts, zs, _S, N)
 
+        # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
-        pred_error = (B.sum((y_te - y_pred.mean(0))**2))/len(y_te) # rmse
+        pred_error = (B.sum((y_te - y_pred.mean(0))**2))/len(y_te)
         pred_var = y_pred.var(0)
 
-        logger.info(f"Test error (RMSE): {round(pred_error.item(), 1):3}")
-        scatter_plot(fdir=_plot_dir, fname=f"eval_data",
-                    x1=x_te, y1=y_te, x2=x_te, y2=y_pred.mean(0), 
-                    desc1="Testing data", desc2="Predictions",
-                    xlabel="x", ylabel="y", title=f"Eval performance ({_S} inference samples)")
+        # Log test error and variance
+        logger.info(f"Test error (RMSE): {round(pred_error.item(), 1):3}, test var: {round(y_pred.var().item(), 1):3}")
 
+        # Save model predictions
         _results_eval = pd.DataFrame({
             'x_test': x_te.squeeze().detach().cpu(),
             'y_test': y_te.squeeze().detach().cpu(),
@@ -369,3 +377,13 @@ if __name__ == "__main__":
         for num_sample in range(y_pred.shape[0]):
             _results_eval[f'preds_{num_sample}'] = y_pred[num_sample].squeeze().detach().cpu()
         _results_eval.to_csv(os.path.join(_results_dir, "model/eval.csv"), index=False)
+
+        # Plot model predictions
+        if args.plot:
+            _ax = scatter_plot(_plot_dir, "eval_preds", x_te, y_te, x_te, y_pred.mean(0), "Eval data", "Model predictions", "x", "y", f"Model predictions on eval data ({_S} samples")
+            
+            _preds_idx = [f'preds_{i}' for i in range(_S)]
+            quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
+            _ax = plot_confidence(_ax, x_te.squeeze().detach().cpu(), quartiles, all=False)
+            _ax.legend()
+            plt.savefig(os.path.join(_plot_dir, 'eval_preds.png'), pad_inches=0.2, bbox_inches='tight')
