@@ -388,9 +388,7 @@ if __name__ == "__main__":
     with torch.no_grad():
         
         # Resample <_S> inference weights; do we use (x_tr, y_tr) or (x_te, y_te) in est_elbo here?
-        _S = args.inference_samples
-        key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, \
-                                                     x_tr, y_tr, ps, ts, zs, _S, N)
+        key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
@@ -399,15 +397,12 @@ if __name__ == "__main__":
 
         # Log and plot results
         eval_logging(x_te, y_te, y_pred, pred_error, pred_var, "test", _results_dir, "model/eval_test", args.plot)
-
     
     # Run eval on entire training dataset
     with torch.no_grad():
     
-        # Resample <_S> inference weights; do we use (x_tr, y_tr) in est_elbo here?
-        _S = args.inference_samples
-        key, _, _, _, _ = estimate_elbo(key, model, likelihood, \
-                                                    x, y, ps, ts, zs, _S, N)
+        # Resample <_S> inference weights
+        key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x)
