@@ -30,7 +30,7 @@ from varz import Vars, namespace
 from wbml import experiment, out
 
 from debug import track, track_change
-from dgp import generate_data, split_data
+from dgp import generate_data, generate_data2, split_data
 
 
 def build_prior(*dims: B.Int):
@@ -169,13 +169,24 @@ def load_vs(fpath):
 
     return vs
 
-def eval_logging(x_te, y_te, y_pred, 
-                pred_error, pred_var,
-                _results_dir, plot):
+def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_dir, _fname, plot):
+    """_summary_
+
+    Args:
+        x_te (_type_): _description_
+        y_te (_type_): _description_
+        y_pred (_type_): _description_
+        pred_error (_type_): _description_
+        pred_var (_type_): _description_
+        data_name (_type_): _description_
+        _results_dir (_type_): _description_
+        _fname (_type_): _description_
+        plot (_type_): _description_
+    """
     _S = y_pred.shape[0] # number of inference samples
 
     # Log test error and variance
-    logger.info(f"Test error (RMSE): {round(pred_error.item(), 1):3}, test var: {round(y_pred.var().item(), 1):3}")
+    logger.info(f"{data_name} error (RMSE): {round(pred_error.item(), 1):3}, {data_name} var: {round(y_pred.var().item(), 1):3}")
 
     # Save model predictions
     _results_eval = pd.DataFrame({
@@ -188,17 +199,17 @@ def eval_logging(x_te, y_te, y_pred,
     for num_sample in range(_S): 
         _results_eval[f'preds_{num_sample}'] = y_pred[num_sample].squeeze().detach().cpu()
     
-    _results_eval.to_csv(os.path.join(_results_dir, "model/eval.csv"), index=False)
+    _results_eval.to_csv(os.path.join(_results_dir, f"{_fname}.csv"), index=False)
 
     # Plot model predictions
     if plot:
-        _ax = scatter_plot(x_te, y_te, x_te, y_pred.mean(0), "Eval data", "Model predictions", "x", "y", f"Model predictions on eval data ({_S} samples")
+        _ax = scatter_plot(x_te, y_te, x_te, y_pred.mean(0), f"{data_name.capitalize()} data", "Model predictions", "x", "y", f"Model predictions on {data_name} data ({_S} samples)")
 
         _preds_idx = [f'preds_{i}' for i in range(_S)]
         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
         _ax = plot_confidence(_ax, x_te.squeeze().detach().cpu(), quartiles, all=False)
         _ax.legend()
-        plt.savefig(os.path.join(_plot_dir, 'eval_preds.png'), pad_inches=0.2, bbox_inches='tight')
+        plt.savefig(os.path.join(_plot_dir, f'eval_{data_name}_preds.png'), pad_inches=0.2, bbox_inches='tight')
 
 
 if __name__ == "__main__":
@@ -206,23 +217,25 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, help='seed', nargs='?', default=0)
+    parser.add_argument('--seed', '-s', type=int, help='seed', nargs='?', default=0)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
     parser.add_argument('--name', '-n', type=str, help='Experiment name', default="")
     parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=100)
     parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
+    parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=2)
+    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=10)
+    parser.add_argument('--lr', type=float, help='learning rate', default=1e-2)
+    parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=100)
     # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
     args = parser.parse_args()
 
-    # Create experiment directory
+    # Create experiment directories
     _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
     _results_dir_name = "results" # "_experiments"
     _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
-
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
-
     _plot_dir = os.path.join(_results_dir, "plots")
     _metrics_dir = os.path.join(_results_dir, "metrics")
     _model_dir = os.path.join(_results_dir, "model")
@@ -231,20 +244,19 @@ if __name__ == "__main__":
     Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
 
     # Save script
-    path = os.path.abspath(sys.argv[0])
-    if os.path.exists(path):
-        shutil.copy(path, _wd.file("script.py"))
+    if os.path.exists(os.path.abspath(sys.argv[0])):
+        shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
     else:
         out("Could not save calling script.")
 
     #### Logging ####
     logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir})
     logger = logging.getLogger()
-
     np.set_printoptions(linewidth=np.inf)
 
     # Log program info
-    logger.debug(f"Root {_results_dir}")
+    logger.debug(f"Call: {sys.argv}")
+    logger.debug(f"Root: {_results_dir}")
     logger.debug(f"Time: {_time}")
     logger.debug(f"Seed: {args.seed}")
 
@@ -255,6 +267,7 @@ if __name__ == "__main__":
     # Generate regression data
     N = args.N      # number of training points
     key, x, y = generate_data(key, size=N)
+    # key, x, y, _, _ = generate_data2(key, size=N)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
@@ -301,10 +314,10 @@ if __name__ == "__main__":
     rebuild(vs, likelihood, clients)
 
     # Optimizer parameters
-    opt = torch.optim.Adam(vs.get_vars(), lr=1e-2)
-    batch_size = min(100, N)
-    S = 2 # number of inference samples
-    mb_idx = 100 # minibatch idx
+    lr = args.lr
+    opt = torch.optim.Adam(vs.get_vars(), lr=lr)
+    batch_size = min(args.batch_size, N)
+    S = args.training_samples # number of inference samples
     epochs = args.epochs
     
     # Logging
@@ -374,14 +387,33 @@ if __name__ == "__main__":
     # Run eval on test dataset
     with torch.no_grad():
         
-        # Resample <_S> inference weights
-        _S = 10
-        key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_tr, y_tr, ps, ts, zs, _S, N)
+        # Resample <_S> inference weights; do we use (x_tr, y_tr) or (x_te, y_te) in est_elbo here?
+        _S = args.inference_samples
+        key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, \
+                                                     x_tr, y_tr, ps, ts, zs, _S, N)
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
         pred_error = (B.sum((y_te - y_pred.mean(0))**2))/len(y_te)
         pred_var = y_pred.var(0)
 
-        eval_logging(x_te, y_te, y_pred, pred_error, pred_var, _results_dir, args.plot)
+        # Log and plot results
+        eval_logging(x_te, y_te, y_pred, pred_error, pred_var, "test", _results_dir, "model/eval_test", args.plot)
+
+    
+    # Run eval on entire training dataset
+    with torch.no_grad():
+    
+        # Resample <_S> inference weights; do we use (x_tr, y_tr) in est_elbo here?
+        _S = args.inference_samples
+        key, _, _, _, _ = estimate_elbo(key, model, likelihood, \
+                                                    x, y, ps, ts, zs, _S, N)
+
+        # Get <_S> predictions, calculate average RMSE, variance
+        y_pred = model.propagate(x)
+        pred_error = (B.sum((y - y_pred.mean(0))**2))/len(y)
+        pred_var = y_pred.var(0)
+
+        # Log and plot results
+        eval_logging(x, y, y_pred, pred_error, pred_var, "all", _results_dir, "model/eval_all", args.plot)
 
