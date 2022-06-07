@@ -58,4 +58,4 @@ def generate_data2(key, size, xmin, xmax):
     x = B.expand_dims(eps2 * (xmax - xmin) + xmin, axis=1).squeeze()
     y = x + 0.3 * B.sin(2 * B.pi * (x + eps2)) + 0.3 * B.sin(4 * B.pi * (x + eps2)) + eps1 * 0.02
 
-    return key, x, y, eps1, eps2
+    return key, x[:, None], y[:, None], eps1, eps2

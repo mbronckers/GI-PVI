@@ -83,8 +83,7 @@ class NaturalNormal:
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision 
         """
         self.lam = lam 
-        # self.prec = convert(prec, AbstractMatrix) # this might mess up grad?
-        self.prec = prec
+        self.prec = convert(prec, AbstractMatrix)
         
         self._mean = None
         self._var = None
@@ -146,10 +145,11 @@ class NaturalNormal:
         """
         Sample from distribution using the natural parameters
         """
+        # Sample noise (epsilon)
         if num > 1:
-            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # Sample our noise (epsilon)
+            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam))
         else:
-            key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam)) # Sample our noise (epsilon)
+            key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
             
         sample = B.mm(B.inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
         
@@ -157,7 +157,7 @@ class NaturalNormal:
             sample = B.dense(sample) # transform Tensor to Dense matrix
         
         return key, sample
-        
+
     def __mul__(self, other: "NaturalNormal"):
         return NaturalNormal(
             self.lam + other.lam, 

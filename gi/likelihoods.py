@@ -13,5 +13,5 @@ class NormalLikelihood:
 
     def __call__(self, x):
         var = B.ones(x) * self.var
-        var = Diagonal(var) # this might mess up the grad?
+        var = Diagonal(var)
         return gi.distributions.Normal(x, var)

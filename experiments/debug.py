@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 def track_change(opt, vs, var_names, i, epoch, olds):
     """ Steps optimizer and reports delta for variables when iteration%epoch == 0 """

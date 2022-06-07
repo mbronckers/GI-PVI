@@ -12,16 +12,10 @@ from wbml import plot
 
 colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 
-logger = logging.getLogger(__name__)
-
-def scatter_plot(fdir, fname, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, 
+def scatter_plot(x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, 
         desc1: str, desc2: str,  xlabel: Optional[str]=None, ylabel: Optional[str]=None, title: Optional[str]=None):
-    
-    assert os.path.exists(fdir)
-    logger.debug(f"Saving plot in {fdir}")
 
     fig, ax = plt.subplots(1, 1, figsize=(10,10))
-    lw = 2 # linewidth=lw
 
     def get_values(x):
         return np.array(x.squeeze().detach().cpu())
@@ -33,7 +27,6 @@ def scatter_plot(fdir, fname, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor,
                 color=colors[1])
 
     ax.legend()
-    # ax.set_xlabel(f'{}')
     # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
     if xlabel != None: ax.set_xlabel(xlabel)
     if ylabel != None: ax.set_ylabel(ylabel)
@@ -42,11 +35,22 @@ def scatter_plot(fdir, fname, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor,
     
     plot.tweak(ax)
 
-    plt.savefig(os.path.join(fdir, f'{fname}.png'), pad_inches=0.2, bbox_inches='tight')
+    return ax
 
-def line_plot(fdir, fname, x, y, desc, xlabel=None, ylabel=None, title=None):
-    assert os.path.exists(fdir)
-    logger.info(f"Saving plot in {fdir}")
+
+def plot_confidence(ax, x, quartiles, all: bool = False):
+    assert len(quartiles) == 4 # [num quartiles x num preds]
+    if x.is_cuda: x = x.detach().cpu()
+    
+    x_sorted, q0, q1, q2, q3 = zip(*sorted(zip(x, quartiles[0, :], quartiles[1, :], quartiles[2, :], quartiles[3, :])))
+    
+    ax.fill_between(x_sorted, q1, q2, color='tab:orange', alpha=0.25, label="25-75th percentile")
+    if all:
+        ax.fill_between(x_sorted, q0, q3, color='tab:cyan', alpha=0.25, label="5-95th percentile")
+
+    return ax
+
+def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None):
 
     fig, ax = plt.subplots(1, 1, figsize=(10,10))
     lw = 2 # linewidth=lw
@@ -67,4 +71,4 @@ def line_plot(fdir, fname, x, y, desc, xlabel=None, ylabel=None, title=None):
 
     plot.tweak(ax)
 
-    plt.savefig(os.path.join(fdir, f'{fname}.png'), pad_inches=0.2, bbox_inches='tight')
+    return ax

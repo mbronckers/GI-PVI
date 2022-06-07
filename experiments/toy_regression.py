@@ -37,9 +37,9 @@ def build_prior(*dims: B.Int):
     """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
     ps = {}
     for i in range(len(dims) - 1):
-        mean = B.zeros(B.default_dtype, dims[i + 1], dims[i], 1) # Dout x Din x 1
+        mean = B.zeros(B.default_dtype, dims[i + 1], dims[i], 1) # [Dout x Din x 1]
         var = B.eye(B.default_dtype, dims[i])
-        var = B.tile(var, dims[i + 1], 1, 1)
+        var = B.tile(var, dims[i + 1], 1, 1)                     #  [Dout x Din x Din], i.e. [batch x Din x Din]
         ps[f"layer{i}"] = gi.NaturalNormal.from_normal(gi.Normal(mean, var))
         
     return ps
@@ -57,7 +57,7 @@ def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     :returns: key, z, y
     """
     if random:
-        key, z = B.randn(key, B.default_dtype, M, *x.shape[1:]) 
+        key, z = B.randn(key, B.default_dtype, M, *x.shape[1:]) # [M x input_dim]
         key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])
         return key, z, yz
 
@@ -120,7 +120,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     kl = kl.mean()                      # across inference samples
     error = (B.sum((y - out.mean(0))**2))/N # rmse
 
-    # Mini-batching estimator of ELBO
+    # Mini-batching estimator of ELBO (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl
     
     return key, elbo, exp_ll, kl, error
@@ -169,7 +169,7 @@ def load_vs(fpath):
 
     return vs
 
-def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_dir, _fname, plot):
+def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_dir, _fname, plot: bool):
     """_summary_
 
     Args:
@@ -178,10 +178,10 @@ def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_d
         y_pred (_type_): _description_
         pred_error (_type_): _description_
         pred_var (_type_): _description_
-        data_name (_type_): _description_
-        _results_dir (_type_): _description_
-        _fname (_type_): _description_
-        plot (_type_): _description_
+        data_name (str): type of (x,y) dataset, e.g. "test", "train", "eval", "all"
+        _results_dir (_type_): results directory to save plots
+        _fname (_type_): plot file name
+        plot (bool): save plot figure
     """
     _S = y_pred.shape[0] # number of inference samples
 
@@ -225,6 +225,7 @@ if __name__ == "__main__":
     parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
     parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=2)
     parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=10)
+    parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=1e-3)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-2)
     parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=100)
     # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
@@ -233,13 +234,15 @@ if __name__ == "__main__":
 
     # Create experiment directories
     _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
-    _results_dir_name = "results" # "_experiments"
+    _results_dir_name = "results"
     _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
     _plot_dir = os.path.join(_results_dir, "plots")
     _metrics_dir = os.path.join(_results_dir, "metrics")
     _model_dir = os.path.join(_results_dir, "model")
+    _training_plot_dir = os.path.join(_plot_dir, "training")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
+    Path(_training_plot_dir).mkdir(parents=True, exist_ok=True)
     Path(_model_dir).mkdir(parents=True, exist_ok=True)
     Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
 
@@ -267,7 +270,7 @@ if __name__ == "__main__":
     # Generate regression data
     N = args.N      # number of training points
     key, x, y = generate_data(key, size=N)
-    # key, x, y, _, _ = generate_data2(key, size=N)
+    # key, x, y, _, _ = generate_data2(key, size=N, xmin=-4, xmax=4)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
@@ -277,7 +280,7 @@ if __name__ == "__main__":
     M = args.M # number of inducing points
     ps = build_prior(1, 50, 50, 1)
     key, z, yz = build_z(key, M, x_tr, y_tr, args.random_z)
-    t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=1e-3)
+    t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=args.nz_init)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
     
     # Plot initial inducing points
@@ -365,10 +368,12 @@ if __name__ == "__main__":
                 scatter_plot(x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
-                plt.savefig(os.path.join(_plot_dir, f'{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')
+                plt.savefig(os.path.join(_plot_dir, f'training/{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')
 
-        # opt, olds = track_change(opt, vs, ['zs.client0_z', 'ts.layer2_client0_yz'], i, log_step, olds)
-        
+        # Track some variables for debugging
+        # out.kv("zs.client0_z", vs["zs.client0_z"])
+        # opt, olds = track_change(opt, vs, ['zs.client0_z'], i, 1, olds)
+
         opt.step()
         rebuild(vs, likelihood, clients) # Rebuild clients & likelihood
         opt.zero_grad()
@@ -387,7 +392,7 @@ if __name__ == "__main__":
     # Run eval on test dataset
     with torch.no_grad():
         
-        # Resample <_S> inference weights; do we use (x_tr, y_tr) or (x_te, y_te) in est_elbo here?
+        # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
 
         # Get <_S> predictions, calculate average RMSE, variance
