@@ -21,8 +21,7 @@ class GIBNN:
             assert len(client_z.shape) == 2 # [M, Din]
             
             # Add bias vector: [M x Din] to [M x Din+bias]
-            # _bias = B.ones(*client_z.shape[-1])[:, None]
-            _bias = torch.ones((*client_z.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+            _bias = B.ones(*client_z.shape[:-1], 1)
             _cz = B.concat(client_z, _bias, axis=-1)
 
             # z is [M, D]. Change to [S, M, D]]
@@ -59,10 +58,8 @@ class GIBNN:
                 if i < len(ps.keys()) - 1:                      # non-final layer
                     client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
                 
-                    
                     # Add bias vector if not final-layer
-                    # _bias = B.ones(*client_z.shape[:-1])[:, None]
-                    _bias = torch.ones((*client_z.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+                    _bias = B.ones(*client_z.shape[:-1], 1)
                     _cz = B.concat(client_z, _bias, axis=-1)
                 else:
                     _cz = client_z 

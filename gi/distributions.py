@@ -147,7 +147,7 @@ class NaturalNormal:
         """
         # Sample noise (epsilon)
         if num > 1:
-            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # [num x ]
+            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # [num x q.lam.shape]
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
             

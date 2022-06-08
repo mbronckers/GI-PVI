@@ -117,12 +117,13 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     exp_ll = likelihood(out).logpdf(y)
     exp_ll = exp_ll.mean(0).sum()       # take mean across inference samples and sum
     kl = kl.mean()                      # across inference samples
-    error = (B.sum((y - out.mean(0))**2))/N # rmse
+    error = y-out.mean(0)               # error of mean prediction
+    mse = B.mean(error**2)
 
     # Mini-batching estimator of ELBO (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl
     
-    return key, elbo, exp_ll, kl, error
+    return key, elbo, exp_ll, kl, mse
 
 @namespace("zs")
 def add_zs(vs, zs):
@@ -168,14 +169,14 @@ def load_vs(fpath):
 
     return vs
 
-def eval_logging(x, y, y_pred, pred_error, pred_var, data_name, _results_dir, _fname, plot: bool):
+def eval_logging(x, y, y_pred, mse, pred_var, data_name, _results_dir, _fname, plot: bool):
     """_summary_
 
     Args:
         x (_type_): _description_
         y (_type_): _description_
         y_pred (_type_): _description_
-        pred_error (_type_): _description_
+        mse (_type_): _description_
         pred_var (_type_): _description_
         data_name (str): type of (x,y) dataset, e.g. "test", "train", "eval", "all"
         _results_dir (_type_): results directory to save plots
@@ -185,14 +186,15 @@ def eval_logging(x, y, y_pred, pred_error, pred_var, data_name, _results_dir, _f
     _S = y_pred.shape[0] # number of inference samples
 
     # Log test error and variance
-    logger.info(f"{data_name} error (RMSE): {round(pred_error.item(), 1):3}, {data_name} var: {round(y_pred.var().item(), 1):3}")
+    logger.info(f"{data_name} error (MSE): {round(mse.item(), 1):3}, {data_name} var: {round(y_pred.var().item(), 1):3}")
 
     # Save model predictions
     _results_eval = pd.DataFrame({
         'x_eval': x.squeeze().detach().cpu(),
         'y_eval': y.squeeze().detach().cpu(),
         'pred_errors': (y - y_pred.mean(0)).squeeze().detach().cpu(),
-        'pred_var': pred_var.squeeze().detach().cpu()
+        'pred_var': pred_var.squeeze().detach().cpu(),
+        'y_pred_mean': y_pred.mean(0).squeeze().detach().cpu()
     })
     
     for num_sample in range(_S): 
@@ -223,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=100)
     parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
     parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=2)
-    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=1)
+    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=10)
     parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=1e-3)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-2)
     parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=100)
@@ -397,13 +399,13 @@ if __name__ == "__main__":
         # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
 
-        # Get <_S> predictions, calculate average RMSE, variance
+        # Get <_S> predictions, calculate average MSE, variance
         y_pred = model.propagate(x_te)
-        pred_error = (B.sum((y_te - y_pred.mean(0))**2))/len(y_te)
+        mse = B.mean((y_te-y_pred.mean(0))**2)
         pred_var = y_pred.var(0)
 
         # Log and plot results
-        eval_logging(x_te, y_te, y_pred, pred_error, pred_var, "test", _results_dir, "model/eval_test", args.plot)
+        eval_logging(x_te, y_te, y_pred, mse, pred_var, "test", _results_dir, "model/eval_test", args.plot)
     
     # Run eval on entire dataset
     with torch.no_grad():
@@ -413,9 +415,10 @@ if __name__ == "__main__":
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x)
-        pred_error = (B.sum((y - y_pred.mean(0))**2))/len(y)
+
+        mse = B.mean((y-y_pred.mean(0))**2)
         pred_var = y_pred.var(0)
 
         # Log and plot results
-        eval_logging(x, y, y_pred, pred_error, pred_var, "all", _results_dir, "model/eval_all", args.plot)
+        eval_logging(x, y, y_pred, mse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
 
