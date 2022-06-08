@@ -37,7 +37,8 @@ def build_prior(*dims: B.Int):
     ps = {}
     for i in range(len(dims) - 1):
         mean = B.zeros(B.default_dtype, dims[i + 1], dims[i]+1, 1) # [Dout x Din+bias x 1]
-        var = B.eye(B.default_dtype, dims[i]+1)
+        # var = B.eye(B.default_dtype, dims[i]+1) # StandardPrior
+        var = (1/(dims[i]+1)) * B.eye(B.default_dtype, dims[i]+1) # NealPrior
         var = B.tile(var, dims[i + 1], 1, 1)                     #  [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
         ps[f"layer{i}"] = gi.NaturalNormal.from_normal(gi.Normal(mean, var))
         
@@ -363,7 +364,7 @@ if __name__ == "__main__":
         loss.backward()
 
         if i%log_step == 0 or i == (epochs-1):
-            logger.info(f"Epoch {i:3} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
+            logger.info(f"Epoch {i:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
 
             if args.plot:
                 _inducing_inputs = zs["client0"]
