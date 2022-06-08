@@ -36,9 +36,9 @@ def build_prior(*dims: B.Int):
     """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
     ps = {}
     for i in range(len(dims) - 1):
-        mean = B.zeros(B.default_dtype, dims[i + 1], dims[i], 1) # [Dout x Din x 1]
-        var = B.eye(B.default_dtype, dims[i])
-        var = B.tile(var, dims[i + 1], 1, 1)                     #  [Dout x Din x Din], i.e. [batch x Din x Din]
+        mean = B.zeros(B.default_dtype, dims[i + 1], dims[i]+1, 1) # [Dout x Din+bias x 1]
+        var = B.eye(B.default_dtype, dims[i]+1)
+        var = B.tile(var, dims[i + 1], 1, 1)                     #  [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
         ps[f"layer{i}"] = gi.NaturalNormal.from_normal(gi.Normal(mean, var))
         
     return ps
@@ -57,7 +57,7 @@ def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     """
     if random:
         key, z = B.randn(key, B.default_dtype, M, *x.shape[1:]) # [M x input_dim]
-        key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])
+        key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:]) # [M x output_dim]
         return key, z, yz
 
     if M <= len(x):
@@ -87,10 +87,10 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
     ts = {}
     num_layers = len(dims) - 1
     for i in range(num_layers):   
-        _nz = B.ones(dims[i + 1], M) * nz_init          # construct inducing noise (precision)
+        _nz = B.ones(dims[i + 1], M) * nz_init                       # [Dout x M]
 
         if i < num_layers - 1: 
-            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])
+            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # [M x Dout]
             t = gi.NormalPseudoObservation(_yz, _nz)
         else: 
             t = gi.NormalPseudoObservation(yz, _nz) # final layer
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=100)
     parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
     parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=2)
-    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=10)
+    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=1)
     parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=1e-3)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-2)
     parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=100)
@@ -277,9 +277,12 @@ if __name__ == "__main__":
 
     # Build one client
     M = args.M # number of inducing points
-    ps = build_prior(1, 50, 50, 1)
+    in_features = 1
+    dims = [in_features, 50, 50, 1]
+    # ps = build_prior(*dims)
+    ps = build_prior(*dims)
     key, z, yz = build_z(key, M, x_tr, y_tr, args.random_z)
-    t = build_ts(key, M, yz, 1, 50, 50, 1, nz_init=args.nz_init)
+    t = build_ts(key, M, yz, *dims, nz_init=args.nz_init)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
     
     # Plot initial inducing points

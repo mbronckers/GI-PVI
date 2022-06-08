@@ -147,7 +147,7 @@ class NaturalNormal:
         """
         # Sample noise (epsilon)
         if num > 1:
-            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam))
+            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # [num x ]
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
             
@@ -168,7 +168,7 @@ class NaturalNormal:
         return (torch.all(torch.isclose(self.lam, __o.lam)) and torch.all(torch.isclose(self.prec, __o.prec))).item()
 
     def __repr__(self) -> str:
-        return f"lam: {self.lam}, \nprec: {self.prec} \n"
+        return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
 
 class NormalPseudoObservation:
     def __init__(self, yz, nz):
@@ -183,6 +183,8 @@ class NormalPseudoObservation:
 
         """
         :param z: inducing inputs of that layer which are equal to the outputs of the prev layer inducing inputs, i.e. phi(U_{\\ell-1}) [samples x M x Din]
+
+        :returns: N(w; lam_w, prec_w)
         """
         # (S, 1, M, Din)
         _z = B.expand_dims(z, 1)
@@ -207,8 +209,5 @@ class NormalPseudoObservation:
 
     def __repr__(self) -> str:
         return (
-                f"yz: {self.yz}" 
-                + "\n"
-                + f"nz: {self.nz}"
-                + "\n"
+                f"yz: {self.yz.shape}, nz: {self.nz.shape}"
         )

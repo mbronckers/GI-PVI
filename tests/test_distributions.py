@@ -13,7 +13,7 @@ import torch
 import pytest
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 def approx(x, y, **kwargs):
     x = B.to_numpy(B.dense(x))

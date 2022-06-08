@@ -1,5 +1,5 @@
 import lab as B
-
+import torch
 class GIBNN:
     def __init__(self, nonlinearity):
         self.nonlinearity = nonlinearity
@@ -18,10 +18,15 @@ class GIBNN:
         _zs = {} # dict to store propagated inducing inputs
 
         for client_name, client_z in zs.items():
-            assert len(client_z.shape) == 2
+            assert len(client_z.shape) == 2 # [M, Din]
             
+            # Add bias vector: [M x Din] to [M x Din+bias]
+            # _bias = B.ones(*client_z.shape[-1])[:, None]
+            _bias = torch.ones((*client_z.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+            _cz = B.concat(client_z, _bias, axis=-1)
+
             # z is [M, D]. Change to [S, M, D]]
-            _zs[client_name] = B.tile(client_z, S, 1, 1) # only tile intermediate results
+            _zs[client_name] = B.tile(_cz, S, 1, 1) # only tile intermediate results
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
@@ -48,15 +53,22 @@ class GIBNN:
             self._cache[layer_name] = {"w": w, "kl": kl_qp}
 
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
-            inducing_inputs = _zs
-            for client_name, client_z in inducing_inputs.items():
+            for client_name, client_z in _zs.items():
                 client_z = B.mm(client_z, w, tr_b=True)         # propagate z. [S x M x Dout]
                 
                 if i < len(ps.keys()) - 1:                      # non-final layer
                     client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
                 
+                    
+                    # Add bias vector if not final-layer
+                    # _bias = B.ones(*client_z.shape[:-1])[:, None]
+                    _bias = torch.ones((*client_z.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+                    _cz = B.concat(client_z, _bias, axis=-1)
+                else:
+                    _cz = client_z 
+                
                 # Always store in _zs
-                _zs[client_name] = client_z 
+                _zs[client_name] = _cz 
                 
         return key, self._cache
                 
@@ -72,11 +84,16 @@ class GIBNN:
 
         if len(x.shape) == 2:
             x = B.tile(x, self.S, 1, 1)
+            _bias = torch.ones((*x.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+            x = B.concat(x, _bias, axis=-1)
 
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
             x = B.mm(x, layer_dict["w"], tr_b=True)
             if i < len(self._cache.keys()) - 1: # non-final layer
                 x = self.nonlinearity(x)
+                _bias = torch.ones((*x.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+                x = B.concat(x, _bias, axis=-1)
+
                 
         return x
     

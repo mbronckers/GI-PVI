@@ -1,5 +1,6 @@
 import os
 import sys
+
 file_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.abspath(os.path.join(file_dir, "..")))
 
@@ -15,3 +16,6 @@ class NormalLikelihood:
         var = B.ones(x) * self.var
         var = Diagonal(var)
         return gi.distributions.Normal(x, var)
+
+    def __repr__(self) -> str:
+        return f"var: {self.var}"
