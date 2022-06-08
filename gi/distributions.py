@@ -198,10 +198,10 @@ class NormalPseudoObservation:
         _prec_yz = B.expand_dims(prec_yz, 0)
         
         # (S, Dout, Din, Din).
-        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))
+        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z)) # z^T @ prec_yz @ z
         
         # (S, Dout, Din, 1)
-        lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))
+        lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz)) # z^T @ prec_yz @ yz
         
         return NaturalNormal(lam_w, prec_w)
 

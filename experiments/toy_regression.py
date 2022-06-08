@@ -32,7 +32,6 @@ from wbml import experiment, out
 from debug import track, track_change
 from dgp import generate_data, generate_data2, split_data
 
-
 def build_prior(*dims: B.Int):
     """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
     ps = {}
@@ -169,12 +168,12 @@ def load_vs(fpath):
 
     return vs
 
-def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_dir, _fname, plot: bool):
+def eval_logging(x, y, y_pred, pred_error, pred_var, data_name, _results_dir, _fname, plot: bool):
     """_summary_
 
     Args:
-        x_te (_type_): _description_
-        y_te (_type_): _description_
+        x (_type_): _description_
+        y (_type_): _description_
         y_pred (_type_): _description_
         pred_error (_type_): _description_
         pred_var (_type_): _description_
@@ -190,9 +189,9 @@ def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_d
 
     # Save model predictions
     _results_eval = pd.DataFrame({
-        'x_test': x_te.squeeze().detach().cpu(),
-        'y_test': y_te.squeeze().detach().cpu(),
-        'pred_errors': (y_te - y_pred.mean(0)).squeeze().detach().cpu(),
+        'x_eval': x.squeeze().detach().cpu(),
+        'y_eval': y.squeeze().detach().cpu(),
+        'pred_errors': (y - y_pred.mean(0)).squeeze().detach().cpu(),
         'pred_var': pred_var.squeeze().detach().cpu()
     })
     
@@ -203,11 +202,11 @@ def eval_logging(x_te, y_te, y_pred, pred_error, pred_var, data_name, _results_d
 
     # Plot model predictions
     if plot:
-        _ax = scatter_plot(x_te, y_te, x_te, y_pred.mean(0), f"{data_name.capitalize()} data", "Model predictions", "x", "y", f"Model predictions on {data_name} data ({_S} samples)")
+        _ax = scatter_plot(x, y, x, y_pred.mean(0), f"{data_name.capitalize()} data", "Model predictions", "x", "y", f"Model predictions on {data_name} data ({_S} samples)")
 
         _preds_idx = [f'preds_{i}' for i in range(_S)]
         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
-        _ax = plot_confidence(_ax, x_te.squeeze().detach().cpu(), quartiles, all=False)
+        _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=False)
         _ax.legend()
         plt.savefig(os.path.join(_plot_dir, f'eval_{data_name}_preds.png'), pad_inches=0.2, bbox_inches='tight')
 
@@ -403,7 +402,7 @@ if __name__ == "__main__":
         # Log and plot results
         eval_logging(x_te, y_te, y_pred, pred_error, pred_var, "test", _results_dir, "model/eval_test", args.plot)
     
-    # Run eval on entire training dataset
+    # Run eval on entire dataset
     with torch.no_grad():
     
         # Resample <_S> inference weights

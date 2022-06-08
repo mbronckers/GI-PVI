@@ -50,7 +50,7 @@ class GIBNN:
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             inducing_inputs = _zs
             for client_name, client_z in inducing_inputs.items():
-                client_z = B.mm(client_z, w, tr_b=True)         # update z
+                client_z = B.mm(client_z, w, tr_b=True)         # propagate z. [S x M x Dout]
                 
                 if i < len(ps.keys()) - 1:                      # non-final layer
                     client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
