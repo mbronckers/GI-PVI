@@ -58,11 +58,11 @@ class GIBNN:
                 if i < len(ps.keys()) - 1:                      # non-final layer
                     client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
                 
-                    # Add bias vector if not final-layer
+                    # Add bias vector to any intermediate outputs
                     _bias = B.ones(*client_z.shape[:-1], 1)
                     _cz = B.concat(client_z, _bias, axis=-1)
                 else:
-                    _cz = client_z 
+                    _cz = client_z
                 
                 # Always store in _zs
                 _zs[client_name] = _cz 
@@ -81,14 +81,14 @@ class GIBNN:
 
         if len(x.shape) == 2:
             x = B.tile(x, self.S, 1, 1)
-            _bias = torch.ones((*x.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+            _bias = B.ones(*x.shape[:-1], 1)
             x = B.concat(x, _bias, axis=-1)
 
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
             x = B.mm(x, layer_dict["w"], tr_b=True)
             if i < len(self._cache.keys()) - 1: # non-final layer
                 x = self.nonlinearity(x)
-                _bias = torch.ones((*x.shape[:-1], 1), device="cuda:0", dtype=B.default_dtype)
+                _bias = B.ones(*x.shape[:-1], 1)
                 x = B.concat(x, _bias, axis=-1)
 
                 
