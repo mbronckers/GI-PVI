@@ -123,7 +123,8 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
 
     # Mini-batching estimator of ELBO (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl
-    
+    # elbo = ((N / len(x)) * exp_ll)
+    # elbo = -kl
     return key, elbo, exp_ll, kl, mse
 
 @namespace("zs")
@@ -274,7 +275,7 @@ if __name__ == "__main__":
     # Generate regression data
     N = args.N      # number of training points
     if args.dgp == 1:
-        key, x, y = generate_data(key, size=N)
+        key, x, y = generate_data(key, size=N, xmin=-6, xmax=6)
     else:
         key, x, y, _, _ = generate_data2(key, size=N, xmin=-4, xmax=4)
     x_tr, y_tr, x_te, y_te = split_data(x, y)

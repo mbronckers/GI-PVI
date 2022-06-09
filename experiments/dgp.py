@@ -21,14 +21,13 @@ def generate_train_data(key, size):
     
     return key, x, y
 
-def generate_data(key, size):
+def generate_data(key, size, xmin=-4., xmax=4.):
     """ Toy (test) regression dataset from paper """
     x = B.zeros(B.default_dtype, size, 1)
     
     key, x = B.rand(key, B.default_dtype, int(size), 1)
-    max, min = 4., -4.
 
-    x = x * (max-min) + min
+    x = x * (xmax-xmin) + xmin
     
     key, eps = B.randn(key, B.default_dtype, int(size), 1)
     y = x ** 3. + 3*eps
