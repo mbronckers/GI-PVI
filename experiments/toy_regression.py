@@ -229,7 +229,9 @@ if __name__ == "__main__":
     parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=10)
     parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=1e-3)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-2)
+    parser.add_argument('--ll_var', type=float, help='likelihood var', default=1e-3)
     parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=100)
+    parser.add_argument('--dgp', '-d', type=int, help='dgp/dataset type', default=1)
     # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
     args = parser.parse_args()
@@ -271,8 +273,10 @@ if __name__ == "__main__":
     
     # Generate regression data
     N = args.N      # number of training points
-    key, x, y = generate_data(key, size=N)
-    # key, x, y, _, _ = generate_data2(key, size=N, xmin=-4, xmax=4)
+    if args.dgp == 1:
+        key, x, y = generate_data(key, size=N)
+    else:
+        key, x, y, _, _ = generate_data2(key, size=N, xmin=-4, xmax=4)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
@@ -282,7 +286,6 @@ if __name__ == "__main__":
     M = args.M # number of inducing points
     in_features = 1
     dims = [in_features, 50, 50, 1]
-    # ps = build_prior(*dims)
     ps = build_prior(*dims)
     key, z, yz = build_z(key, M, x_tr, y_tr, args.random_z)
     t = build_ts(key, M, yz, *dims, nz_init=args.nz_init)
@@ -310,7 +313,7 @@ if __name__ == "__main__":
     vs = Vars(B.default_dtype)
     
     # Define likelihood.
-    output_var = vs.positive(1e-3, name="output_var")
+    output_var = vs.positive(args.ll_var, name="output_var")
     likelihood = gi.likelihoods.NormalLikelihood(output_var)
     
     # Add zs, ts to optimizable containers
