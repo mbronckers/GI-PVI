@@ -91,7 +91,6 @@ class GIBNN:
                 _bias = B.ones(*x.shape[:-1], 1)
                 x = B.concat(x, _bias, axis=-1)
 
-                
         return x
     
     def __call__(self, x):

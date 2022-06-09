@@ -123,8 +123,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
 
     # Mini-batching estimator of ELBO (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl
-    # elbo = ((N / len(x)) * exp_ll)
-    # elbo = -kl
+    
     return key, elbo, exp_ll, kl, mse
 
 @namespace("zs")

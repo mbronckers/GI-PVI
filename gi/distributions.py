@@ -194,7 +194,7 @@ class NormalPseudoObservation:
         _yz = B.expand_dims(_yz, -1)
         
         # (Dout, M, M).
-        prec_yz = B.diag_construct(self.nz)
+        prec_yz = B.diag_construct(self.nz**(-1))
         
         # (1, Dout, M, M).
         _prec_yz = B.expand_dims(prec_yz, 0)
