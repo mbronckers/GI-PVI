@@ -22,6 +22,7 @@ class Prior(enum.IntEnum):
     StandardPrior = 0
     NealPrior = 1
 
+
 def parse_prior_arg(arg: str):
     if arg.lower().__contains__("standard") or arg.lower().__contains__("normal"):
         return Prior.StandardPrior
@@ -30,6 +31,7 @@ def parse_prior_arg(arg: str):
     else:
         logger.warning("Prior type not recognized, defaulting to NealPrior.")
         return Prior.NealPrior
+
 
 def build_prior(*dims: B.Int, prior: Union[Prior, str]):
     """ 

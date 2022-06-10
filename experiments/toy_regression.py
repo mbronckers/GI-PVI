@@ -306,7 +306,8 @@ if __name__ == "__main__":
                 _inducing_inputs = zs["client0"]
                 _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
 
-                scatter_plot(x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, 
+                scatter_plot(x1=x_tr, y1=y_tr, 
+                    x2=_inducing_inputs, y2=_pseudo_outputs, 
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
                 plt.savefig(os.path.join(_plot_dir, f'training/{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')

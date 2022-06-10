@@ -12,6 +12,7 @@ class DGP(IntEnum):
     ober_regression = 1 
     sinusoid = 2
 
+
 def generate_data(key, dgp, size, xmin=-4., xmax=4):
     if dgp == DGP.ober_regression:
         return dgp1(key, size, xmin, xmax)
@@ -20,6 +21,7 @@ def generate_data(key, dgp, size, xmin=-4., xmax=4):
     else:
         logger.warning(f"DGP type not recognized, defaulting to DGP 1")
         return dgp1(key, size, xmin, xmax)
+
 
 def dgp1(key, size, xmin=-4., xmax=4.):
     """ Toy (test) regression dataset from paper """
@@ -38,6 +40,7 @@ def dgp1(key, size, xmin=-4., xmax=4.):
     
     return key, x, y
 
+
 def dgp2(key, size, xmin=-4., xmax=4.):
     
     key, eps1 = B.rand(key, B.default_dtype, int(size), 1)
@@ -48,6 +51,7 @@ def dgp2(key, size, xmin=-4., xmax=4.):
     y = x + 0.3 * B.sin(2 * B.pi * (x + eps2)) + 0.3 * B.sin(4 * B.pi * (x + eps2)) + eps1 * 0.02
 
     return key, x[:, None], y[:, None]
+
 
 def split_data(x, y):
     """ Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""
