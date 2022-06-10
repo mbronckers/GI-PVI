@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 from gi.distributions import NormalPseudoObservation
+import lab as B
+import lab.torch
 
 class Client:
     """
@@ -32,3 +34,59 @@ class Client:
         for i, layer_name in enumerate(self.t.keys()):
             var = vs[f"ts.{layer_name}_{self.name}_nz"]
             self.t[layer_name].nz = var
+
+def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
+    """
+    Build M inducing points from data (x, y).
+    - If M < len(x), select a random M-sized subset from x
+    - If M > len(x), init len(x) points to x, then randomly sample from N(0,1)
+
+    :param zs: inducing inputs
+    :param yz: pseudo (inducing) outputs for final layer
+    :param random: if true, we entirely init z to random samples from N(0,1)
+
+    :returns: key, z, y
+    """
+    if random:
+        key, z = B.randn(key, B.default_dtype, M, *x.shape[1:]) # [M x input_dim]
+        key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:]) # [M x output_dim]
+        return key, z, yz
+
+    if M <= len(x):
+        # Select random subset of size M of training points x
+        key, perm = B.randperm(key, B.default_dtype, len(x))
+        idx = perm[:M]
+        z, yz = x[idx], y[idx]
+    else:
+        z, yz = x, y
+        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:]) # Generate z_, yz_ 
+        key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
+        z = B.concat(z, z_)
+        yz = B.concat(yz, yz_)
+        
+    return key, z, yz
+
+def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
+    """
+    Builds likelihood factors per layer for one client
+    
+    For the final layer, the pseudo observations are init to the passed <yz> (usually, the training data output y)
+    For non-final layers, the pseudo obersvations <_yz> ~ N(0, 1)
+
+    :return ts: Dictionary of likelihood factors for each layer.
+    :rtype: dict<k=layer_name, v=NormalPseudoObservation>
+    """
+    ts = {}
+    num_layers = len(dims) - 1
+    for i in range(num_layers):   
+        _nz = B.ones(dims[i + 1], M) * nz_init                       # [Dout x M]
+
+        if i < num_layers - 1: 
+            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # [M x Dout]
+            t = NormalPseudoObservation(_yz, _nz)
+        else: 
+            t = NormalPseudoObservation(yz, _nz) # final layer
+            
+        ts[f"layer{i}"] = t
+        
+    return ts
