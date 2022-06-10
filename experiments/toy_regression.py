@@ -29,20 +29,9 @@ from gi.utils.plotting import line_plot, plot_confidence, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
-from debug import track, track_change
-from dgp import generate_data, generate_data2, split_data
+from priors import Prior, build_prior, parse_prior_arg
 
-def build_prior(*dims: B.Int):
-    """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
-    ps = {}
-    for i in range(len(dims) - 1):
-        mean = B.zeros(B.default_dtype, dims[i + 1], dims[i]+1, 1) # [Dout x Din+bias x 1]
-        # var = B.eye(B.default_dtype, dims[i]+1) # StandardPrior
-        var = (1/(dims[i]+1)) * B.eye(B.default_dtype, dims[i]+1) # NealPrior
-        var = B.tile(var, dims[i + 1], 1, 1)                     #  [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
-        ps[f"layer{i}"] = gi.NaturalNormal.from_normal(gi.Normal(mean, var))
-        
-    return ps
+from dgp import generate_data, generate_data2, split_data
 
 def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     """
@@ -234,6 +223,7 @@ if __name__ == "__main__":
     parser.add_argument('--dgp', '-d', type=int, help='dgp/dataset type', default=1)
     # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
+    parser.add_argument('--prior', '-P', type=str, help='prior type', default="NealPrior")
     args = parser.parse_args()
 
     # Create experiment directories
@@ -286,7 +276,8 @@ if __name__ == "__main__":
     M = args.M # number of inducing points
     in_features = 1
     dims = [in_features, 50, 50, 1]
-    ps = build_prior(*dims)
+    prior = parse_prior_arg(args.prior)
+    ps = build_prior(*dims, prior=prior)
     key, z, yz = build_z(key, M, x_tr, y_tr, args.random_z)
     t = build_ts(key, M, yz, *dims, nz_init=args.nz_init)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
@@ -377,10 +368,6 @@ if __name__ == "__main__":
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")
                 plt.savefig(os.path.join(_plot_dir, f'training/{_time}_{i}.png'), pad_inches=0.2, bbox_inches='tight')
-
-        # Track some variables for debugging
-        # out.kv("zs.client0_z", vs["zs.client0_z"])
-        # opt, olds = track_change(opt, vs, ['zs.client0_z'], i, 1, olds)
 
         opt.step()
         rebuild(vs, likelihood, clients) # Rebuild clients & likelihood

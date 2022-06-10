@@ -1,3 +1,6 @@
+"""
+This file gets the most recently modified results folder (i.e. most recent results) and outputs the variable states at the end of training
+"""
 import os
 
 def latest_subdir(b="/homes/mojb2/Thesis/GI-PVI/results/"):
