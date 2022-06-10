@@ -31,8 +31,8 @@ from wbml import experiment, out
 from gi.utils.plotting import line_plot, plot_confidence, scatter_plot
 
 from priors import build_prior, parse_prior_arg
-from dgp import generate_data, generate_data2, split_data
-
+from dgp import generate_data, split_data, DGP
+from config.config import Config
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
@@ -53,12 +53,12 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     exp_ll = exp_ll.mean(0).sum()       # take mean across inference samples and sum
     kl = kl.mean()                      # across inference samples
     error = y-out.mean(0)               # error of mean prediction
-    mse = B.mean(error**2)
-
+    rmse = B.sqrt(B.mean(error**2))
+    
     # Mini-batching estimator of ELBO (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl
     
-    return key, elbo, exp_ll, kl, mse
+    return key, elbo, exp_ll, kl, rmse
 
 @namespace("zs")
 def add_zs(vs, zs):
@@ -104,7 +104,7 @@ def load_vs(fpath):
 
     return vs
 
-def eval_logging(x, y, y_pred, mse, pred_var, data_name, _results_dir, _fname, plot: bool):
+def eval_logging(x, y, y_pred, error, pred_var, data_name, _results_dir, _fname, plot: bool):
     """_summary_
 
     Args:
@@ -121,7 +121,7 @@ def eval_logging(x, y, y_pred, mse, pred_var, data_name, _results_dir, _fname, p
     _S = y_pred.shape[0] # number of inference samples
 
     # Log test error and variance
-    logger.info(f"{data_name} error (MSE): {round(mse.item(), 1):3}, {data_name} var: {round(y_pred.var().item(), 1):3}")
+    logger.info(f"{data_name} error (RMSE): {round(error.item(), 1):3}, {data_name} var: {round(y_pred.var().item(), 1):3}")
 
     # Save model predictions
     _results_eval = pd.DataFrame({
@@ -152,23 +152,24 @@ if __name__ == "__main__":
     import warnings
     warnings.filterwarnings("ignore")
 
+    config = Config()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', '-s', type=int, help='seed', nargs='?', default=0)
-    parser.add_argument('--epochs', '-e', type=int, help='epochs', default=1000)
+    parser.add_argument('--seed', '-s', type=int, help='seed', nargs='?', default=config.seed)
+    parser.add_argument('--epochs', '-e', type=int, help='epochs', default=config.epochs)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
-    parser.add_argument('--name', '-n', type=str, help='Experiment name', default="")
-    parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=100)
-    parser.add_argument('--N', '-N', type=int, help='number of training points', default=1000)
-    parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=2)
-    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=10)
-    parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=1e-3)
-    parser.add_argument('--lr', type=float, help='learning rate', default=1e-2)
-    parser.add_argument('--ll_var', type=float, help='likelihood var', default=1e-3)
-    parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=100)
-    parser.add_argument('--dgp', '-d', type=int, help='dgp/dataset type', default=1)
+    parser.add_argument('--name', '-n', type=str, help='Experiment name', default=config.name)
+    parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=config.M)
+    parser.add_argument('--N', '-N', type=int, help='number of training points', default=config.N)
+    parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=config.I)
+    parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=config.S)
+    parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=config.nz_init)
+    parser.add_argument('--lr', type=float, help='learning rate', default=config.lr)
+    parser.add_argument('--ll_var', type=float, help='likelihood var', default=config.ll_var)
+    parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=config.batch_size)
+    parser.add_argument('--dgp', '-d', type=int, help='dgp/dataset type', default=config.dgp)
     # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
-    parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z')
-    parser.add_argument('--prior', '-P', type=str, help='prior type', default="NealPrior")
+    parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z', default=config.random_z)
+    parser.add_argument('--prior', '-P', type=str, help='prior type', default=config.prior)
     args = parser.parse_args()
 
     # Create experiment directories
@@ -208,10 +209,7 @@ if __name__ == "__main__":
     
     # Generate regression data
     N = args.N      # number of training points
-    if args.dgp == 1:
-        key, x, y = generate_data(key, size=N, xmin=-6, xmax=6)
-    else:
-        key, x, y, _, _ = generate_data2(key, size=N, xmin=-4, xmax=4)
+    key, x, y = generate_data(key, args.dgp, N, xmin=-6., xmax=6.)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
@@ -221,8 +219,7 @@ if __name__ == "__main__":
     M = args.M # number of inducing points
     in_features = 1
     dims = [in_features, 50, 50, 1]
-    prior = parse_prior_arg(args.prior)
-    ps = build_prior(*dims, prior=prior)
+    ps = build_prior(*dims, prior=args.prior)
     key, z, yz = gi.client.build_z(key, M, x_tr, y_tr, args.random_z)
     t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
@@ -263,7 +260,7 @@ if __name__ == "__main__":
     # Optimizer parameters
     lr = args.lr
     opt = torch.optim.Adam(vs.get_vars(), lr=lr)
-    batch_size = min(args.batch_size, N)
+    batch_size = min(args.batch_size, N) if args.batch_size != 100 else N//10
     S = args.training_samples # number of inference samples
     epochs = args.epochs
     
@@ -292,7 +289,7 @@ if __name__ == "__main__":
         
         key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
 
-        logger.debug(f"[{i:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
+        logger.debug(f"[{i:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
         
         elbos.append(elbo.detach().cpu().item())
         errors.append(error.item())
@@ -303,7 +300,7 @@ if __name__ == "__main__":
         loss.backward()
 
         if i%log_step == 0 or i == (epochs-1):
-            logger.info(f"Epoch {i:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 1):8.1f}")
+            logger.info(f"Epoch {i:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
             if args.plot:
                 _inducing_inputs = zs["client0"]
@@ -335,13 +332,13 @@ if __name__ == "__main__":
         # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
 
-        # Get <_S> predictions, calculate average MSE, variance
+        # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
-        mse = B.mean((y_te-y_pred.mean(0))**2)
+        rmse = B.sqrt(B.mean((y_te-y_pred.mean(0))**2))
         pred_var = y_pred.var(0)
 
         # Log and plot results
-        eval_logging(x_te, y_te, y_pred, mse, pred_var, "test", _results_dir, "model/eval_test", args.plot)
+        eval_logging(x_te, y_te, y_pred, rmse, pred_var, "test", _results_dir, "model/eval_test", args.plot)
     
     # Run eval on entire dataset
     with torch.no_grad():
@@ -352,9 +349,9 @@ if __name__ == "__main__":
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x)
 
-        mse = B.mean((y-y_pred.mean(0))**2)
+        rmse = B.sqrt(B.mean((y-y_pred.mean(0))**2))
         pred_var = y_pred.var(0)
 
         # Log and plot results
-        eval_logging(x, y, y_pred, mse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
+        eval_logging(x, y, y_pred, rmse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
 

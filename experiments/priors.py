@@ -32,7 +32,10 @@ def parse_prior_arg(arg: str):
         return Prior.NealPrior
 
 def build_prior(*dims: B.Int, prior: Union[Prior, str]):
-    """ :param dims: BNN dimensionality [Din x *D_latents x Dout] """
+    """ 
+    :param dims: BNN dimensionality [Din x *D_latents x Dout]
+    """
+    
     if type(prior) == str: prior = parse_prior_arg(prior)
 
     ps = {}

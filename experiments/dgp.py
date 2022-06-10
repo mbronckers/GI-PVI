@@ -3,25 +3,25 @@ import lab.torch
 import numpy as np
 import torch 
 
-def generate_train_data(key, size):
-    """ Toy regression dataset from paper only on domain [-4, -2] U [2, 4] """
-    x = B.zeros(B.default_dtype, size, 1)
-    
-    key, x[:int(size / 2), :] = B.rand(key, B.default_dtype, int(size / 2), 1)
-    x[:int(size / 2)] = x[:int(size / 2)] * 2. - 4.
-    key, x[int(size / 2):] = B.rand(key, B.default_dtype, int(size / 2), 1)
-    x[int(size / 2):] = x[int(size / 2):] * 2. + 2.
-    
-    key, eps = B.randn(key, B.default_dtype, size, 1)
-    y = x ** 3. + 3*eps
+from enum import IntEnum
+import logging
 
-    # Rescale the outputs to have unit variance
-    scale = B.std(y)
-    y = y/scale
-    
-    return key, x, y
+logger = logging.getLogger()
 
-def generate_data(key, size, xmin=-4., xmax=4.):
+class DGP(IntEnum):
+    ober_regression = 1 
+    sinusoid = 2
+
+def generate_data(key, dgp, size, xmin=-4., xmax=4):
+    if dgp == DGP.ober_regression:
+        return dgp1(key, size, xmin, xmax)
+    elif dgp == DGP.sinusoid:
+        return dgp2(key, size, xmin, xmax)
+    else:
+        logger.warning(f"DGP type not recognized, defaulting to DGP 1")
+        return dgp1(key, size, xmin, xmax)
+
+def dgp1(key, size, xmin=-4., xmax=4.):
     """ Toy (test) regression dataset from paper """
     x = B.zeros(B.default_dtype, size, 1)
     
@@ -38,6 +38,17 @@ def generate_data(key, size, xmin=-4., xmax=4.):
     
     return key, x, y
 
+def dgp2(key, size, xmin=-4., xmax=4.):
+    
+    key, eps1 = B.rand(key, B.default_dtype, int(size), 1)
+    key, eps2 = B.rand(key, B.default_dtype, int(size), 1)
+
+    eps1, eps2 = eps1.squeeze(), eps2.squeeze()
+    x = B.expand_dims(eps2 * (xmax - xmin) + xmin, axis=1).squeeze()
+    y = x + 0.3 * B.sin(2 * B.pi * (x + eps2)) + 0.3 * B.sin(4 * B.pi * (x + eps2)) + eps1 * 0.02
+
+    return key, x[:, None], y[:, None]
+
 def split_data(x, y):
     """ Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""
 
@@ -48,13 +59,3 @@ def split_data(x, y):
     
     return x_tr, y_tr, x_te, y_te
 
-def generate_data2(key, size, xmin, xmax):
-    
-    key, eps1 = B.rand(key, B.default_dtype, int(size), 1)
-    key, eps2 = B.rand(key, B.default_dtype, int(size), 1)
-
-    eps1, eps2 = eps1.squeeze(), eps2.squeeze()
-    x = B.expand_dims(eps2 * (xmax - xmin) + xmin, axis=1).squeeze()
-    y = x + 0.3 * B.sin(2 * B.pi * (x + eps2)) + 0.3 * B.sin(4 * B.pi * (x + eps2)) + eps1 * 0.02
-
-    return key, x[:, None], y[:, None], eps1, eps2
