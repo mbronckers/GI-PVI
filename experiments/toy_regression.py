@@ -29,7 +29,7 @@ from gi.utils.plotting import line_plot, plot_confidence, scatter_plot
 from varz import Vars, namespace
 from wbml import experiment, out
 
-from priors import Prior, build_prior, parse_prior_arg
+from priors import build_prior, parse_prior_arg
 
 from dgp import generate_data, generate_data2, split_data
 
@@ -247,7 +247,7 @@ if __name__ == "__main__":
         out("Could not save calling script.")
 
     #### Logging ####
-    logging.config.fileConfig(os.path.join(file_dir, 'logging.conf'), defaults={'logfilepath': _results_dir})
+    logging.config.fileConfig(os.path.join(file_dir, 'config/logging.conf'), defaults={'logfilepath': _results_dir})
     logger = logging.getLogger()
     np.set_printoptions(linewidth=np.inf)
 
