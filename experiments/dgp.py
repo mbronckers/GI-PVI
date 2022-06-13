@@ -56,11 +56,11 @@ def dgp2(key, size, xmin=-4., xmax=4.):
     return key, x[:, None], y[:, None], scale
 
 
-def split_data(x, y):
+def split_data(x, y, lb_mid=-2., ub_mid=2.):
     """ Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""
 
-    idx_te = torch.logical_and((x >= -2.), x <= 2.)
-    idx_tr = torch.logical_or((x < -2.), x > 2.)
+    idx_te = torch.logical_and((x >= lb_mid), x <= ub_mid)
+    idx_tr = torch.logical_or((x < lb_mid), x > ub_mid)
     x_te, y_te = x[idx_te][:, None], y[idx_te][:, None]
     x_tr, y_tr = x[idx_tr][:, None], y[idx_tr][:, None]
     

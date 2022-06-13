@@ -10,7 +10,8 @@ from torch import Tensor
 
 from wbml import plot
 
-colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+# colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+colors = sns.color_palette("bright")
 
 def scatter_plot(x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, 
         desc1: str, desc2: str,  xlabel: Optional[str]=None, ylabel: Optional[str]=None, title: Optional[str]=None):
@@ -44,9 +45,9 @@ def plot_confidence(ax, x, quartiles, all: bool = False):
     
     x_sorted, q0, q1, q2, q3 = zip(*sorted(zip(x, quartiles[0, :], quartiles[1, :], quartiles[2, :], quartiles[3, :])))
     
-    ax.fill_between(x_sorted, q1, q2, color='tab:orange', alpha=0.25, label="25-75th percentile")
+    ax.fill_between(x_sorted, q1, q2, color='tab:orange', alpha=0.20, label="25-75th percentile")
     if all:
-        ax.fill_between(x_sorted, q0, q3, color='tab:cyan', alpha=0.25, label="5-95th percentile")
+        ax.fill_between(x_sorted, q0, q3, color='tab:cyan', alpha=0.20, label="5-95th percentile")
 
     return ax
 

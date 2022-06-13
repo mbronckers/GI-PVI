@@ -53,7 +53,7 @@ def build_prior(*dims: B.Int, prior: Union[Prior, str], bias: bool):
             var = B.eye(B.default_dtype, dim_in)
         elif prior == Prior.NealPrior:
             var = (1/dims[i]) * B.eye(B.default_dtype, dim_in)
-        elif prior == Prior.NealPrior:
+        elif prior == Prior.HePrior:
             var = (2/dims[i]) * B.eye(B.default_dtype, dim_in)
         
         # [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
