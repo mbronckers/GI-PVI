@@ -107,18 +107,20 @@ def load_vs(fpath):
     return vs
 
 def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot: bool):
-    """_summary_
+    """ Logs the model inference results and saves plots
 
     Args:
-        x (_type_): _description_
-        y (_type_): _description_
-        y_pred (_type_): _description_
-        mse (_type_): _description_
-        pred_var (_type_): _description_
+        x (_type_): eval input locations
+        y (_type_): eval labels
+        x_tr (_type_): training data
+        y_tr (_type_): training labels
+        y_pred (_type_): model predictions (S x Dout)
+        error (_type_): (y - y_pred)
+        pred_var (_type_): y_pred.var
         data_name (str): type of (x,y) dataset, e.g. "test", "train", "eval", "all"
         _results_dir (_type_): results directory to save plots
         _fname (_type_): plot file name
-        plot (bool): save plot figure
+        _plot (bool): save plot figure
     """
     _S = y_pred.shape[0] # number of inference samples
 
@@ -145,7 +147,7 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
 
         _preds_idx = [f'preds_{i}' for i in range(_S)]
         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
-        _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=False)
+        _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=True)
         
         scatterplot = plot.patch(sns.scatterplot)
         scatterplot(ax=_ax, y=y_tr, x=x_tr, label="Training data", color=gi.utils.plotting.colors[3])

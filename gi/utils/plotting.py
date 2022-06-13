@@ -45,9 +45,9 @@ def plot_confidence(ax, x, quartiles, all: bool = False):
     
     x_sorted, q0, q1, q2, q3 = zip(*sorted(zip(x, quartiles[0, :], quartiles[1, :], quartiles[2, :], quartiles[3, :])))
     
-    ax.fill_between(x_sorted, q1, q2, color='tab:orange', alpha=0.20, label="25-75th percentile")
     if all:
-        ax.fill_between(x_sorted, q0, q3, color='tab:cyan', alpha=0.20, label="5-95th percentile")
+        ax.fill_between(x_sorted, q0, q3, color=colors[7], alpha=0.20, label="5-95th percentile")
+    ax.fill_between(x_sorted, q1, q2, color=colors[1], alpha=0.20, label="25-75th percentile")
 
     return ax
 
