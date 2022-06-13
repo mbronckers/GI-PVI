@@ -1,0 +1,10 @@
+[2022-06-13 22:47:24] - root - DEBUG - Call: ['regression.py', '-e', '0', '-n', 'debug']
+[2022-06-13 22:47:24] - root - DEBUG - Root: /homes/mojb2/Thesis/GI-PVI/results/2022-06-13-21.47.24_debug
+[2022-06-13 22:47:24] - root - DEBUG - Time: 2022-06-13-21.47.24
+[2022-06-13 22:47:24] - root - DEBUG - Seed: 0
+[2022-06-13 22:47:24] - root - INFO - Args: Namespace(M=10, N=100, batch_size=100, bias=True, dgp=<DGP.ober_regression: 1>, epochs=0, inference_samples=100, ll_var=0.001, lr=0.01, name='debug', nz_init=0.001, plot=True, prior=<Prior.NealPrior: 1>, random_z=False, seed=0, training_samples=2)
+[2022-06-13 22:47:27] - matplotlib.legend - WARNING - No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+[2022-06-13 22:47:27] - matplotlib.legend - WARNING - No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+[2022-06-13 22:47:27] - root - INFO - Test set error (RMSE): 0.5, var: 0.568
+[2022-06-13 22:47:28] - root - INFO - Both train/test set error (RMSE): 0.257, var: 1.368
+[2022-06-13 22:47:28] - root - INFO - Entire domain error (RMSE): 0.107, var: 4.342
