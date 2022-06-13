@@ -18,7 +18,7 @@ class Config:
     epochs: int = 1000
     
     N: int = 100        # Number of training data pts
-    M: int = N//10
+    M: int = 50         # Number of inducing points
     S: int = 2          # Number of training weight samples
     I: int = 10         # Number of inference samples
 
@@ -26,7 +26,7 @@ class Config:
     lr: float = 1e-2
     ll_var: float = 1e-3
     
-    batch_size: int = N//10
+    batch_size: int = 100
 
     prior: Prior = Prior.NealPrior
     dgp: DGP = DGP.ober_regression

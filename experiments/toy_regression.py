@@ -33,6 +33,7 @@ from gi.utils.plotting import line_plot, plot_confidence, scatter_plot
 from priors import build_prior, parse_prior_arg
 from dgp import generate_data, split_data, DGP
 from config.config import Config
+from utils.gif import make_gif
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
@@ -202,6 +203,7 @@ if __name__ == "__main__":
     logger.debug(f"Root: {_results_dir}")
     logger.debug(f"Time: {_time}")
     logger.debug(f"Seed: {args.seed}")
+    logger.info(f"Args: {args}")
 
     # Lab variable initialization
     B.default_dtype = torch.float64
@@ -260,7 +262,7 @@ if __name__ == "__main__":
     # Optimizer parameters
     lr = args.lr
     opt = torch.optim.Adam(vs.get_vars(), lr=lr)
-    batch_size = min(args.batch_size, N) if args.batch_size != 100 else N//10
+    batch_size = min(args.batch_size, N)
     S = args.training_samples # number of inference samples
     epochs = args.epochs
     
@@ -356,3 +358,4 @@ if __name__ == "__main__":
         # Log and plot results
         eval_logging(x, y, y_pred, rmse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
 
+    make_gif(_plot_dir)
