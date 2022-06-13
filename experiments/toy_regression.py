@@ -220,8 +220,7 @@ if __name__ == "__main__":
 
     # Build one client
     M = args.M # number of inducing points
-    in_features = 1
-    dims = [in_features, 50, 50, 1]
+    dims = config.dims
     ps = build_prior(*dims, prior=args.prior)
     key, z, yz = gi.client.build_z(key, M, x_tr, y_tr, args.random_z)
     t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)

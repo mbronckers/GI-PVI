@@ -32,3 +32,5 @@ class Config:
     dgp: DGP = DGP.ober_regression
 
     random_z: bool = False
+
+    dims = [1, 50, 50, 1]
