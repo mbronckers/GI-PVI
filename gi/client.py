@@ -66,7 +66,7 @@ def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
         
     return key, z, yz
 
-def build_ts(key, M, yz, *dims: B.Int, nz_init=1e-3):
+def build_ts(key, M, yz, *dims: B.Int, nz_init: float):
     """
     Builds likelihood factors per layer for one client
     

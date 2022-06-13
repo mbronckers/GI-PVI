@@ -22,7 +22,7 @@ import lab as B
 import lab.torch
 import numpy as np
 import pandas as pd
-import slugify
+from slugify import slugify
 import torch
 import torch.nn as nn
 
@@ -34,6 +34,7 @@ from priors import build_prior, parse_prior_arg
 from dgp import generate_data, split_data, DGP
 from config.config import Config
 from utils.gif import make_gif
+from utils.metrics import rmse
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
@@ -122,7 +123,7 @@ def eval_logging(x, y, y_pred, error, pred_var, data_name, _results_dir, _fname,
     _S = y_pred.shape[0] # number of inference samples
 
     # Log test error and variance
-    logger.info(f"{data_name} error (RMSE): {round(error.item(), 3):3}, {data_name} var: {round(y_pred.var().item(), 3):3}")
+    logger.info(f"{data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}")
 
     # Save model predictions
     _results_eval = pd.DataFrame({
@@ -136,17 +137,18 @@ def eval_logging(x, y, y_pred, error, pred_var, data_name, _results_dir, _fname,
     for num_sample in range(_S): 
         _results_eval[f'preds_{num_sample}'] = y_pred[num_sample].squeeze().detach().cpu()
     
-    _results_eval.to_csv(os.path.join(_results_dir, f"{_fname}.csv"), index=False)
+    _results_eval.to_csv(os.path.join(_results_dir, f"model/{_fname}.csv"), index=False)
 
     # Plot model predictions
     if plot:
-        _ax = scatter_plot(x, y, x, y_pred.mean(0), f"{data_name.capitalize()} data", "Model predictions", "x", "y", f"Model predictions on {data_name} data ({_S} samples)")
+        _ax = scatter_plot(x, y, x, y_pred.mean(0), f"{data_name.capitalize()} data", "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
 
         _preds_idx = [f'preds_{i}' for i in range(_S)]
         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
         _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=False)
         _ax.legend()
-        plt.savefig(os.path.join(_plot_dir, f'eval_{data_name}_preds.png'), pad_inches=0.2, bbox_inches='tight')
+        
+        plt.savefig(os.path.join(_plot_dir, f'{_fname}.png'), pad_inches=0.2, bbox_inches='tight')
 
 
 if __name__ == "__main__":
@@ -171,12 +173,13 @@ if __name__ == "__main__":
     # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z', default=config.random_z)
     parser.add_argument('--prior', '-P', type=str, help='prior type', default=config.prior)
+    parser.add_argument('--bias', help='Use bias vectors in BNN', default=config.bias)
     args = parser.parse_args()
 
     # Create experiment directories
     _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
     _results_dir_name = "results"
-    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify.slugify(args.name)}")
+    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify(args.name)}")
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
     _plot_dir = os.path.join(_results_dir, "plots")
     _metrics_dir = os.path.join(_results_dir, "metrics")
@@ -190,7 +193,6 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        # shutil.copy(os.path.abspath("config/config.py"), _wd.file("config.py"))
         shutil.copy(os.path.join(_root_dir, "experiments/config/config.py"), _wd.file("config.py"))
 
     else:
@@ -214,7 +216,7 @@ if __name__ == "__main__":
     
     # Generate regression data
     N = args.N      # number of training points
-    key, x, y = generate_data(key, args.dgp, N, xmin=-4., xmax=4.)
+    key, x, y, scale = generate_data(key, args.dgp, N, xmin=-4., xmax=4.)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
@@ -223,7 +225,7 @@ if __name__ == "__main__":
     # Build one client
     M = args.M # number of inducing points
     dims = config.dims
-    ps = build_prior(*dims, prior=args.prior)
+    ps = build_prior(*dims, prior=args.prior, bias=args.bias)
     key, z, yz = gi.client.build_z(key, M, x_tr, y_tr, args.random_z)
     t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
     clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
@@ -339,11 +341,9 @@ if __name__ == "__main__":
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
-        rmse = B.sqrt(B.mean((y_te-y_pred.mean(0))**2))
-        pred_var = y_pred.var(0)
 
         # Log and plot results
-        eval_logging(x_te, y_te, y_pred, rmse, pred_var, "test", _results_dir, "model/eval_test", args.plot)
+        eval_logging(x_te, y_te, y_pred, rmse(y_te, y_pred), y_pred.var(0), "Test set", _results_dir, "eval_test_preds", args.plot)
     
     # Run eval on entire dataset
     with torch.no_grad():
@@ -354,11 +354,27 @@ if __name__ == "__main__":
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x)
 
-        rmse = B.sqrt(B.mean((y-y_pred.mean(0))**2))
-        pred_var = y_pred.var(0)
-
         # Log and plot results
-        eval_logging(x, y, y_pred, rmse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
+        eval_logging(x, y, y_pred, rmse(y, y_pred), y_pred.var(0), "Train + test set", _results_dir, "eval_all_preds", args.plot)
 
     if args.plot: 
         make_gif(_plot_dir)
+    
+    # Run eval on entire domain (linspace)
+    with torch.no_grad():
+    
+        # Resample <_S> inference weights
+        key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
+
+        # Generate points across domain
+        num_pts = 100
+        x_domain = B.linspace(-6, 6, num_pts)[..., None]
+        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+        y_domain = x_domain**3. + 3*eps
+        y_domain = y_domain/scale   # scale with train dataset
+
+        # Get <_S> predictions, calculate average RMSE, variance
+        y_pred = model.propagate(x_domain)
+        print(B.sqrt(B.mean((y_domain-y_pred.mean(0))**2)) == rmse(y_domain, y_pred))
+        # Log and plot results
+        eval_logging(x_domain, y_domain, y_pred, rmse(y_domain, y_pred), y_pred.var(0), "Entire domain", _results_dir, "eval_domain_preds", args.plot)

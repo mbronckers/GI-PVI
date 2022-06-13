@@ -38,7 +38,7 @@ def dgp1(key, size, xmin=-4., xmax=4.):
     scale = B.std(y)
     y = y/scale
     
-    return key, x, y
+    return key, x, y, scale
 
 
 def dgp2(key, size, xmin=-4., xmax=4.):
@@ -50,7 +50,10 @@ def dgp2(key, size, xmin=-4., xmax=4.):
     x = B.expand_dims(eps2 * (xmax - xmin) + xmin, axis=1).squeeze()
     y = x + 0.3 * B.sin(2 * B.pi * (x + eps2)) + 0.3 * B.sin(4 * B.pi * (x + eps2)) + eps1 * 0.02
 
-    return key, x[:, None], y[:, None]
+    scale = B.std(y)
+    y = y/scale
+
+    return key, x[:, None], y[:, None], scale
 
 
 def split_data(x, y):

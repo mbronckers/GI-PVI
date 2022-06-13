@@ -175,6 +175,8 @@ class NormalPseudoObservation:
         """
         :param yz: inducing point observation (pseudo-observations)
         :param nz: inducing point noise (precision)
+
+        yz is denoted by \\Lambda_{\\ell} in Ober et al. 
         """
         self.yz = yz    # [M x Dout]
         self.nz = nz    # [Dout x M]
