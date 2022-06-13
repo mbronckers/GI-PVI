@@ -157,7 +157,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', '-s', type=int, help='seed', nargs='?', default=config.seed)
     parser.add_argument('--epochs', '-e', type=int, help='epochs', default=config.epochs)
-    parser.add_argument('--plot', '-p', action='store_true', help='Plot results')
+    parser.add_argument('--plot', '-p', action='store_true', help='Plot results', default=config.plot)
     parser.add_argument('--name', '-n', type=str, help='Experiment name', default=config.name)
     parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=config.M)
     parser.add_argument('--N', '-N', type=int, help='number of training points', default=config.N)
@@ -190,6 +190,7 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
+        shutil.copy(os.path.abspath("experiments/config/config.py"), _wd.file("config.py"))
     else:
         out("Could not save calling script.")
 
@@ -358,4 +359,4 @@ if __name__ == "__main__":
         # Log and plot results
         eval_logging(x, y, y_pred, rmse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
 
-    make_gif(_plot_dir)
+    if args.plot: make_gif(_plot_dir)
