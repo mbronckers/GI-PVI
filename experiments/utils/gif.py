@@ -13,7 +13,7 @@ def natural_keys(text):
     '''
     return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
-def make_gif(plot_dir, gif_name="inducing.gif"):
+def make_gif(plot_dir, gif_name="inducing"):
     """ Build GIF of inducing points across training """
     
     export_name = f'{plot_dir}/{gif_name}.gif'
