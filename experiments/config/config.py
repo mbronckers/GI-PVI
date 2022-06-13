@@ -18,7 +18,7 @@ class Config:
     epochs: int = 1000
     
     N: int = 100        # Number of training data pts
-    M: int = 50         # Number of inducing points
+    M: int = 10         # Number of inducing points
     S: int = 2          # Number of training weight samples
     I: int = 10         # Number of inference samples
 

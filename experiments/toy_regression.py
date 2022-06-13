@@ -122,7 +122,7 @@ def eval_logging(x, y, y_pred, error, pred_var, data_name, _results_dir, _fname,
     _S = y_pred.shape[0] # number of inference samples
 
     # Log test error and variance
-    logger.info(f"{data_name} error (RMSE): {round(error.item(), 1):3}, {data_name} var: {round(y_pred.var().item(), 1):3}")
+    logger.info(f"{data_name} error (RMSE): {round(error.item(), 3):3}, {data_name} var: {round(y_pred.var().item(), 3):3}")
 
     # Save model predictions
     _results_eval = pd.DataFrame({
@@ -190,7 +190,9 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(os.path.abspath("experiments/config/config.py"), _wd.file("config.py"))
+        # shutil.copy(os.path.abspath("config/config.py"), _wd.file("config.py"))
+        shutil.copy(os.path.join(_root_dir, "experiments/config/config.py"), _wd.file("config.py"))
+
     else:
         out("Could not save calling script.")
 
@@ -212,7 +214,7 @@ if __name__ == "__main__":
     
     # Generate regression data
     N = args.N      # number of training points
-    key, x, y = generate_data(key, args.dgp, N, xmin=-6., xmax=6.)
+    key, x, y = generate_data(key, args.dgp, N, xmin=-4., xmax=4.)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
@@ -358,4 +360,5 @@ if __name__ == "__main__":
         # Log and plot results
         eval_logging(x, y, y_pred, rmse, pred_var, "all", _results_dir, "model/eval_all", args.plot)
 
-    if args.plot: make_gif(_plot_dir)
+    if args.plot: 
+        make_gif(_plot_dir)

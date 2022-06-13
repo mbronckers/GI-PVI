@@ -13,7 +13,7 @@ def natural_keys(text):
     '''
     return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
-def make_gif(plot_dir, gif_name="inducing"):
+def make_gif(plot_dir, gif_name="inducing", duration=3):
     """ Build GIF of inducing points across training """
     
     export_name = f'{plot_dir}/{gif_name}.gif'
@@ -22,7 +22,7 @@ def make_gif(plot_dir, gif_name="inducing"):
     filenames = next(os.walk(_train_dir), (None, None, []))[2]
     filenames.sort(key=natural_keys)
 
-    frame_duration = 2/len(filenames) # 2 sec total dur
+    frame_duration = duration/len(filenames) # 2 sec total dur
 
     images = list(map(lambda filename: imageio.imread(os.path.join(_train_dir, filename)), filenames))
 
