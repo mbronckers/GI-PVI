@@ -182,7 +182,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create experiment directories
-    _time = datetime.utcnow().strftime("%Y-%m-%d-%H.%M.%S")
+    _start = datetime.utcnow()
+    _time = _start.strftime("%Y-%m-%d-%H.%M.%S")
     _results_dir_name = "results"
     _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify(args.name)}")
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
@@ -365,3 +366,5 @@ if __name__ == "__main__":
         y_domain = y_domain/scale   # scale with train datasets
         y_pred = model.propagate(x_domain)
         eval_logging(x_domain, y_domain, x_tr, y_tr, y_pred, rmse(y_domain, y_pred), y_pred.var(0), "Entire domain", _results_dir, "eval_domain_preds", args.plot)
+
+    logger.info(f"Total time: {(datetime.utcnow() - _start)} (H:MM:SS:ms)")
