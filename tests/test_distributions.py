@@ -25,16 +25,16 @@ def _test_kl_normal(n1: gi.distributions.Normal, n2: gi.distributions.Normal):
     
     # Define torch distributions and check our kl = there kl.
     n1_torch = torch.distributions.MultivariateNormal(
-        loc=B.cast(torch.float64, n1.mean), 
+        loc=B.cast(torch.float64, B.squeeze(n1.mean, -1)), 
         covariance_matrix=B.cast(torch.float64, B.dense(n1.var))
     )
     n2_torch = torch.distributions.MultivariateNormal(
-        loc=B.cast(torch.float64, n2.mean), 
+        loc=B.cast(torch.float64, B.squeeze(n2.mean, -1)), 
         covariance_matrix=B.cast(torch.float64, B.dense(n2.var))
     )
     torch_kl = torch.distributions.kl_divergence(n1_torch, n2_torch)
     
-    approx(gi_kl, torch_kl)
+    approx(gi_kl, torch_kl, rtol=1e-6)
     
     return True
     
@@ -73,6 +73,25 @@ def test_kl():
     # B.squeeze doesn't accept axes... Use this instead.
     lam1 = B.mm(B.pd_inv(C1), m1)[..., 0]
     lam2 = B.mm(B.pd_inv(C2), m2)[..., 0]
+    n1 = gi.distributions.NaturalNormal(lam1, B.pd_inv(C1))
+    n2 = gi.distributions.NaturalNormal(lam2, B.pd_inv(C2))
+    assert _test_kl_naturalnormal(n1, n2) == True
+    
+    # Testing with batch dimension.
+    b = 10
+    key, m1 = B.randn(key, B.default_dtype, b, n, 1)
+    key, m2 = B.randn(key, B.default_dtype, b, n, 1)
+    key, L1 = B.randn(key, B.default_dtype, b, n, n)
+    key, L2 = B.randn(key, B.default_dtype, b, n, n)
+    C1, C2 = B.mm(L1, B.transpose(L1)), B.mm(L2, B.transpose(L2))
+    
+    n1 = gi.distributions.Normal(m1, C1)
+    n2 = gi.distributions.Normal(m2, C2)
+    assert _test_kl_normal(n1, n2) == True
+    
+    # B.squeeze doesn't accept axes... Use this instead.
+    lam1 = B.mm(B.pd_inv(C1), m1)
+    lam2 = B.mm(B.pd_inv(C2), m2)
     n1 = gi.distributions.NaturalNormal(lam1, B.pd_inv(C1))
     n2 = gi.distributions.NaturalNormal(lam2, B.pd_inv(C2))
     assert _test_kl_naturalnormal(n1, n2) == True

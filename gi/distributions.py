@@ -151,7 +151,7 @@ class NaturalNormal:
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
             
-        sample = B.mm(B.inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
+        sample = B.mm(B.pd_inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
         
         if not structured(sample):
             sample = B.dense(sample) # transform Tensor to Dense matrix
@@ -203,7 +203,8 @@ class NormalPseudoObservation:
         
         # (S, Dout, Din, Din).
         prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z)) # z^T @ prec_yz @ z
-        
+        # TODO: check - if z is identity, then prec_w must be equal to prec_yz
+
         # (S, Dout, Din, 1)
         lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz)) # z^T @ prec_yz @ yz
         
