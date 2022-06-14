@@ -35,3 +35,5 @@ class Config:
     bias: bool = True
 
     dims = [1, 50, 50, 1]
+
+    load: str = None

@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -10,8 +11,8 @@ from torch import Tensor
 
 from wbml import plot
 
-# colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 colors = sns.color_palette("bright")
+matplotlib.rcParams['figure.dpi'] = 600
 
 def scatter_plot(x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, 
         desc1: str, desc2: str,  xlabel: Optional[str]=None, ylabel: Optional[str]=None, title: Optional[str]=None):
