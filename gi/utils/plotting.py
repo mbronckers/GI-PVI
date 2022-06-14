@@ -28,7 +28,6 @@ def scatter_plot(x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor,
     sns.scatterplot(y=get_values(y2), x=get_values(x2), label=f"{desc2}", ax=ax, 
                 color=colors[1])
 
-    ax.legend()
     # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
     if xlabel != None: ax.set_xlabel(xlabel)
     if ylabel != None: ax.set_ylabel(ylabel)
@@ -39,6 +38,28 @@ def scatter_plot(x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor,
 
     return ax
 
+def plot_predictions(ax, x: Tensor, y: Tensor,
+        desc: str, xlabel: Optional[str]=None,
+        ylabel: Optional[str]=None, title: Optional[str]=None):
+
+    if ax == None:
+        fig, ax = plt.subplots(1, 1, figsize=(10,10))
+
+    scatterplot = plot.patch(sns.scatterplot)
+    if len(y.shape) == 3:
+        for i in range(y.shape[0]):
+            scatterplot(y=y[i], x=x, ax=ax)
+    else:
+        scatterplot(y=y, x=x, ax=ax)
+
+    # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
+    if xlabel != None: ax.set_xlabel(xlabel)
+    if ylabel != None: ax.set_ylabel(ylabel)
+    if title != None: ax.set_title(title)
+
+    plot.tweak(ax)
+
+    return ax
 
 def plot_confidence(ax, x, quartiles, all: bool = False):
     assert len(quartiles) == 4 # [num quartiles x num preds]

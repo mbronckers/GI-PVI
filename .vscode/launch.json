@@ -15,6 +15,7 @@
                 [
                     "--plot", 
                     "--epochs=100",
+                    "--inference_samples=10",
                     "--name=debug"
                 ]
         },
