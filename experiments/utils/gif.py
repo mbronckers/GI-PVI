@@ -22,6 +22,8 @@ def make_gif(plot_dir, gif_name="inducing", duration=3):
     filenames = next(os.walk(_train_dir), (None, None, []))[2]
     filenames.sort(key=natural_keys)
 
+    if len(filenames) == 0: return
+    
     frame_duration = duration/len(filenames) # 2 sec total dur
 
     images = list(map(lambda filename: imageio.imread(os.path.join(_train_dir, filename)), filenames))
