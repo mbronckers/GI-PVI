@@ -15,11 +15,11 @@ class Config:
     seed: int = 0
     plot: bool = True
     
-    epochs: int = 1000
+    epochs: int = 5000
     
     N: int = 100        # Number of training data pts
     M: int = 10         # Number of inducing points
-    S: int = 2          # Number of training weight samples
+    S: int = 10         # Number of training weight samples
     I: int = 100        # Number of inference samples
 
     nz_init: float = 1e-3
@@ -37,3 +37,7 @@ class Config:
     dims = [1, 50, 50, 1]
 
     load: str = None
+
+################################################################
+
+# The default config settings follow Ober et al.'s toy regression experiment details
