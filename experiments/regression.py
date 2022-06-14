@@ -143,16 +143,16 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
 
     # Plot model predictions
     if _plot:
-        _ax = scatter_plot(x, y, x, y_pred.mean(0), f"{data_name.capitalize()} data", "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+        _ax = scatter_plot(x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+        scatterplot = plot.patch(sns.scatterplot)
+        scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions", color=gi.utils.plotting.colors[3])
+        _ax.legend()
 
         _preds_idx = [f'preds_{i}' for i in range(_S)]
         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05,0.25,0.75,0.95)), axis=1) # [num quartiles x num preds]
         _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=True)
         
-        scatterplot = plot.patch(sns.scatterplot)
-        scatterplot(ax=_ax, y=y_tr, x=x_tr, label="Training data", color=gi.utils.plotting.colors[3])
-        _ax.legend()
-        
+
         plt.savefig(os.path.join(_plot_dir, f'{_fname}.png'), pad_inches=0.2, bbox_inches='tight')
 
 
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     parser.add_argument('--ll_var', type=float, help='likelihood var', default=config.ll_var)
     parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=config.batch_size)
     parser.add_argument('--dgp', '-d', type=int, help='dgp/dataset type', default=config.dgp)
-    # parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name/model)', default=None)
+    parser.add_argument('--load', '-l', type=str, help='model directory to load (e.g. experiment_name)', default=config.load)
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z', default=config.random_z)
     parser.add_argument('--prior', '-P', type=str, help='prior type', default=config.prior)
     parser.add_argument('--bias', help='Use bias vectors in BNN', default=config.bias)
