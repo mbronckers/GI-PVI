@@ -15,12 +15,12 @@ class Config:
     seed: int = 0
     plot: bool = True
     
-    epochs: int = 5000
+    epochs: int = 100
     
     N: int = 100        # Number of training data pts
     M: int = 10         # Number of inducing points
     S: int = 10         # Number of training weight samples
-    I: int = 100        # Number of inference samples
+    I: int = 10         # Number of inference samples
 
     nz_init: float = 1e-3
     lr: float = 1e-2

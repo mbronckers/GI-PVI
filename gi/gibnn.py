@@ -1,11 +1,12 @@
 import lab as B
 import torch
 class GIBNN:
-    def __init__(self, nonlinearity):
+    def __init__(self, nonlinearity, bias):
         self.nonlinearity = nonlinearity
         self._cache = {}
-        
-    def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, S: B.Int=1):
+        self.bias = bias
+
+    def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, S: B.Int):
         """
         :param ps: priors. dict<k=layer_name, v=_p>
         :param ts: pseudo-likelihoods. dict<k='layer x', v=dict<k='client x', v=t>>
@@ -21,8 +22,11 @@ class GIBNN:
             assert len(client_z.shape) == 2 # [M, Din]
             
             # Add bias vector: [M x Din] to [M x Din+bias]
-            _bias = B.ones(*client_z.shape[:-1], 1)
-            _cz = B.concat(client_z, _bias, axis=-1)
+            if self.bias:
+                _bias = B.ones(*client_z.shape[:-1], 1)
+                _cz = B.concat(client_z, _bias, axis=-1)
+            else:
+                _cz = client_z
 
             # z is [M, D]. Change to [S, M, D]]
             _zs[client_name] = B.tile(_cz, S, 1, 1) # only tile intermediate results
@@ -59,8 +63,11 @@ class GIBNN:
                     client_z = self.nonlinearity(client_z)      # forward and updating the inducing inputs
                 
                     # Add bias vector to any intermediate outputs
-                    _bias = B.ones(*client_z.shape[:-1], 1)
-                    _cz = B.concat(client_z, _bias, axis=-1)
+                    if self.bias:
+                        _bias = B.ones(*client_z.shape[:-1], 1)
+                        _cz = B.concat(client_z, _bias, axis=-1)
+                    else:
+                        _cz = client_z
                 else:
                     _cz = client_z
                 
@@ -81,15 +88,18 @@ class GIBNN:
 
         if len(x.shape) == 2:
             x = B.tile(x, self.S, 1, 1)
-            _bias = B.ones(*x.shape[:-1], 1)
-            x = B.concat(x, _bias, axis=-1)
+            if self.bias:
+                _bias = B.ones(*x.shape[:-1], 1)
+                x = B.concat(x, _bias, axis=-1)
 
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
             x = B.mm(x, layer_dict["w"], tr_b=True)
             if i < len(self._cache.keys()) - 1: # non-final layer
                 x = self.nonlinearity(x)
-                _bias = B.ones(*x.shape[:-1], 1)
-                x = B.concat(x, _bias, axis=-1)
+                
+                if self.bias:
+                    _bias = B.ones(*x.shape[:-1], 1)
+                    x = B.concat(x, _bias, axis=-1)
 
         return x
     

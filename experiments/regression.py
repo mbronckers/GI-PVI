@@ -40,7 +40,8 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
             ps: dict[str, gi.NaturalNormal], 
             ts: dict[str, dict[str, gi.NormalPseudoObservation]], 
-            zs: dict[str, B.Numeric], S, N):
+            zs: dict[str, B.Numeric], 
+            S: int, N: int):
     
     key, _cache = model.sample_posterior(key, ps, ts, zs, S)
     out = model.propagate(x) # out : [S x N x Dout]
@@ -234,7 +235,7 @@ if __name__ == "__main__":
     x_tr, y_tr, x_te, y_te = split_data(x, y)
     
     # Define model
-    model = gi.GIBNN(nn.functional.relu)
+    model = gi.GIBNN(nn.functional.relu, args.bias)
 
     # Build one client
     M = args.M # number of inducing points

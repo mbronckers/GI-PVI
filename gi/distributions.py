@@ -203,6 +203,7 @@ class NormalPseudoObservation:
         
         # (S, Dout, Din, Din).
         prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z)) # z^T @ prec_yz @ z
+
         # TODO: check - if z is identity, then prec_w must be equal to prec_yz
 
         # (S, Dout, Din, 1)
