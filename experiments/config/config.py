@@ -8,6 +8,8 @@ sys.path.insert(0, os.path.abspath(_root_dir))
 
 from priors import Prior
 from dgp import DGP
+import lab as B
+import torch
 
 @dataclass
 class Config:
@@ -22,7 +24,7 @@ class Config:
     S: int = 10         # Number of training weight samples
     I: int = 10         # Number of inference samples
 
-    nz_init: float = 1e-3
+    nz_init: float = B.exp(-4)
     lr: float = 1e-2
     ll_var: float = 1e-3
     

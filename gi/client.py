@@ -79,12 +79,13 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init: float):
     ts = {}
     num_layers = len(dims) - 1
     for i in range(num_layers):   
-        _nz = B.ones(dims[i + 1], M) * nz_init                       # [Dout x M]
-
         if i < num_layers - 1: 
+            _nz = B.ones(dims[i + 1], M) * nz_init                       # [Dout x M]
             key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # [M x Dout]
             t = NormalPseudoObservation(_yz, _nz)
         else: 
+            # Last layer log precision gets initialized to 0 => prec = 1
+            _nz = B.ones(dims[i + 1], M) * 1                       # [Dout x M]
             t = NormalPseudoObservation(yz, _nz) # final layer
             
         ts[f"layer{i}"] = t
