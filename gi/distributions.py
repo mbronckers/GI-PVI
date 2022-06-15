@@ -57,11 +57,14 @@ class Normal:
             -(
                 B.logdet(self.var)[..., None]  # Correctly line up with `iqf_diag`.
                 + B.cast(self.dtype, self.dim) * B.cast(self.dtype, B.log_2_pi)
-                + B.iqf_diag(self.var, B.subtract(x, self.mean)[..., None]) # compute diag of matrix product of (a, b) with a being PD
+                + B.iqf_diag(self.var, B.subtract(x, self.mean)[..., None])
+                # Compute the diagonal of `transpose(b) inv(a) c` where `a` is assumed to be PD 
+                # => (x-m)T @ inv(var) @ (x-m)
             )
             / 2
         )
         return logpdfs[..., 0] if B.shape(logpdfs, -1) == 1 else logpdfs
+        
         
     @property
     def dtype(self):
