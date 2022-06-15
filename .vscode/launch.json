@@ -11,13 +11,12 @@
             "program": "${workspaceFolder}/experiments/regression.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": 
-                [
-                    "--plot", 
-                    "--epochs=100",
-                    "--inference_samples=10",
-                    "--name=debug"
-                ]
+            "args": [
+                "--plot",
+                "--epochs=100",
+                "--inference_samples=10",
+                "--name=debug"
+            ]
         },
         {
             "name": "Python: Current File",
