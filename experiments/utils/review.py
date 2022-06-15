@@ -2,6 +2,7 @@
 This file gets the most recently modified results folder (i.e. most recent results) and outputs the variable states at the end of training
 """
 import os
+import sys
 
 def latest_subdir(b="/homes/mojb2/Thesis/GI-PVI/results/"):
     result = []
@@ -18,8 +19,8 @@ if __name__ == "__main__":
 
     from varz import Vars
 
-    results_dir = f"/homes/mojb2/Thesis/GI-PVI/results/"
-    exp_dir = latest_subdir(results_dir)
+    results_dir = f"/homes/mojb2/Thesis/GI-PVI/results/" if len(sys.argv) == 1 else sys.argv[1]
+    exp_dir = latest_subdir(results_dir) if len(sys.argv) <= 2 else os.path.join(results_dir, sys.argv[2])
 
     _vs_state_dict = torch.load(exp_dir + '/model/_vs.pt')
 
