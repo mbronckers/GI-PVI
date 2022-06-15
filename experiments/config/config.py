@@ -24,21 +24,19 @@ class Config:
     S: int = 10         # Number of training weight samples
     I: int = 100        # Number of inference samples
 
+    batch_size: int = 100
+
     nz_init: float = B.exp(-4)  # precision
     ll_var: float = 1e-3        # likelihood variance
 
     # Learning rates
+    separate_lr: bool = False       # use seperate learning rates
     lr_global: float = 1e-2
     lr_nz: float = 1e-3
     lr_output_var: float = 1e-3
     lr_client_z: float = lr_global
     lr_yz: float = lr_global
-
-    separate_lr: bool = False
     
-    batch_size: int = 100
-
-    # prior: Prior = Prior.NealPrior
     prior: Prior = Prior.StandardPrior
     dgp: DGP = DGP.ober_regression
 
