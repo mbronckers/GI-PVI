@@ -106,7 +106,6 @@ class NaturalNormal:
         """
         Convert class:Normal into class:NaturalNormal
         - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
-        
         """
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
     
@@ -153,8 +152,9 @@ class NaturalNormal:
             key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # [num x q.lam.shape]
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
-            
-        sample = B.mm(B.pd_inv(self.prec), self.lam) + B.triangular_solve(B.cholesky(self.prec), noise)
+        
+        # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
+        sample = B.mm(B.pd_inv(self.prec), self.lam) + B.mm(B.cholesky(self.var), noise)
         
         if not structured(sample):
             sample = B.dense(sample) # transform Tensor to Dense matrix
