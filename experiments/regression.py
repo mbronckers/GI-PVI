@@ -32,7 +32,7 @@ from gi.utils.plotting import line_plot, plot_confidence, scatter_plot, plot_pre
 
 from priors import build_prior, parse_prior_arg
 from dgp import generate_data, split_data, DGP
-from config.config import Config
+from config.config import Config, Color
 from utils.gif import make_gif
 from utils.metrics import rmse
 
@@ -126,7 +126,7 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
     _S = y_pred.shape[0] # number of inference samples
 
     # Log test error and variance
-    logger.info(f"{data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}")
+    logger.info(f"{Color.WHITE} {data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}{Color.END}")
 
     # Save model predictions
     _results_eval = pd.DataFrame({
@@ -158,8 +158,8 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
         plot.tweak(_ax)
         plt.savefig(os.path.join(_plot_dir, f'{_fname}.png'), pad_inches=0.2, bbox_inches='tight')
         
-        if data_name.__contains__("domain"): _ax.set(ylim=(-4., 4))  # limit domain plot to -4, 4 to be comparable with Ober
-        plt.savefig(os.path.join(_plot_dir, f'{_fname}_ylim.png'), pad_inches=0.2, bbox_inches='tight')
+        # if data_name.__contains__("domain"): _ax.set(ylim=(-4., 4))  # limit domain plot to -4, 4 to be comparable with Ober
+        # plt.savefig(os.path.join(_plot_dir, f'{_fname}_ylim.png'), pad_inches=0.2, bbox_inches='tight')
 
         # Plot all sampled functions
         ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     parser.add_argument('--training_samples', '-S', type=int, help='number of training weight samples', default=config.S)
     parser.add_argument('--inference_samples', '-I', type=int, help='number of inference weight samples', default=config.I)
     parser.add_argument('--nz_init', type=float, help='Client likelihood factor noise initial value', default=config.nz_init)
-    parser.add_argument('--lr', type=float, help='learning rate', default=config.lr)
+    parser.add_argument('--lr', type=float, help='learning rate', default=config.lr_global)
     parser.add_argument('--ll_var', type=float, help='likelihood var', default=config.ll_var)
     parser.add_argument('--batch_size', '-b', type=int, help='training batch size', default=config.batch_size)
     parser.add_argument('--dgp', '-d', type=int, help='dgp/dataset type', default=config.dgp)
@@ -191,6 +191,7 @@ if __name__ == "__main__":
     parser.add_argument('--random_z', '-z', action='store_true', help='Randomly initializes global inducing points z', default=config.random_z)
     parser.add_argument('--prior', '-P', type=str, help='prior type', default=config.prior)
     parser.add_argument('--bias', help='Use bias vectors in BNN', default=config.bias)
+    parser.add_argument('--sep_lr', help='Use separate LRs for parameters (see config)', default=config.separate_lr)
     args = parser.parse_args()
 
     # Create experiment directories
@@ -226,7 +227,7 @@ if __name__ == "__main__":
     logger.debug(f"Root: {_results_dir}")
     logger.debug(f"Time: {_time}")
     logger.debug(f"Seed: {args.seed}")
-    logger.info(f"Args: {args}")
+    logger.info(f"{Color.WHITE}Args: {args}{Color.END}")
 
     # Lab variable initialization
     B.default_dtype = torch.float64
@@ -283,16 +284,18 @@ if __name__ == "__main__":
 
     # Optimizer parameters
     lr = args.lr
-    # opt = torch.optim.Adam(vs.get_vars(), lr=lr)
-    opt = torch.optim.Adam(
-        [
-            {"params": vs.get_latent_vars("*nz"), "lr": 1e-3},
-            {"params": vs.get_latent_vars("output_var"), "lr": 1e-3}, # ll var
-            {"params": vs.get_latent_vars("*client*_z"), "lr": lr}, # inducing 
-            {"params": vs.get_latent_vars("*yz"), "lr": lr}, # pseudo obs
-        ],
-        lr=lr,
-    )
+    if args.sep_lr:
+        opt = torch.optim.Adam(
+            [
+                {"params": vs.get_latent_vars("*nz"), "lr": config.lr_nz},
+                {"params": vs.get_latent_vars("output_var"), "lr": config.lr_output_var}, # ll var
+                {"params": vs.get_latent_vars("*client*_z"), "lr": lr}, # inducing 
+                {"params": vs.get_latent_vars("*yz"), "lr": lr}, # pseudo obs
+            ],
+            lr=lr)
+    else:
+        opt = torch.optim.Adam(vs.get_vars(), lr=lr)
+
     batch_size = min(args.batch_size, N)
     S = args.training_samples # number of inference samples
     epochs = args.epochs
