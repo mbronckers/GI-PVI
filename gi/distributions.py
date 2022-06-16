@@ -1,7 +1,6 @@
 import lab as B
 from plum import convert
 from matrix import AbstractMatrix, Diagonal, structured
-from sympy import Q
 import torch
 
 class Normal:
@@ -154,7 +153,7 @@ class NaturalNormal:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
         
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
-        sample = B.mm(B.pd_inv(self.prec), self.lam) + B.mm(B.cholesky(self.var), noise)
+        sample = self.mean + B.mm(B.cholesky(self.var), noise)
         
         if not structured(sample):
             sample = B.dense(sample) # transform Tensor to Dense matrix
@@ -206,8 +205,6 @@ class NormalPseudoObservation:
         
         # (S, Dout, Din, Din).
         prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z)) # z^T @ prec_yz @ z
-
-        # TODO: check - if z is identity, then prec_w must be equal to prec_yz
 
         # (S, Dout, Din, 1)
         lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz)) # z^T @ prec_yz @ yz

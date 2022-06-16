@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import os
 from dataclasses import dataclass
@@ -47,6 +49,12 @@ class Config:
 
     load: str = None
 
+    # Clients
+    num_clients: int = 1
+    def __post_init__(self):
+        # self.client_splits: list[float] = [0.5, 0.5]
+        self.client_splits: list[float] = [1]
+    
 ################################################################
 
 # The default config settings follow Ober et al.'s toy regression experiment details

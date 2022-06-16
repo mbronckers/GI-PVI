@@ -1,3 +1,4 @@
+from itertools import accumulate
 import lab as B
 import lab.torch
 import numpy as np
@@ -66,3 +67,16 @@ def split_data(x, y, lb_mid=-2., ub_mid=2.):
     
     return x_tr, y_tr, x_te, y_te
 
+def split_data_clients(x, y, splits):
+    """Split data based on list of splits provided"""
+    # Cannot verify that dataset is Sized
+    if len(x) != len(y) or not (sum(splits) == len(x) or sum(splits) == 1):
+        raise ValueError("Mismatch: len(x) != len(y) or sum of input lengths does not equal the length of the input dataset!")
+
+    # If fractions provided, multiply to get lengths/counts
+    if sum(splits) == 1.:
+        splits = [int(len(x)*split) for split in splits]
+
+    indices = B.to_numpy(B.randperm(sum(splits)))
+    
+    return [(x[indices[offset - length : offset]], y[indices[offset - length : offset]]) for offset, length in zip(accumulate(splits), splits)]

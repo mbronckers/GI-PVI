@@ -31,7 +31,7 @@ from wbml import experiment, out, plot
 from gi.utils.plotting import line_plot, plot_confidence, scatter_plot, plot_predictions
 
 from priors import build_prior, parse_prior_arg
-from dgp import generate_data, split_data, DGP
+from dgp import generate_data, split_data, split_data_clients, DGP
 from config.config import Config, Color
 from utils.gif import make_gif
 from utils.metrics import rmse
@@ -146,7 +146,7 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
     if _plot:
     
         # Plot eval data, training data, and model predictions (in that order)
-        _ax = scatter_plot(x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+        _ax = scatter_plot(None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
         scatterplot = plot.patch(sns.scatterplot)
         scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions", color=gi.utils.plotting.colors[3])
 
@@ -192,6 +192,7 @@ if __name__ == "__main__":
     parser.add_argument('--prior', '-P', type=str, help='prior type', default=config.prior)
     parser.add_argument('--bias', help='Use bias vectors in BNN', default=config.bias)
     parser.add_argument('--sep_lr', help='Use separate LRs for parameters (see config)', default=config.separate_lr)
+    parser.add_argument('--num_clients', '-nc', help='Number of clients (implicit equal split)', default=config.num_clients)
     args = parser.parse_args()
 
     # Create experiment directories
@@ -237,23 +238,39 @@ if __name__ == "__main__":
     N = args.N      # number of training points
     key, x, y, scale = generate_data(key, args.dgp, N, xmin=-4., xmax=4.)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
-    
+
     # Define model
     model = gi.GIBNN(nn.functional.relu, args.bias)
 
-    # Build one client
+    # Build prior
     M = args.M # number of inducing points
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
-    key, z, yz = gi.client.build_z(key, M, x_tr, y_tr, args.random_z)
-    t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-    clients = {"client0": gi.Client("client0", (x_tr, y_tr), z, t)}
+    
+    # Equal split if different number of clients specified via CLI 
+    if args.num_clients != len(config.client_splits): 
+        config.client_splits = [1/(args.num_clients) for _ in range(args.num_clients)]
+    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
+    
+    # Build clients
+    clients = {}
+    for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
+        key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
+        t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
+        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t)
     
     # Plot initial inducing points
     if args.plot:
-        _ax = scatter_plot(x1=x_tr, y1=y_tr, x2=z, y2=yz,
-                    desc1="Training data", desc2="Initial inducing points",
-                    xlabel="x", ylabel="y", title=f"Inducing points and training data")
+        fig, _ax = plt.subplots(1, 1, figsize=(10,10))
+        scatterplot = plot.patch(sns.scatterplot)
+        _ax.set_title(f"Inducing points and training data - all clients")
+        _ax.set_xlabel("x")
+        _ax.set_ylabel("y")
+        for i, (name, c) in enumerate(clients.items()):
+            scatterplot(c.x, c.y, label=f"Training data - {i}", ax=_ax)
+            scatterplot(c.z, c.get_final_yz(), label=f"Initial inducing points - {i}", ax=_ax)
+
+        plot.tweak(_ax)
         plt.savefig(os.path.join(_plot_dir, "init_zs.png"), pad_inches=0.2, bbox_inches='tight')
         
 
@@ -310,7 +327,7 @@ if __name__ == "__main__":
 
     # Plot data
     if args.plot:
-        _ax = scatter_plot(x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
+        _ax = scatter_plot(None, x1=x_tr, y1=y_tr, x2=x_te, y2=y_te,
                     desc1="Training data", desc2="Testing data",
                     xlabel="x", ylabel="y", title=f"Regression data")
         plt.savefig(os.path.join(_plot_dir, 'regression_data.png'), pad_inches=0.2, bbox_inches='tight')
@@ -342,7 +359,7 @@ if __name__ == "__main__":
                 _inducing_inputs = zs["client0"]
                 _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz # final layer yz
 
-                scatter_plot(x1=x_tr, y1=y_tr, 
+                scatter_plot(ax=None, x1=x_tr, y1=y_tr, 
                     x2=_inducing_inputs, y2=_pseudo_outputs, 
                     desc1="Training data", desc2="Variational params",
                     xlabel="x", ylabel="y", title=f"Epoch {i}")

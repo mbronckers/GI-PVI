@@ -18,9 +18,10 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
-    def __init__(self, name: Optional[str], data, z, t: dict[str, NormalPseudoObservation]):
-        self.data = data if data else None
+    def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation]):
         self.name = name if name else None
+        self.x = x
+        self.y = y
         self.z = z
         self.t = t
 
@@ -34,6 +35,9 @@ class Client:
         for i, layer_name in enumerate(self.t.keys()):
             var = vs[f"ts.{layer_name}_{self.name}_nz"]
             self.t[layer_name].nz = var
+
+    def get_final_yz(self):
+        return self.t[list(self.t.keys())[-1]].yz # final layer yz
 
 def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     """
