@@ -107,6 +107,10 @@ def load_vs(fpath):
 
     return vs
 
+def get_vs_state(vs):
+    """ returns dict<key=var_name, value=var_value> """
+    return dict(zip(vs.names, [vs[_name] for _name in vs.names]))
+
 def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot: bool):
     """ Logs the model inference results and saves plots
 
