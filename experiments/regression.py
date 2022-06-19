@@ -259,9 +259,10 @@ if __name__ == "__main__":
     # Build clients
     clients = {}
     for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
+        data = {'x': client_x_tr, 'y': client_y_tr}
         key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
         t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t)
+        clients[f"client{i}"] = gi.Client(f"client{i}", data, z, t)
     
     # Plot initial inducing points
     if args.plot:

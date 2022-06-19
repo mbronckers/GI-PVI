@@ -18,12 +18,19 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
-    def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation]):
+    def __init__(self, name: Optional[str], data, z, t: dict[str, NormalPseudoObservation]):
         self.name = name if name else None
-        self.x = x
-        self.y = y
+        self.data = data
         self.z = z
         self.t = t
+    
+    @property
+    def x(self):
+        return self.data['x']
+
+    @property
+    def y(self):
+        return self.data['y']
 
     def update_nz(self, vs):
         """ Update likelihood factors' precision based on the current state of vs
