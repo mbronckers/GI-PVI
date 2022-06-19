@@ -1,10 +1,24 @@
 import lab as B
 import torch
+
+from .distributions import NormalPseudoObservation
+
 class GIBNN:
     def __init__(self, nonlinearity, bias):
         self.nonlinearity = nonlinearity
         self._cache = {}
         self.bias = bias
+
+    def compute_q(self, p, ts: dict[str, dict[str, NormalPseudoObservation]], layer_name, z):
+        """ Compute layer-specific approximate posterior for all clients """
+        # Init posterior to prior
+        q = p 
+            
+        # Compute new posterior distribution by multiplying client factors
+        for t in ts[layer_name].values():
+            q *= t(z)    # propagate prev layer's inducing outputs
+
+        return q
 
     def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, S: B.Int):
         """
@@ -33,12 +47,8 @@ class GIBNN:
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
-            # Init posterior to prior
-            q = p 
-            
-            # Compute new posterior distribution by multiplying client factors
-            for t in ts[layer_name].values():
-                q *= t(_zs[client_name])    # propagate prev layer's inducing outputs
+            # Compute posterior
+            q = self.compute_q(p, ts, layer_name, _zs[client_name])
             
             # Sample weights from posterior distribution q. q already has S passed via _zs
             key, w = q.sample(key) # w is [S, Dout, Din] of layer i.
@@ -49,8 +59,8 @@ class GIBNN:
             # Compute KL div
             kl_qp = q.kl(p)  # [S, Dlatent] = [S, Dout]
             
-            # Sum across output dimensions. [S]
-            kl_qp = B.sum(kl_qp, -1) 
+            # Sum across output dimensions. [Dout]
+            kl_qp = B.sum(kl_qp, -1)
 
             # Save posterior w samples and KL to cache
             self._cache[layer_name] = {"w": w, "kl": kl_qp}

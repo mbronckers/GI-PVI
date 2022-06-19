@@ -7,10 +7,18 @@ file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
 sys.path.insert(0, os.path.abspath(_root_dir))
 
+import gi
 import lab as B
 import lab.torch
-from client import Client
-from gibnn import GIBNN
+from gi.client import Client
+from gi.gibnn import GIBNN
+from gi.distributions import NaturalNormal
+
+from varz import Vars
+import logging
+import logging.config
+
+logger = logging.getLogger()
 
 class Server:
     """
@@ -27,57 +35,56 @@ class Server:
     cavity => call sample_posterior with previous iters zs/ts/ps and omit own element
     """
     def __init__(
-        self, model: GIBNN, clients: dict[str, Client], p, init_q, data=None, val_data=None
+        self, config, vs: Vars,
+        model: GIBNN, clients: dict[str, Client], ps: dict[str, NaturalNormal], init_q: dict[str, NaturalNormal]=None, data=None, val_data=None
     ):
+        self.config = config
+        self.clients: dict[str, Client] = clients
+        
+        self.model: GIBNN = model   # Global probabilistic model.
+        self.vs: Vars = vs      # Variable container
 
-        # Shared probabilistic model.
-        self.model = model
+        # Posterior
+        self.ps = ps            # Global prior p(θ).
+        self.q = None           # Global posterior q(θ).
+        self.init_q = init_q    # Initial q(θ) for first client update.
 
-        # Global prior p(θ).
-        self.p = p
+        self.current_client = 0
 
-        # Global posterior q(θ).
-        self.q = p
-
-        # Initial q(θ) for first client update.
-        self.init_q = init_q
-
-        # Clients.
-        self.clients = clients
-
-        # Union of clients data
-        if data is None:
-            self.data = {
+        # Union of clients data, if not provided
+        self.data = {
                 k: B.concat([client.data[k] for client in self.clients], axis=0)
                 for k in self.clients[0].data.keys()
-            }
-        else:
-            self.data = data
+            } if data is None else data
 
-    def update_hyperparams(self):
+    def pvi(self):
+        epochs = self.config.pvi_epochs
+        for i in range(epochs):
+            
+            # Get clients to optimize
+            b: list[Client] = self.select_clients()
+
+            # Optimize client-local ts
+            delta_ts: list[NaturalNormal] = [] # to save changes in t
+            for client in b:
+                # Communicate old posterior
+                key, _delta_t = client.update_q(key, self.vs, self.ps, self.q)          
+                delta_ts.append(_delta_t)
+            
+            # Compute new posterior
+            for _dt in delta_ts:
+                self.q = self.q * _dt
+
+    def select_clients(self):
+        """ 
+        :returns: list of clients according to some schedule to optimize.
+        
+        Currently just iterates over the clients in creation order.
         """
-        Updates the model hyperparameters according to
-        dF / dε = (μ_q - μ_0)^T dη_0 / dε + Σ_m dF_m / dε.
-        """
-
-        # Zero-grad the parameters accumulated during client optimization.
-
-        # Compute variational free energy = ELL - KL
-        # vfe = 0.
-
-        # Ensure clients have same model as server and get expected log-likelihood.
-
-        # Compute KL divergence(q, prior)
-
-        # Divide VFE by N (improve stability?).
-
-        # Compute gradients
-        # vfe.backward()
-
-        # Update parameters manually
-        # for p_name, p in get_vs_state.items():
-            # p.data += config.lr * p.grad
-
-        # Pass updated parameters to client
+        assert len(self.clients) != 0
+        _client_name = list(self.clients.keys())[self.current_client]
+        _client = self.clients[_client_name]
+        self.current_client = (self.current_client + 1) % len(self.clients)
+        return [_client]
 
         

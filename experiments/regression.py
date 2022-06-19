@@ -35,6 +35,7 @@ from dgp import generate_data, split_data, split_data_clients, DGP
 from config.config import Config, Color
 from utils.gif import make_gif
 from utils.metrics import rmse
+from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
