@@ -166,6 +166,12 @@ class NaturalNormal:
             self.prec + other.prec
             )
 
+    def __div__(self, other: "NaturalNormal"):
+        return NaturalNormal(
+            self.lam - other.lam, 
+            self.prec - other.prec
+            )
+
     def __eq__(self, __o: "NaturalNormal") -> bool:
         return (torch.all(torch.isclose(self.lam, __o.lam)) and torch.all(torch.isclose(self.prec, __o.prec))).item()
 

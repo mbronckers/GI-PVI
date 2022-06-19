@@ -41,7 +41,8 @@ class Config:
     
     prior: Prior = Prior.StandardPrior
     dgp: DGP = DGP.ober_regression
-
+    optimizer: str = "Adam"
+    
     random_z: bool = False
     bias: bool = True
 
@@ -54,6 +55,7 @@ class Config:
     def __post_init__(self):
         # self.client_splits: list[float] = [0.5, 0.5]
         self.client_splits: list[float] = [1]
+        self.optimizer_params: dict = {"lr": self.lr_global}
     
 ################################################################
 
