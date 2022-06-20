@@ -9,6 +9,11 @@ import torch
 
 from gi.gibnn import GIBNN
 from itertools import chain
+import logging
+import logging.config
+from varz import Vars
+
+logger = logging.getLogger()
 
 class Client:
     """
@@ -23,15 +28,18 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
-    def __init__(self, name: Optional[str], data: dict[str, B.Numeric], z, t: dict[str, NormalPseudoObservation]):
+    def __init__(self, config, name: Optional[str], data: dict[str, B.Numeric], z, t: dict[str, NormalPseudoObservation], model: GIBNN):
         self.name = name if name else None
         self.data: dict[str, B.Numeric] = data
         self.z = z
         self.t = t
         
+        # Shared access to nonlinearity, bias
+        self.model = model
+
         # Client local
         self.likelihood: NormalLikelihood = None
-        self.config = None
+        self.config = config
         self._parameters: list[str] = None # list of parameter names to take out of vs
         self._cache = {}
 
@@ -43,13 +51,15 @@ class Client:
     def y(self):
         return self.data['y']
 
-    def parameters(self, vs):
+    def parameters(self, vs: Vars):
         if self._parameters == None:
             _p = list(chain.from_iterable((f"ts.{self.name}_{layer_name}_yz", f"ts.{self.name}_{layer_name}_nz") for layer_name, _t in self.t.items()))
             _p.append(f"zs.{self.name}_z")
             self._parameters = _p
         
-        return vs[self._parameters]
+        # Need to get latent representation to have non-leaf tensors for optimizer
+        return vs.get_latent_vars(*(self._parameters))
+
     
     def update_nz(self, vs):
         """ Update likelihood factors' precision based on the current state of vs
@@ -59,7 +69,7 @@ class Client:
         """
         
         for i, layer_name in enumerate(self.t.keys()):
-            var = vs[f"ts.{layer_name}_{self.name}_nz"]
+            var = vs[f"ts.{self.name}_{layer_name}_nz"]
             self.t[layer_name].nz = var
 
     def get_final_yz(self):
@@ -90,7 +100,7 @@ class Client:
             
             # Compute cavity, new client-local posterior
             _t = self.t[layer_name](_cz)
-            q_cav = q_prev / _t     # TODO: need to make this untrainable?
+            q_cav = q_prev / _t     # TODO: q_cav.prec of layer1 is not PD
             q = q_prev * _t         # compute client-local posterior
 
             # Sample weights from posterior distribution q. q already has S passed via _zs
@@ -106,10 +116,10 @@ class Client:
             # Propagate client-local inducing inputs <z>
             _cz = B.mm(_cz, w, tr_b=True)         # propagate z. [S x M x Dout]
             if i < len(q_old.keys()) - 1:  # non-final layer
-                _cz = self.nonlinearity(_cz)      # forward and updating the inducing inputs
+                _cz = self.model.nonlinearity(_cz)      # forward and updating the inducing inputs
             
                 # Add bias vector to any intermediate outputs
-                if self.bias:
+                if self.model.bias:
                     _bias = B.ones(*_cz.shape[:-1], 1)
                     _cz = B.concat(_cz, _bias, axis=-1)
 
@@ -129,32 +139,23 @@ class Client:
         # If previous posterior not provided, set to prior
         q_old = q_old if q_old else ps          
     
-        batch_size = self.config.batch_size
+        # batch_size = self.config.batch_size
         N = len(self.x)
+        batch_size = N
         
         # Get ONLY this client's params, set single lr for all
-        if self.config.sep_lr:
-            client_params = [
-                {"params": vs.get_latent_vars("*nz"), "lr": self.config.lr_nz},
-                {"params": vs.get_latent_vars("output_var"), "lr": self.config.lr_output_var}, # ll var
-                {"params": vs.get_latent_vars("*client*_z"), "lr": self.config.lr}, # inducing 
-                {"params": vs.get_latent_vars("*yz"), "lr": self.config.lr}, # pseudo obs
-            ]
-        else:
-            client_params = [{"params": self.parameters(), **self.config.lr_param}]
-
-        # Reset optimizer
-        optim = getattr(torch.optim, self.config.optimizer)(client_params, self.config.optimizer_params)
+        optim = getattr(torch.optim, self.config.optimizer)(self.parameters(vs), **self.config.optimizer_params)
 
         # Run update
-        for i in range(self.config.client_epochs):
+        epochs = self.config.client_epochs
+        for i in range(epochs):
             # Construct i-th minibatch {x, y} training data
             inds = (B.range(batch_size) + batch_size*i) % len(self.x)
             x_mb = B.take(self.x, inds)
             y_mb = B.take(self.y, inds)
 
             # Compute new local approximate posterior
-            out = self.sample_posterior(key, q_old)
+            y_pred = self.sample_posterior(key, q_old)
 
             # Compute total cavity KL
             kl = 0.
@@ -164,16 +165,19 @@ class Client:
                 t_old[layer_name] = layer_cache['t']
 
             # Compute the expected log-likelihood.
-            exp_ll = self.likelihood(out).logpdf(self.y)
+            exp_ll = self.likelihood(y_pred).logpdf(self.y)
             exp_ll = exp_ll.mean(0).sum()       # take mean across inference 
 
             kl = kl.mean()                         # across inference samples
-            error = y_mb-out.mean(0)               # error of mean prediction
+            error = y_mb-y_pred.mean(0)               # error of mean prediction
             rmse = B.sqrt(B.mean(error**2))
             
             # Mini-batching estimator of ELBO (N / batch_size)
             elbo = ((N / len(x_mb)) * exp_ll) - kl
-    
+
+            # Logging 
+            logger.info(f"{self.name} [epoch {i}/{epochs}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(rmse.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}")
+
             loss = -elbo
             loss.backward()
             optim.step()

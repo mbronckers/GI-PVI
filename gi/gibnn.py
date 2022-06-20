@@ -45,11 +45,13 @@ class GIBNN:
             # z is [M, D]. Change to [S, M, D]]
             _zs[client_name] = B.tile(_cz, S, 1, 1) # only tile intermediate results
 
+        _q = {} # save posteriors
         for i, (layer_name, p) in enumerate(ps.items()):
 
             # Compute posterior
             q = self.compute_q(p, ts, layer_name, _zs[client_name])
-            
+            _q[layer_name] = q 
+
             # Sample weights from posterior distribution q. q already has S passed via _zs
             key, w = q.sample(key) # w is [S, Dout, Din] of layer i.
             
@@ -84,7 +86,7 @@ class GIBNN:
                 # Always store in _zs
                 _zs[client_name] = _cz 
                 
-        return key, self._cache
+        return key, self._cache, _q
                 
     def propagate(self, x):
         """Propagates input through BNN using S cached posterior weight samples. 

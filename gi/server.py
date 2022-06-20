@@ -42,13 +42,12 @@ class Server:
         self.clients: dict[str, Client] = clients
         
         self.model: GIBNN = model   # Global probabilistic model.
-        self.vs: Vars = vs      # Variable container
+        self.vs: Vars = vs          # Variable container
 
-        # Posterior
-        self.ps = ps            # Global prior p(θ).
-        self.q = None           # Global posterior q(θ).
-        self.init_q = init_q    # Initial q(θ) for first client update.
-
+        # Prior, posterior, and initial posterior for first client update.
+        self.ps = ps                          # Global prior p(θ).
+        self.q = init_q if init_q else None   # Global posterior q(θ).
+        
         self.current_client = 0
 
         # Union of clients data, if not provided
@@ -57,7 +56,7 @@ class Server:
                 for k in self.clients[0].data.keys()
             } if data is None else data
 
-    def pvi(self):
+    def pvi(self, key):
         epochs = self.config.pvi_epochs
         for i in range(epochs):
             
@@ -74,6 +73,8 @@ class Server:
             # Compute new posterior
             for _dt in delta_ts:
                 self.q = self.q * _dt
+
+        return key
 
     def select_clients(self):
         """ 

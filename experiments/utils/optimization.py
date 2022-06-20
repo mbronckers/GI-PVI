@@ -28,8 +28,8 @@ def add_zs(vs, zs):
 @namespace("ts")
 def add_ts(vs, ts):
     """ Add client likelihood factors to optimizable params in vs """
-    for client_name, client_dict in ts.items():
-        for layer_name, t in client_dict.items():
+    for layer_name, client_dict in ts.items():
+        for client_name, t in client_dict.items():
             vs.unbounded(t.yz, name=f"{client_name}_{layer_name}_yz")
             vs.positive(t.nz, name=f"{client_name}_{layer_name}_nz")
 

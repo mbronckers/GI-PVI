@@ -13,7 +13,7 @@ from wbml import plot
 
 colors = sns.color_palette("bright")
 sns.set_palette(colors)
-matplotlib.rcParams['figure.dpi'] = 600
+# matplotlib.rcParams['figure.dpi'] = 600
 
 def scatter_plot(ax, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, 
         desc1: str, desc2: str,  xlabel: Optional[str]=None, ylabel: Optional[str]=None, title: Optional[str]=None):

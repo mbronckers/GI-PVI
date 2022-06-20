@@ -56,10 +56,56 @@ class Config:
         # self.client_splits: list[float] = [0.5, 0.5]
         self.client_splits: list[float] = [1]
         self.optimizer_params: dict = {"lr": self.lr_global}
-    
+
 ################################################################
 
 # The default config settings follow Ober et al.'s toy regression experiment details
+
+@dataclass
+class PVIConfig:
+    name: str = "pvi"
+    seed: int = 0
+    plot: bool = True
+    
+    epochs: int = 1000
+    pvi_epochs: int = 100
+    client_epochs: int = 100
+    
+    N: int = 100        # Number of training data pts
+    M: int = 10         # Number of inducing points
+    S: int = 2         # Number of training weight samples
+    I: int = 10        # Number of inference samples
+
+    batch_size: int = 100
+
+    nz_init: float = B.exp(-4)  # precision
+    ll_var: float = 1e-3        # likelihood variance
+
+    # Learning rates
+    separate_lr: bool = False       # use seperate learning rates
+    lr_global: float = 1e-2
+    lr_nz: float = 1e-3
+    lr_output_var: float = 1e-3
+    lr_client_z: float = lr_global
+    lr_yz: float = lr_global
+    
+    prior: Prior = Prior.StandardPrior
+    dgp: DGP = DGP.ober_regression
+    optimizer: str = "Adam"
+    
+    random_z: bool = False
+    bias: bool = True
+
+    dims = [1, 50, 50, 1]
+
+    load: str = None
+
+    # Clients
+    num_clients: int = 2
+    def __post_init__(self):
+        self.client_splits: list[float] = [0.5, 0.5]
+        self.optimizer_params: dict = {"lr": self.lr_global}
+
 
 class Color:
    PURPLE = '\033[95m'

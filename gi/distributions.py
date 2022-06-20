@@ -166,10 +166,16 @@ class NaturalNormal:
             self.prec + other.prec
             )
 
-    def __div__(self, other: "NaturalNormal"):
+    def __truediv__(self, other: "NaturalNormal"):
         return NaturalNormal(
             self.lam - other.lam, 
             self.prec - other.prec
+            )
+
+    def __rtruediv__(self, other: "NaturalNormal"):
+        return NaturalNormal(
+            other.lam - self.lam, 
+            other.prec - self.prec
             )
 
     def __eq__(self, __o: "NaturalNormal") -> bool:
