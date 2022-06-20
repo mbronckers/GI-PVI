@@ -36,6 +36,8 @@ from config.config import Config, Color
 from utils.gif import make_gif
 from utils.metrics import rmse
 from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
+from gi.server import Server
+
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
@@ -44,7 +46,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             zs: dict[str, B.Numeric], 
             S: int, N: int):
     
-    key, _cache = model.sample_posterior(key, ps, ts, zs, S)
+    key, _cache, _ = model.sample_posterior(key, ps, ts, zs, S)
     out = model.propagate(x) # out : [S x N x Dout]
     
     # Compute KL divergence.
@@ -195,6 +197,8 @@ if __name__ == "__main__":
     N = args.N      # number of training points
     key, x, y, scale = generate_data(key, args.dgp, N, xmin=-4., xmax=4.)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
+    data = {"x": x_tr, "y": y_tr}
+    val_data = {"x": x, "y": y}
 
     # Define model
     model = gi.GIBNN(nn.functional.relu, args.bias)
@@ -215,7 +219,7 @@ if __name__ == "__main__":
         data = {'x': client_x_tr, 'y': client_y_tr}
         key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
         t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-        clients[f"client{i}"] = gi.Client(config, f"client{i}", data, z, t)
+        clients[f"client{i}"] = gi.Client(config, f"client{i}", data, z, t, model)
     
     # Plot initial inducing points
     if args.plot:
@@ -249,6 +253,9 @@ if __name__ == "__main__":
     output_var = vs.positive(args.ll_var, name="output_var")
     likelihood = gi.likelihoods.NormalLikelihood(output_var)
     
+    for name, client in clients.items():
+        client.likelihood = likelihood
+
     # Add zs, ts to optimizable containers
     add_zs(vs, zs)
     add_ts(vs, ts)
@@ -345,7 +352,7 @@ if __name__ == "__main__":
     with torch.no_grad():
         
         # Resample <_S> inference weights
-        key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
+        key, _, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
