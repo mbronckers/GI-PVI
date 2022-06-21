@@ -55,7 +55,7 @@ class GIBNN:
             # Always store in _zs
             zs[client_name] = client_z 
 
-    def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, S: B.Int, ts_p: dict = {}, zs_p: dict = {}):
+    def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, S: B.Int, ts_p: dict = None, zs_p: dict = None):
         """_summary_
 
         Args:
@@ -75,7 +75,7 @@ class GIBNN:
     
         # Shape inducing inputs for propagation; separate dict to modify
         _zs = self.process_z(zs, S)
-        _zs_p = self.process_z(zs_p, S)
+        if zs_p is not None: _zs_p = self.process_z(zs_p, S)
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
@@ -88,8 +88,9 @@ class GIBNN:
                 q *= t(_zs[client_name])    # propagate prev layer's inducing outputs
                 
             # Compute prior distribution by multiplying factors
-            for client_name, t in ts_p[layer_name].items():
-                p_ *= t(_zs_p[client_name])
+            if ts_p is not None:
+                for client_name, t in ts_p[layer_name].items():
+                    p_ *= t(_zs_p[client_name])
             
             # Sample weights from posterior distribution q. q already has S passed via _zs
             key, w = q.sample(key) # w is [S, Dout, Din] of layer i.
@@ -109,10 +110,10 @@ class GIBNN:
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             if i < len(ps.keys()) - 1:     
                 self.propagate_z(_zs, w, nonlinearity=True)
-                self.propagate_z(_zs_p, w, nonlinearity=True)
+                if zs_p is not None: self.propagate_z(_zs_p, w, nonlinearity=True)
             else:
                 self.propagate_z(_zs, w, nonlinearity=False)
-                self.propagate_z(_zs_p, w, nonlinearity=False)
+                if zs_p is not None: self.propagate_z(_zs_p, w, nonlinearity=False)
                 
         return key, self._cache
                 

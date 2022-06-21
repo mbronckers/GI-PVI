@@ -35,6 +35,7 @@ from dgp import generate_data, split_data, split_data_clients, DGP
 from config.config import Config, Color
 from utils.gif import make_gif
 from utils.metrics import rmse
+from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
             x: B.Numeric, y: B.Numeric, 
@@ -62,54 +63,6 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable,
     elbo = ((N / len(x)) * exp_ll) - kl
     
     return key, elbo, exp_ll, kl, rmse
-
-@namespace("zs")
-def add_zs(vs, zs):
-    """ Add client inducing points to optimizable params in vs """
-    for client_name, client_z in zs.items():
-        vs.unbounded(client_z, name=f"{client_name}_z")
-
-@namespace("ts")
-def add_ts(vs, ts):
-    """ Add client likelihood factors to optimizable params in vs """
-    for client_name, client_dict in ts.items():
-        for layer_name, t in client_dict.items():
-            vs.unbounded(t.yz, name=f"{client_name}_{layer_name}_yz")
-            vs.positive(t.nz, name=f"{client_name}_{layer_name}_nz")
-
-def rebuild(vs, likelihood, clients):
-    """
-    For positive (constrained) variables in vs, 
-        we need to re-initialize the values of the objects 
-        to the latest vars in vs for gradient purposes
-    
-    :param likelihood: update the output variance
-    :param clients: update the pseudo precision
-    """
-
-    _idx = vs.name_to_index["output_var"] 
-    likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
-    for client_name, client in clients.items():
-        client.update_nz(vs)
-
-def load_vs(fpath):
-    """ Load saved vs state dict into new Vars container object"""
-    assert os.path.exists(fpath)
-    _vs_state_dict = torch.load(fpath)
-
-    vs: Vars = vars(B.default_dtype)
-    for idx, name in enumerate(_vs_state_dict.keys()):
-        if name.__contains__("output_var") or \
-            name.__contains__("nz"):
-            vs.positive(_vs_state_dict[name], name=name)
-        else:
-            vs.unbounded(_vs_state_dict[name], name=name)
-
-    return vs
-
-def get_vs_state(vs):
-    """ returns dict<key=var_name, value=var_value> """
-    return dict(zip(vs.names, [vs[_name] for _name in vs.names]))
 
 def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot: bool):
     """ Logs the model inference results and saves plots
@@ -279,8 +232,8 @@ if __name__ == "__main__":
         
 
     # Collect clients
-    ts = {}
-    zs = {}
+    ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
+    zs: dict[str, B.Numeric] = {}
     for client_name, client in clients.items():
         _t = client.t
         for layer_name, layer_t in _t.items():
@@ -304,18 +257,19 @@ if __name__ == "__main__":
     rebuild(vs, likelihood, clients)
 
     # Optimizer parameters
+    # Optimizer parameters
     lr = args.lr
     if args.sep_lr:
-        opt = torch.optim.Adam(
+        opt = getattr(torch.optim, config.optimizer)(
             [
                 {"params": vs.get_latent_vars("*nz"), "lr": config.lr_nz},
                 {"params": vs.get_latent_vars("output_var"), "lr": config.lr_output_var}, # ll var
                 {"params": vs.get_latent_vars("*client*_z"), "lr": lr}, # inducing 
                 {"params": vs.get_latent_vars("*yz"), "lr": lr}, # pseudo obs
             ],
-            lr=lr)
+            **config.optimizer_params)
     else:
-        opt = torch.optim.Adam(vs.get_vars(), lr=lr)
+        opt = getattr(torch.optim, config.optimizer)(vs.get_vars(), **config.optimizer_params)
 
     batch_size = min(args.batch_size, N)
     S = args.training_samples # number of inference samples

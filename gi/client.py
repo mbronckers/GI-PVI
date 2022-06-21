@@ -33,7 +33,7 @@ class Client:
         """
         
         for i, layer_name in enumerate(self.t.keys()):
-            var = vs[f"ts.{layer_name}_{self.name}_nz"]
+            var = vs[f"ts.{self.name}_{layer_name}_nz"]
             self.t[layer_name].nz = var
 
     def get_final_yz(self):
