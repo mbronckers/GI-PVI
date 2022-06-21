@@ -1,40 +1,58 @@
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+from datetime import datetime
+from typing import Callable
+
+from matplotlib import pyplot as plt
+
+file_dir = os.path.dirname(__file__)
+_root_dir = os.path.abspath(os.path.join(file_dir, ".."))
+sys.path.insert(0, os.path.abspath(_root_dir))
+
+import argparse
+import logging
+import logging.config
+from pathlib import Path
+
 import gi
 import lab as B
+import lab.torch
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import torch
+import torch.nn as nn
 
-class Server:
-    def __init__(self, clients: list[Client]):
-        self.clients = clients
-        
-    def __iter__(self):
-        return self
+from gi.server import SequentialServer, SynchronousServer
 
-class SynchronousServer(Server):
-    def __next__(self):
-        return self.clients
-        
-class SequentialServer(Server):
-    def __init__(self, clients: list[Client]):
-        super().__init__(clients)
-        self.idx = 0
+from gi.utils.plotting import (line_plot, plot_confidence, plot_predictions, scatter_plot)
+from slugify import slugify
+from varz import Vars, namespace
+from wbml import experiment, out, plot
 
-    def __next__(self):
-        client = self.clients[self.idx]
-        self.idx = (self.idx + 1) % len(self.clients)
-        return [client]
+from config.config import Color, PVIConfig
+from dgp import DGP, generate_data, split_data, split_data_clients
+from priors import build_prior, parse_prior_arg
+from utils.gif import make_gif
+from utils.metrics import rmse
+
 
 def estimate_local_vfe(
-    key: B.RandomState, 
-    model: gi.GIBNN, 
-    likelihood: Callable,
-    client: gi.client.Client,
-    x,
-    y,
-    ps: dict[str, gi.NaturalNormal], 
-    ts: dict[str, dict[str, gi.NormalPseudoObservation]], 
-    zs: dict[str, B.Numeric], 
-    S: int, 
-    N: int
-):
+        key: B.RandomState, 
+        model: gi.GIBNN, 
+        likelihood: Callable,
+        client: gi.client.Client,
+        x,
+        y,
+        ps: dict[str, gi.NaturalNormal], 
+        ts: dict[str, dict[str, gi.NormalPseudoObservation]], 
+        zs: dict[str, B.Numeric], 
+        S: int, 
+        N: int
+    ):
     # Cavity distribution is defined by all the approximate likelihoods 
     # (and corresponding inducing locations) except for those indexed by 
     # client.name.
