@@ -166,6 +166,18 @@ class NaturalNormal:
             self.prec + other.prec
             )
 
+    def __truediv__(self, other: "NaturalNormal"):
+        return NaturalNormal(
+            self.lam - other.lam, 
+            self.prec - other.prec
+            )
+
+    def __rtruediv__(self, other: "NaturalNormal"):
+        return NaturalNormal(
+            other.lam - self.lam, 
+            other.prec - self.prec
+            )
+
     def __eq__(self, __o: "NaturalNormal") -> bool:
         return (torch.all(torch.isclose(self.lam, __o.lam)) and torch.all(torch.isclose(self.prec, __o.prec))).item()
 
