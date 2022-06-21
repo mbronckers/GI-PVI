@@ -19,7 +19,8 @@ class Config:
     seed: int = 0
     plot: bool = True
     
-    epochs: int = 1000
+    iters: int = 100    # server iterations 
+    epochs: int = 100  # client epochs
     
     N: int = 100        # Number of training data pts
     M: int = 10         # Number of inducing points

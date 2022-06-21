@@ -1,9 +1,13 @@
 from __future__ import annotations
+from dataclasses import dataclass
 
 from typing import Optional
 from gi.distributions import NormalPseudoObservation
 import lab as B
 import lab.torch
+from varz import Vars
+
+from gi.likelihoods import NormalLikelihood
 
 class Client:
     """
@@ -18,22 +22,36 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
-    def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation]):
+    def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation], vs: Vars, likelihood: NormalLikelihood):
         self.name = name if name else None
         self.x = x
         self.y = y
         self.z = z
         self.t = t
+        self.vs = vs        
+        self.likelihood = likelihood
+        
+        # Add optimizable client variables to vs
+        self.vs.unbounded(self.z, name=f"{self.name}_z")
+        for layer_name, _t in self.t.items():
+            self.vs.unbounded(_t.yz, name=f"{self.name}_{layer_name}_yz")
+            self.vs.positive(_t.nz, name=f"{self.name}_{layer_name}_nz")
+            
+        self.vs.requires_grad(True, *vs.names)
+        self.update_nz()
 
-    def update_nz(self, vs):
+    @property
+    def vs(self):
+        return self.vs
+
+    def update_nz(self):
         """ Update likelihood factors' precision based on the current state of vs
 
         Args:
             vs: optimizable variable container
         """
-        
         for i, layer_name in enumerate(self.t.keys()):
-            var = vs[f"ts.{self.name}_{layer_name}_nz"]
+            var = self.vs[f"ts.{self.name}_{layer_name}_nz"]
             self.t[layer_name].nz = var
 
     def get_final_yz(self):

@@ -115,9 +115,6 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
         plot.tweak(_ax)
         plt.savefig(os.path.join(_plot_dir, f'{_fname}.png'), pad_inches=0.2, bbox_inches='tight')
         
-        # if data_name.__contains__("domain"): _ax.set(ylim=(-4., 4))  # limit domain plot to -4, 4 to be comparable with Ober
-        # plt.savefig(os.path.join(_plot_dir, f'{_fname}_ylim.png'), pad_inches=0.2, bbox_inches='tight')
-
         # Plot all sampled functions
         ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
         
@@ -256,7 +253,6 @@ if __name__ == "__main__":
     vs.requires_grad(True, *vs.names) # By default, no variable requires a gradient in Varz
     rebuild(vs, likelihood, clients)
 
-    # Optimizer parameters
     # Optimizer parameters
     lr = args.lr
     if args.sep_lr:
