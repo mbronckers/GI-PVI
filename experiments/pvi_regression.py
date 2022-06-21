@@ -219,7 +219,9 @@ if __name__ == "__main__":
         data = {'x': client_x_tr, 'y': client_y_tr}
         key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
         t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-        clients[f"client{i}"] = gi.Client(config, f"client{i}", data, z, t, model)
+
+        # Give clients independent model instance (to seperate _cache)
+        clients[f"client{i}"] = gi.Client(config, f"client{i}", data, z, t, gi.GIBNN(nn.functional.relu, args.bias))
     
     # Plot initial inducing points
     if args.plot:

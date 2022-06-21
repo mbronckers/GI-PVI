@@ -34,14 +34,13 @@ class Client:
         self.z = z
         self.t = t
         
-        # Shared access to nonlinearity, bias
+        # Shared access to nonlinearity and bias setting
         self.model = model
 
         # Client local
         self.likelihood: NormalLikelihood = None
         self.config = config
         self._parameters: list[str] = None # list of parameter names to take out of vs
-        self._cache = {}
 
     @property
     def x(self):
@@ -51,7 +50,20 @@ class Client:
     def y(self):
         return self.data['y']
 
+    @property
+    def _cache(self):
+        return self.model._cache
+
+    @property
+    def nonlinearity(self):
+        return self.model.nonlinearity
+
+    @property
+    def bias(self):
+        return self.model.bias
+
     def parameters(self, vs: Vars):
+        """ Gets the appropriate client's variables from the variable manager """
         if self._parameters == None:
             _p = list(chain.from_iterable((f"ts.{self.name}_{layer_name}_yz", f"ts.{self.name}_{layer_name}_nz") for layer_name, _t in self.t.items()))
             _p.append(f"zs.{self.name}_z")
@@ -62,7 +74,7 @@ class Client:
 
     
     def update_nz(self, vs):
-        """ Update likelihood factors' precision based on the current state of vs
+        """ Update precision of the likelihood factor based on the current state of vs
 
         Args:
             vs: optimizable variable container
@@ -96,11 +108,13 @@ class Client:
         # Get inducing points in appropriate shape and add bias
         _cz = self.transform_z(self.config.bias, self.config.S)
 
+        layer_inputs = {} # <layer_name, layer_output>
         for i, (layer_name, q_prev) in enumerate(q_old.items()):
             
             # Compute cavity, new client-local posterior
+            layer_inputs[layer_name] = _cz.detach()
             _t = self.t[layer_name](_cz)
-            q_cav = q_prev / _t     # TODO: q_cav.prec of layer1 is not PD
+            q_cav = (q_prev / _t)     # TODO: q_cav.prec of layer1 is not PD
             q = q_prev * _t         # compute client-local posterior
 
             # Sample weights from posterior distribution q. q already has S passed via _zs
@@ -116,14 +130,36 @@ class Client:
             # Propagate client-local inducing inputs <z>
             _cz = B.mm(_cz, w, tr_b=True)         # propagate z. [S x M x Dout]
             if i < len(q_old.keys()) - 1:  # non-final layer
-                _cz = self.model.nonlinearity(_cz)      # forward and updating the inducing inputs
+                _cz = self.nonlinearity(_cz)      # forward and updating the inducing inputs
             
                 # Add bias vector to any intermediate outputs
                 if self.model.bias:
                     _bias = B.ones(*_cz.shape[:-1], 1)
                     _cz = B.concat(_cz, _bias, axis=-1)
+        
+        return key, layer_inputs
 
-        return key, _cz
+    def propagate(self, x):
+        if self._cache is None:
+            return None
+
+        if len(x.shape) == 2:
+            x = B.tile(x, self.S, 1, 1)
+            if self.bias:
+                _bias = B.ones(*x.shape[:-1], 1)
+                x = B.concat(x, _bias, axis=-1)
+
+        for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
+            x = B.mm(x, layer_dict["w"], tr_b=True)
+            if i < len(self._cache.keys()) - 1: # non-final layer
+                x = self.nonlinearity(x)
+                
+                if self.bias:
+                    _bias = B.ones(*x.shape[:-1], 1)
+                    x = B.concat(x, _bias, axis=-1)
+
+        return x
+            
 
     def update_q(self, key, vs: vars, 
                 ps: dict[str, NaturalNormal], 
@@ -149,13 +185,15 @@ class Client:
         # Run update
         epochs = self.config.client_epochs
         for i in range(epochs):
+
             # Construct i-th minibatch {x, y} training data
             inds = (B.range(batch_size) + batch_size*i) % len(self.x)
             x_mb = B.take(self.x, inds)
             y_mb = B.take(self.y, inds)
 
             # Compute new local approximate posterior
-            y_pred = self.sample_posterior(key, q_old)
+            key, layer_inputs = self.sample_posterior(key, q_old)
+            y_pred = self.model.propagate(x_mb)  # [S x N x Dout]
 
             # Compute total cavity KL
             kl = 0.
@@ -180,6 +218,7 @@ class Client:
 
             loss = -elbo
             loss.backward()
+
             optim.step()
             
             # Rebuild necessary parameters
@@ -188,15 +227,15 @@ class Client:
             # _idx = vs.name_to_index[f"{self.name}_output_var"] 
             # self.likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
             
-            # Compute the change in approx likelihood factors
-            delta_t = {}
-            _cz = self.transform_z(self.config.bias, self.config.S)
-            for layer_name, layer_t_old in t_old.items():
-                layer_t_new = self.t[layer_name](_cz)
-                delta_t[layer_name] = layer_t_new / layer_t_old
-
             # Remove accumulated grads
-            optim.zero_grad() 
+            optim.zero_grad()
+
+        # Compute the change in approx likelihood factors
+        delta_t = {}
+        for i,(layer_name, layer_t_old) in enumerate(t_old.items()):
+            _cz = layer_inputs[layer_name]
+            layer_t_new = self.t[layer_name](_cz)
+            delta_t[layer_name] = layer_t_new / layer_t_old
 
         # Communicate back the change in approximate likelihood parameters
         return key, delta_t

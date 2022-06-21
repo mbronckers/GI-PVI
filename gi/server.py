@@ -63,6 +63,8 @@ class Server:
             # Get clients to optimize
             b: list[Client] = self.select_clients()
 
+            logger.info(f"SERVER - epoch {i}/{epochs}: optimizing clients {b}")
+
             # Optimize client-local ts
             delta_ts: list[NaturalNormal] = [] # to save changes in t
             for client in b:
