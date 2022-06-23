@@ -29,6 +29,8 @@ import torch.nn as nn
 from gi.server import SequentialServer, SynchronousServer
 
 from gi.utils.plotting import (line_plot, plot_confidence, plot_predictions, scatter_plot)
+from gi.distributions import NormalPseudoObservation
+
 from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
@@ -50,16 +52,31 @@ def estimate_local_vfe(
         ps: dict[str, gi.NaturalNormal], 
         ts: dict[str, dict[str, gi.NormalPseudoObservation]], 
         zs: dict[str, B.Numeric], 
-        S: int, 
-        N: int
+        S: B.Int, 
+        N: B.Int
     ):
     # Cavity distribution is defined by all the approximate likelihoods (and corresponding inducing locations) except for those indexed by client.name.
     # Create cavity distributions.
-    ts_cav = dict(ts)
-    zs_cav = dict(zs)
-    del ts_cav[client.name]
-    del zs_cav[client.name]
     
+    # If they are leaf node, there is "requires_grad=True" and is not "grad_fn=SliceBackward" or "grad_fn=CopySlices". I guess that non-leaf node has grad_fn, which is used to propagate gradients.
+    
+    # zs_cav = deepcopy(zs)
+    zs_cav = {}
+    for client_name, _client_z in zs.items():
+        zs_cav[client_name] = _client_z
+    del zs_cav[client.name]   
+    
+    # Construct cavity from scratch (to avoid linked copies)
+    ts_cav = {}
+    for layer_name, _t in ts.items():
+        ts_cav[layer_name] = {}
+        for client_name, client_t in _t.items():
+            if client_name != client.name: 
+                # ts_cav[layer_name][client_name] = NormalPseudoObservation(yz=client_t.yz.detach().clone(), nz=client_t.nz.detach().clone())
+                ts_cav[layer_name][client_name] = NormalPseudoObservation(yz=client_t.yz, nz=client_t.nz)
+        
+        # del ts_cav[layer_name][client.name]
+
     key, _cache = model.sample_posterior(key, ps, ts, zs, ts_cav, zs_cav, S)
     out = model.propagate(x) # out : [S x N x Dout]
     
@@ -117,7 +134,7 @@ def main(args, config, logger):
         
         t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
         
-        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t, _vs, likelihood)
+        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t, _vs)
 
     # Plot initial inducing points
     if args.plot:
@@ -166,11 +183,13 @@ def main(args, config, logger):
         logger.info(f"SERVER - iter {i}/{iters}: optimizing clients {curr_clients}")
         
         for client in curr_clients:
-            # Construct optimiser by adding clients parameters.
-            opt = getattr(torch.optim, config.optimizer)(client.vs.get_vars(), **config.optimizer_params)
-            # opt = torch.optim.Adam(client.vs.get_vars(), lr=args.lr)
+            # Construct optimiser of only clients parameters.
+            opt = getattr(torch.optim, config.optimizer)(client.get_params(), **config.optimizer_params)
             
-            for epoch in range(args.epochs):
+            logger.info(f"Client {client.name}: starting optimization of {client.vs.names}")
+            
+            epochs = args.epochs
+            for epoch in range(epochs):
                 # Construct i-th minibatch {x, y} training data
                 inds = (B.range(args.batch_size) + args.batch_size*i) % len(client.x)
                 x_mb = B.take(client.x, inds) # take() is for JAX
@@ -182,6 +201,16 @@ def main(args, config, logger):
                 key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, client, x_mb, y_mb, ps, ts, zs, S, N)
                 local_vfe.backward()
                 opt.step()
+                # check whether client t / z are updated
+                # client.update_nz()
+                opt.zero_grad()
+                
+                logger.info(f"[{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+
+            # Communicate back new t (not delta_t)
+            zs[client.name] = client.z
+            for layer_name in ts.keys():
+                ts[layer_name][client.name] = client.t[layer_name]
 
 
 

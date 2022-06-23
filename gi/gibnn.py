@@ -1,5 +1,6 @@
 import lab as B
 import torch
+
 class GIBNN:
     def __init__(self, nonlinearity, bias):
         self.nonlinearity = nonlinearity
@@ -39,7 +40,6 @@ class GIBNN:
             w (B.Numeric): sampled weights
             nonlinearity (bool, optional): Apply nonlinearity to the outputs. Defaults to True.
         """
-
         for client_name, client_z in zs.items():
             # Forward the inducing inputs
             client_z = B.mm(client_z, w, tr_b=True)         # [S x M x Dout]
@@ -55,7 +55,7 @@ class GIBNN:
             # Always store in _zs
             zs[client_name] = client_z 
 
-    def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, S: B.Int, ts_p: dict = None, zs_p: dict = None):
+    def sample_posterior(self, key: B.RandomState, ps: dict, ts: dict, zs: dict, ts_p: dict, zs_p: dict, S: B.Int):
         """_summary_
 
         Args:
@@ -75,7 +75,7 @@ class GIBNN:
     
         # Shape inducing inputs for propagation; separate dict to modify
         _zs = self.process_z(zs, S)
-        if zs_p is not None: _zs_p = self.process_z(zs_p, S)
+        if zs_p: _zs_p = self.process_z(zs_p, S)
 
         for i, (layer_name, p) in enumerate(ps.items()):
 
@@ -110,10 +110,10 @@ class GIBNN:
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             if i < len(ps.keys()) - 1:     
                 self.propagate_z(_zs, w, nonlinearity=True)
-                if zs_p is not None: self.propagate_z(_zs_p, w, nonlinearity=True)
+                if zs_p: self.propagate_z(_zs_p, w, nonlinearity=True)
             else:
                 self.propagate_z(_zs, w, nonlinearity=False)
-                if zs_p is not None: self.propagate_z(_zs_p, w, nonlinearity=False)
+                if zs_p: self.propagate_z(_zs_p, w, nonlinearity=False)
                 
         return key, self._cache
                 

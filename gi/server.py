@@ -20,9 +20,12 @@ class SynchronousServer(Server):
 class SequentialServer(Server):
     def __init__(self, clients: list[Client]):
         super().__init__(clients)
-        self.idx = 0
+        self._idx = 0
+
+    def current_client(self):
+        return self.clients[list(self.clients.keys())[self._idx]]
 
     def __next__(self):
-        client = self.clients[self.idx]
-        self.idx = (self.idx + 1) % len(self.clients)
+        client = self.current_client()
+        self._idx = (self._idx + 1) % len(self.clients)
         return [client]
