@@ -42,12 +42,12 @@ def plot_predictions(ax, x: Tensor, y: Tensor,
     if ax == None:
         fig, ax = plt.subplots(1, 1, figsize=(10,10))
 
-    scatterplot = plot.patch(sns.scatterplot)
+    lineplot = plot.patch(sns.lineplot)
     if len(y.shape) == 3:
         for i in range(y.shape[0]):
-            scatterplot(y=y[i], x=x, ax=ax)
+            lineplot(y=y[i], x=x, ax=ax, color=colors[0], alpha=0.3)
     else:
-        scatterplot(y=y, x=x, ax=ax)
+        lineplot(y=y, x=x, ax=ax, color=colors[0], alpha=0.3)
 
     # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
     if xlabel != None: ax.set_xlabel(xlabel)

@@ -16,12 +16,17 @@ class Server:
         return self
 
 class SynchronousServer(Server):
+    def __init__(self, clients: list[Client]):
+        super().__init__(clients)
+        self.name = "synchronous"
+
     def __next__(self):
         return list(self.clients.values())
         
 class SequentialServer(Server):
     def __init__(self, clients: list[Client]):
         super().__init__(clients)
+        self.name = "sequential"
         self._idx = 0
 
     def current_client(self):

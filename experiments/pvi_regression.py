@@ -42,6 +42,7 @@ from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.metrics import rmse
 from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
+from utils.log import eval_logging  
 
 def estimate_local_vfe(
         key: B.RandomState, 
@@ -70,7 +71,6 @@ def estimate_local_vfe(
         for client_name, client_t in _t.items():
             if client_name != client.name: 
                 ts_cav[layer_name][client_name] = copy(client_t)
-                # ts_cav[layer_name][client_name] = NormalPseudoObservation(yz=client_t.yz.detach().clone(), nz=client_t.nz.detach().clone())
 
     key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
     out = model.propagate(x) # out : [S x N x Dout]
@@ -162,8 +162,8 @@ def main(args, config, logger):
     epochs = args.epochs
 
     # Construct server.
-    # server = SequentialServer(clients)
-    server = SynchronousServer(clients)
+    server = SequentialServer(clients)
+    # server = SynchronousServer(clients)
 
     # Perform PVI.
     iters = args.iters
@@ -172,12 +172,13 @@ def main(args, config, logger):
         # Get next client(s).
         curr_clients = next(server)
         
-        logger.info(f"SERVER - iter {i}/{iters}: optimizing clients {curr_clients}")
+        logger.info(f"SERVER - [{i}/{iters}] iterations: optimizing clients {curr_clients}")
 
         tmp_ts = {}
         tmp_zs = {}
 
-        for curr_client in curr_clients:
+        num_clients = len(curr_clients)
+        for idx, curr_client in enumerate(curr_clients):
 
             # Construct frozen zs,ts except for current client's.
             _zs = {}
@@ -198,7 +199,7 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = getattr(torch.optim, config.optimizer)(curr_client.get_params(), **config.optimizer_params)
             
-            logger.info(f"Client {curr_client.name}: starting optimization of {curr_client.vs.names}")
+            logger.info(f"SERVER - {server.name} - [{i}/{iters}] iter - {idx} /{num_clients} client - starting optimization of {curr_client.name}")
             
             epochs = args.epochs
             for epoch in range(epochs):
@@ -216,7 +217,7 @@ def main(args, config, logger):
                 opt.step()
                 opt.zero_grad()
                 
-                if epoch%10==0: logger.info(f"[{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+                if epoch%10==0: logger.info(f"CLIENT - {curr_client.name} - [{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
             # Save client's t / z to communicate back later
             tmp_zs[curr_client.name] = curr_client.z
@@ -230,6 +231,40 @@ def main(args, config, logger):
         for client_name, client_t in tmp_ts.items():
             for layer_name, layer_t in client_t.items():
                 ts[layer_name][client_name] = copy(layer_t) # no grad
+
+
+    # Save var state
+    _global_vs_state_dict = {}
+    for _name, _c in clients.items():
+        _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
+        _global_vs_state_dict.update(_vs_state_dict)
+    torch.save(_global_vs_state_dict, os.path.join(_results_dir, 'model/_vs.pt'))
+
+    with torch.no_grad():
+        
+        # Resample <_S> inference weights
+        key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
+
+        # Get <_S> predictions, calculate average RMSE, variance
+        y_pred = model.propagate(x_te)
+
+        # Log and plot results
+        eval_logging(x_te, y_te, x_tr, y_tr, y_pred, rmse(y_te, y_pred), y_pred.var(0), "Test set", _results_dir, "eval_test_preds", config.plot_dir)
+    
+        # Run eval on entire dataset
+        y_pred = model.propagate(x)
+        eval_logging(x, y, x_tr, y_tr, y_pred, rmse(y, y_pred), y_pred.var(0), "Both train/test set", _results_dir, "eval_all_preds", config.plot_dir)
+
+        # Run eval on entire domain (linspace)
+        num_pts = 100
+        x_domain = B.linspace(-6, 6, num_pts)[..., None]
+        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+        y_domain = x_domain**3. + 3*eps
+        y_domain = y_domain/scale   # scale with train datasets
+        y_pred = model.propagate(x_domain)
+        eval_logging(x_domain, y_domain, x_tr, y_tr, y_pred, rmse(y_domain, y_pred), y_pred.var(0), "Entire domain", _results_dir, "eval_domain_preds", config.plot_dir)
+
+    logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
 
 if __name__ == "__main__":
