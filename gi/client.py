@@ -1,9 +1,14 @@
 from __future__ import annotations
+from dataclasses import dataclass
+from itertools import chain
 
 from typing import Optional
 from gi.distributions import NormalPseudoObservation
 import lab as B
 import lab.torch
+from varz import Vars
+
+from gi.likelihoods import NormalLikelihood
 
 class Client:
     """
@@ -18,26 +23,62 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
-    def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation]):
+    def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation], vs: Vars):
         self.name = name if name else None
         self.x = x
         self.y = y
         self.z = z
-        self.t = t
+        self.t: dict[str, NormalPseudoObservation] = t
+        self._vs: Vars = vs
+        
+        # Add optimizable client variables to vs 
+        # TODO: check that these are the ones that are in ts/zs at pvi_regressoin
+        self.vs.unbounded(self.z, name=f"zs.{self.name}_z")
+        for layer_name, _t in self.t.items():
+            self.vs.unbounded(_t.yz, name=f"ts.{self.name}_{layer_name}_yz")
+            self.vs.positive(_t.nz, name=f"ts.{self.name}_{layer_name}_nz")
 
-    def update_nz(self, vs):
+        self.vs.requires_grad(True, *vs.names)
+        self.update_nz()
+
+    @property
+    def vs(self):
+        return self._vs
+
+    def get_params(self):
+        """ Gets the appropriate client's variables from the client-local variable manager """
+        return self.vs.get_latent_vars()
+
+    def get_parameters(self, vs: Vars):
+        """ Gets the appropriate client's variables from a global variable manager
+
+        Args:
+            vs (Vars): a global container, with all clients params in it 
+        """
+        if self._parameters == None:
+            _p = list(chain.from_iterable((f"ts.{self.name}_{layer_name}_yz", f"ts.{self.name}_{layer_name}_nz") for layer_name, _t in self.t.items()))
+            _p.append(f"zs.{self.name}_z")
+            self._parameters = _p
+        
+        # Need to get latent representation to have non-leaf tensors for optimizer
+        return vs.get_latent_vars(*(self._parameters))
+
+
+    def update_nz(self):
         """ Update likelihood factors' precision based on the current state of vs
 
         Args:
             vs: optimizable variable container
         """
-        
         for i, layer_name in enumerate(self.t.keys()):
-            var = vs[f"ts.{layer_name}_{self.name}_nz"]
+            var = self.vs[f"ts.{self.name}_{layer_name}_nz"]
             self.t[layer_name].nz = var
 
     def get_final_yz(self):
         return self.t[list(self.t.keys())[-1]].yz # final layer yz
+
+    def __repr__(self) -> str:
+        return f"{self.name}"
 
 def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     """

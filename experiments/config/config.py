@@ -19,7 +19,8 @@ class Config:
     seed: int = 0
     plot: bool = True
     
-    epochs: int = 1000
+    iters: int = 100    # server iterations 
+    epochs: int = 100   # client epochs
     
     N: int = 100        # Number of training data pts
     M: int = 10         # Number of inducing points
@@ -41,6 +42,7 @@ class Config:
     
     prior: Prior = Prior.StandardPrior
     dgp: DGP = DGP.ober_regression
+    optimizer: str = "Adam"
 
     random_z: bool = False
     bias: bool = True
@@ -52,12 +54,26 @@ class Config:
     # Clients
     num_clients: int = 1
     def __post_init__(self):
-        # self.client_splits: list[float] = [0.5, 0.5]
-        self.client_splits: list[float] = [1]
+        self.client_splits: list[float] = [1.]
+        self.optimizer_params: dict = {"lr": self.lr_global}
     
 ################################################################
 
 # The default config settings follow Ober et al.'s toy regression experiment details
+
+@dataclass
+class PVIConfig(Config):
+    name: str = "pvi"
+
+    epochs: int = 100
+    iters: int = 10
+
+    ll_var: float = 1e-2
+
+    num_clients: int = 2
+    def __post_init__(self):
+        self.client_splits: list[float] = [0.5, 0.5]
+        self.optimizer_params: dict = {"lr": self.lr_global}
 
 class Color:
    PURPLE = '\033[95m'

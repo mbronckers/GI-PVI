@@ -1,3 +1,4 @@
+from copy import deepcopy
 import lab as B
 from plum import convert
 from matrix import AbstractMatrix, Diagonal, structured
@@ -166,8 +167,21 @@ class NaturalNormal:
             self.prec + other.prec
             )
 
+    def __truediv__(self, other: "NaturalNormal"):
+        return NaturalNormal(
+            self.lam - other.lam, 
+            self.prec - other.prec
+            )
+
+    def __rtruediv__(self, other: "NaturalNormal"):
+        return NaturalNormal(
+            other.lam - self.lam, 
+            other.prec - self.prec
+            )
+
     def __eq__(self, __o: "NaturalNormal") -> bool:
-        return (torch.all(torch.isclose(self.lam, __o.lam)) and torch.all(torch.isclose(self.prec, __o.prec))).item()
+        
+        return (torch.all(torch.isclose(B.dense(self.lam), B.dense(__o.lam))) and torch.all(torch.isclose(B.dense(self.prec), B.dense(__o.prec)))).item()
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
@@ -215,3 +229,6 @@ class NormalPseudoObservation:
         return (
                 f"yz: {self.yz.shape}, nz: {self.nz.shape}"
         )
+
+    def __copy__(self):
+        return NormalPseudoObservation(deepcopy(self.yz), deepcopy(self.nz.detach().clone()))

@@ -19,6 +19,30 @@
             ]
         },
         {
+            "name": "PVI Regression - Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiments/pvi_regression.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--inference_samples=10",
+                "--name=pvi_debug"
+            ]
+        },
+        {
+            "name": "(All) PVI Regression - Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiments/pvi_regression.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--inference_samples=10",
+                "--name=pvi_debug"
+            ]
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
