@@ -143,3 +143,7 @@ saved_models/
 uci/
 *todo_notes.md
 *gibnn_test.ipynb
+*Regression.ipynb
+*uci.ipynb
+*gif.ipynb
+*plot_eval.ipynb
