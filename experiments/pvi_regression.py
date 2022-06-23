@@ -1,4 +1,5 @@
 from __future__ import annotations
+from copy import copy, deepcopy
 
 import os
 import shutil
@@ -56,28 +57,22 @@ def estimate_local_vfe(
         N: B.Int
     ):
     # Cavity distribution is defined by all the approximate likelihoods (and corresponding inducing locations) except for those indexed by client.name.
-    # Create cavity distributions.
     
-    # If they are leaf node, there is "requires_grad=True" and is not "grad_fn=SliceBackward" or "grad_fn=CopySlices". I guess that non-leaf node has grad_fn, which is used to propagate gradients.
-    
-    # zs_cav = deepcopy(zs)
+    # Create inducing point collections
     zs_cav = {}
     for client_name, _client_z in zs.items():
-        zs_cav[client_name] = _client_z
-    del zs_cav[client.name]   
+        if client_name != client.name: zs_cav[client_name] = _client_z.detach().clone()
     
-    # Construct cavity from scratch (to avoid linked copies)
+    # Create cavity distributions. Construct from scratch to avoid linked copies.
     ts_cav = {}
     for layer_name, _t in ts.items():
         ts_cav[layer_name] = {}
         for client_name, client_t in _t.items():
             if client_name != client.name: 
+                ts_cav[layer_name][client_name] = copy(client_t)
                 # ts_cav[layer_name][client_name] = NormalPseudoObservation(yz=client_t.yz.detach().clone(), nz=client_t.nz.detach().clone())
-                ts_cav[layer_name][client_name] = NormalPseudoObservation(yz=client_t.yz, nz=client_t.nz)
-        
-        # del ts_cav[layer_name][client.name]
 
-    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_cav, zs_cav, S)
+    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
     out = model.propagate(x) # out : [S x N x Dout]
     
     # Compute KL divergence.
@@ -157,13 +152,9 @@ def main(args, config, logger):
         _t = client.t
         for layer_name, layer_t in _t.items():
             if layer_name not in ts: ts[layer_name] = {}
-            ts[layer_name][client_name] = layer_t
-        zs[client_name] = client.z
-    
-    # Set requirement for gradients    
-    # vs.requires_grad(True, *vs.names) # By default, no variable requires a gradient in Varz
-    # output_var = vs.positive(args.ll_var, name="output_var")
-    # rebuild(vs, likelihood, clients)
+            ts[layer_name][client_name] = copy(layer_t)
+
+        zs[client_name] = client.z.detach().clone()
 
     # Optimizer parameters
     batch_size = min(args.batch_size, N)
@@ -171,7 +162,8 @@ def main(args, config, logger):
     epochs = args.epochs
 
     # Construct server.
-    server = SequentialServer(clients)
+    # server = SequentialServer(clients)
+    server = SynchronousServer(clients)
 
     # Perform PVI.
     iters = args.iters
@@ -181,37 +173,63 @@ def main(args, config, logger):
         curr_clients = next(server)
         
         logger.info(f"SERVER - iter {i}/{iters}: optimizing clients {curr_clients}")
-        
-        for client in curr_clients:
-            # Construct optimiser of only clients parameters.
-            opt = getattr(torch.optim, config.optimizer)(client.get_params(), **config.optimizer_params)
+
+        tmp_ts = {}
+        tmp_zs = {}
+
+        for curr_client in curr_clients:
+
+            # Construct frozen zs,ts except for current client's.
+            _zs = {}
+            for client_name, client_z in zs.items():
+                if client_name != curr_client.name: 
+                    _zs[client_name] = client_z.detach().clone()
+                else:
+                    _zs[client_name] = client_z
+            _ts = {}
+            for layer_name, layer_t in ts.items():
+                for client_name, client_layer_t in layer_t.items():
+                    if layer_name not in _ts: _ts[layer_name] = {}
+                    if client_name == curr_client.name:
+                        _ts[layer_name][client_name] = client_layer_t
+                    else:
+                        _ts[layer_name][client_name] = copy(client_layer_t)
+
+            # Construct optimiser of only client's parameters.
+            opt = getattr(torch.optim, config.optimizer)(curr_client.get_params(), **config.optimizer_params)
             
-            logger.info(f"Client {client.name}: starting optimization of {client.vs.names}")
+            logger.info(f"Client {curr_client.name}: starting optimization of {curr_client.vs.names}")
             
             epochs = args.epochs
             for epoch in range(epochs):
                 # Construct i-th minibatch {x, y} training data
-                inds = (B.range(args.batch_size) + args.batch_size*i) % len(client.x)
-                x_mb = B.take(client.x, inds) # take() is for JAX
-                y_mb = B.take(client.y, inds)
+                inds = (B.range(args.batch_size) + args.batch_size*i) % len(curr_client.x)
+                x_mb = B.take(curr_client.x, inds) # take() is for JAX
+                y_mb = B.take(curr_client.y, inds)
                 
                 # Need to make sure t[client.name] and z[client.name] take the values
                 # that are being optimised (i.e. those in client.vs).
                 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, client, x_mb, y_mb, ps, ts, zs, S, N)
-                local_vfe.backward()
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, curr_client, x_mb, y_mb, ps, _ts, _zs, S, N)
+                loss = -local_vfe
+                loss.backward()
                 opt.step()
-                # check whether client t / z are updated
-                # client.update_nz()
                 opt.zero_grad()
                 
-                logger.info(f"[{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+                if epoch%10==0: logger.info(f"[{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
-            # Communicate back new t (not delta_t)
-            zs[client.name] = client.z
-            for layer_name in ts.keys():
-                ts[layer_name][client.name] = client.t[layer_name]
+            # Save client's t / z to communicate back later
+            tmp_zs[curr_client.name] = curr_client.z
+            tmp_ts[curr_client.name] = curr_client.t
 
+        # Communicate back new zs
+        for client_name, client_z in tmp_zs.items():
+            zs[client_name] = client_z.detach().clone() # no grad
+        
+        # Communicate back new t
+        for client_name, client_t in tmp_ts.items():
+            for layer_name, layer_t in client_t.items():
+                ts[layer_name][client_name] = copy(layer_t) # no grad
 
 
 if __name__ == "__main__":
@@ -222,7 +240,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', '-s', type=int, help='seed', nargs='?', default=config.seed)
     parser.add_argument('--epochs', '-e', type=int, help='client epochs', default=config.epochs)
-    parser.add_argument('--iters', '-i', type=int, help='server iters', default=config.epochs)
+    parser.add_argument('--iters', '-i', type=int, help='server iters', default=config.iters)
     parser.add_argument('--plot', '-p', action='store_true', help='Plot results', default=config.plot)
     parser.add_argument('--name', '-n', type=str, help='Experiment name', default=config.name)
     parser.add_argument('--M', '-M', type=int, help='number of inducing points', default=config.M)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import os
 file_dir = os.path.dirname(__file__)
@@ -15,7 +17,7 @@ class Server:
 
 class SynchronousServer(Server):
     def __next__(self):
-        return self.clients
+        return list(self.clients.values())
         
 class SequentialServer(Server):
     def __init__(self, clients: list[Client]):

@@ -77,6 +77,9 @@ class Client:
     def get_final_yz(self):
         return self.t[list(self.t.keys())[-1]].yz # final layer yz
 
+    def __repr__(self) -> str:
+        return f"{self.name}"
+
 def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     """
     Build M inducing points from data (x, y).

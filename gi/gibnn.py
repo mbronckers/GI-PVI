@@ -1,5 +1,8 @@
 import lab as B
 import torch
+import logging
+
+logger = logging.getLogger()
 
 class GIBNN:
     def __init__(self, nonlinearity, bias):
@@ -32,7 +35,7 @@ class GIBNN:
             
         return _zs
     
-    def propagate_z(self, zs: dict, w: B.Numeric, nonlinearity=True):
+    def propagate_z(self, zs: dict, w: B.Numeric, nonlinearity: bool):
         """Propagate inducing points through the BNN
 
         Args:
@@ -110,10 +113,10 @@ class GIBNN:
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             if i < len(ps.keys()) - 1:     
                 self.propagate_z(_zs, w, nonlinearity=True)
-                if zs_p: self.propagate_z(_zs_p, w, nonlinearity=True)
+                if zs_p:  self.propagate_z(_zs_p, w.detach().clone(), nonlinearity=True)
             else:
                 self.propagate_z(_zs, w, nonlinearity=False)
-                if zs_p: self.propagate_z(_zs_p, w, nonlinearity=False)
+                if zs_p: self.propagate_z(_zs_p, w.detach().clone(), nonlinearity=False)
                 
         return key, self._cache
                 

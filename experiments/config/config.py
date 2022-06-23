@@ -20,7 +20,7 @@ class Config:
     plot: bool = True
     
     iters: int = 100    # server iterations 
-    epochs: int = 100  # client epochs
+    epochs: int = 100   # client epochs
     
     N: int = 100        # Number of training data pts
     M: int = 10         # Number of inducing points
@@ -64,6 +64,11 @@ class Config:
 @dataclass
 class PVIConfig(Config):
     name: str = "pvi"
+
+    epochs: int = 100
+    iters: int = 10
+
+    ll_var: float = 1e-2
 
     num_clients: int = 2
     def __post_init__(self):
