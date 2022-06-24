@@ -265,14 +265,14 @@ if __name__ == "__main__":
         lls.append(exp_ll.detach().cpu().item())
 
         loss = -elbo
-        loss.backward()
+        loss.backward(retain_graph=True)
 
-        if i % log_step == 0 or i == (epochs - 1):
-            logger.info(f"Epoch {i:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+        if (i + 1) % log_step == 0 or i == (epochs - 1):
+            logger.info(f"Epoch {i+1:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
             if args.plot:
-                _inducing_inputs = zs["client0"]
-                _pseudo_outputs = ts[list(ts.keys())[-1]]["client0"].yz  # final layer yz
+                _inducing_inputs = curr_client.z
+                _pseudo_outputs = curr_client.get_final_yz()
 
                 scatter_plot(ax=None, x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, desc1="Training data", desc2="Variational params", xlabel="x", ylabel="y", title=f"Epoch {i}")
                 plt.savefig(os.path.join(_plot_dir, f"training/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
