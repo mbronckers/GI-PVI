@@ -92,7 +92,7 @@ def estimate_local_vfe(
     exp_ll = likelihood(out).logpdf(y)
     exp_ll = exp_ll.mean(0).sum()  # take mean across inference samples and sum
     kl = kl.mean()  # across inference samples
-    error = y - out.mean(0)  # error of mean prediction
+    error = (y - out.mean(0)).detach()  # error of mean prediction
     rmse = B.sqrt(B.mean(error**2))
 
     # Mini-batching estimator of ELBO (N / batch_size)
@@ -206,14 +206,18 @@ def main(args, config, logger):
 
                 key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
                 loss = -local_vfe
-                loss.backward(retain_graph=True)
+                loss.backward()
                 opt.step()
                 curr_client.update_nz()
                 opt.zero_grad()
 
-                if epoch % 10 == 0:
+                if (epoch + 1) % 10 == 0 or (epoch + 1) == epochs:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {i:2}/{iters} - epoch [{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {i:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+                    )
+                else:
+                    logger.debug(
+                        f"CLIENT - {curr_client.name} - iter {i:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )
 
                 # Only plot every 10th epoch

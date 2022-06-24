@@ -81,6 +81,7 @@ class PVIConfig(Config):
     epochs: int = 100  # client epochs
 
     num_clients: int = 1
+    ll_var: float = 1e-2  # fixed likelihood variance
 
     def __post_init__(self):
         # Homogeneous, equal-sized split.
