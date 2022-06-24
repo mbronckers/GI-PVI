@@ -4,5 +4,7 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "explorer.confirmDelete": false
+    "explorer.confirmDelete": false,
+    "editor.formatOnPaste": false,
+    "editor.formatOnSave": true
 }
