@@ -30,7 +30,7 @@ class Config:
     batch_size: int = 100
 
     nz_init: float = B.exp(-4)  # precision
-    ll_var: float = 1e-2  # likelihood variance
+    ll_var: float = 1e-3  # likelihood variance
 
     # Learning rates
     separate_lr: bool = False  # use seperate learning rates

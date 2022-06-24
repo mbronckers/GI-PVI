@@ -36,6 +36,7 @@ from config.config import Config, Color
 from utils.gif import make_gif
 from utils.metrics import rmse
 from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
+from utils.log import eval_logging
 
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable, x: B.Numeric, y: B.Numeric, ps: dict[str, gi.NaturalNormal], ts: dict[str, dict[str, gi.NormalPseudoObservation]], zs: dict[str, B.Numeric], S: int, N: int):
@@ -61,65 +62,65 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable, x: 
     return key, elbo, exp_ll, kl, rmse
 
 
-def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot: bool):
-    """Logs the model inference results and saves plots
+# def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot: bool):
+#     """Logs the model inference results and saves plots
 
-    Args:
-        x (_type_): eval input locations
-        y (_type_): eval labels
-        x_tr (_type_): training data
-        y_tr (_type_): training labels
-        y_pred (_type_): model predictions (S x Dout)
-        error (_type_): (y - y_pred)
-        pred_var (_type_): y_pred.var
-        data_name (str): type of (x,y) dataset, e.g. "test", "train", "eval", "all"
-        _results_dir (_type_): results directory to save plots
-        _fname (_type_): plot file name
-        _plot (bool): save plot figure
-    """
-    _S = y_pred.shape[0]  # number of inference samples
+#     Args:
+#         x (_type_): eval input locations
+#         y (_type_): eval labels
+#         x_tr (_type_): training data
+#         y_tr (_type_): training labels
+#         y_pred (_type_): model predictions (S x Dout)
+#         error (_type_): (y - y_pred)
+#         pred_var (_type_): y_pred.var
+#         data_name (str): type of (x,y) dataset, e.g. "test", "train", "eval", "all"
+#         _results_dir (_type_): results directory to save plots
+#         _fname (_type_): plot file name
+#         _plot (bool): save plot figure
+#     """
+#     _S = y_pred.shape[0]  # number of inference samples
 
-    # Log test error and variance
-    logger.info(f"{Color.WHITE} {data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}{Color.END}")
+#     # Log test error and variance
+#     logger.info(f"{Color.WHITE} {data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}{Color.END}")
 
-    # Save model predictions
-    _results_eval = pd.DataFrame(
-        {
-            "x_eval": x.squeeze().detach().cpu(),
-            "y_eval": y.squeeze().detach().cpu(),
-            "pred_errors": (y - y_pred.mean(0)).squeeze().detach().cpu(),
-            "pred_var": pred_var.squeeze().detach().cpu(),
-            "y_pred_mean": y_pred.mean(0).squeeze().detach().cpu(),
-        }
-    )
+#     # Save model predictions
+#     _results_eval = pd.DataFrame(
+#         {
+#             "x_eval": x.squeeze().detach().cpu(),
+#             "y_eval": y.squeeze().detach().cpu(),
+#             "pred_errors": (y - y_pred.mean(0)).squeeze().detach().cpu(),
+#             "pred_var": pred_var.squeeze().detach().cpu(),
+#             "y_pred_mean": y_pred.mean(0).squeeze().detach().cpu(),
+#         }
+#     )
 
-    for num_sample in range(_S):
-        _results_eval[f"preds_{num_sample}"] = y_pred[num_sample].squeeze().detach().cpu()
+#     for num_sample in range(_S):
+#         _results_eval[f"preds_{num_sample}"] = y_pred[num_sample].squeeze().detach().cpu()
 
-    _results_eval.to_csv(os.path.join(_results_dir, f"model/{_fname}.csv"), index=False)
+#     _results_eval.to_csv(os.path.join(_results_dir, f"model/{_fname}.csv"), index=False)
 
-    # Plot model predictions
-    if _plot:
+#     # Plot model predictions
+#     if _plot:
 
-        # Plot eval data, training data, and model predictions (in that order)
-        _ax = scatter_plot(None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
-        scatterplot = plot.patch(sns.scatterplot)
-        scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions", color=gi.utils.plotting.colors[3])
+#         # Plot eval data, training data, and model predictions (in that order)
+#         _ax = scatter_plot(None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+#         scatterplot = plot.patch(sns.scatterplot)
+#         scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions", color=gi.utils.plotting.colors[3])
 
-        # Plot confidence bounds
-        _preds_idx = [f"preds_{i}" for i in range(_S)]
-        quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05, 0.25, 0.75, 0.95)), axis=1)  # [num quartiles x num preds]
-        _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=True)
-        # _ax.legend(loc='upper right', prop={'size': 12})
-        plot.tweak(_ax)
-        plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
+#         # Plot confidence bounds
+#         _preds_idx = [f"preds_{i}" for i in range(_S)]
+#         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05, 0.25, 0.75, 0.95)), axis=1)  # [num quartiles x num preds]
+#         _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=True)
+#         # _ax.legend(loc='upper right', prop={'size': 12})
+#         plot.tweak(_ax)
+#         plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
 
-        # Plot all sampled functions
-        ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+#         # Plot all sampled functions
+#         ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
 
-        _sampled_funcs_dir = os.path.join(_plot_dir, "sampled_funcs")
-        Path(_sampled_funcs_dir).mkdir(parents=True, exist_ok=True)
-        plt.savefig(os.path.join(_sampled_funcs_dir, f"{_fname}_samples.png"), pad_inches=0.2, bbox_inches="tight")
+#         _sampled_funcs_dir = os.path.join(_plot_dir, "sampled_funcs")
+#         Path(_sampled_funcs_dir).mkdir(parents=True, exist_ok=True)
+#         plt.savefig(os.path.join(_sampled_funcs_dir, f"{_fname}_samples.png"), pad_inches=0.2, bbox_inches="tight")
 
 
 if __name__ == "__main__":
@@ -132,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--epochs", "-e", type=int, help="epochs", default=config.epochs)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
+    parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
@@ -165,6 +167,18 @@ if __name__ == "__main__":
     Path(_model_dir).mkdir(parents=True, exist_ok=True)
     Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
 
+    if args.no_plot:
+        config.plot = False
+        args.plot = False
+    config.start = _start
+    config.start_time = _time
+    config.results_dir = _results_dir
+    config.wd = _wd
+    config.plot_dir = _plot_dir
+    config.metrics_dir = _metrics_dir
+    config.model_dir = _model_dir
+    config.training_plot_dir = _training_plot_dir
+
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
@@ -193,6 +207,8 @@ if __name__ == "__main__":
     N = args.N  # number of training points
     key, x, y, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
+
+    logger.info(f"Scale: {scale}")
 
     # Define model
     model = gi.GIBNN(nn.functional.relu, args.bias)
@@ -253,10 +269,6 @@ if __name__ == "__main__":
     # Define likelihood.
     output_var = vs.positive(args.ll_var, name="output_var")
     likelihood = gi.likelihoods.NormalLikelihood(output_var)
-
-    # Add zs, ts to optimizable containers
-    # add_zs(vs, zs)
-    # add_ts(vs, ts)
 
     # Set requirement for gradients
     vs.requires_grad(True, *vs.names)  # By default, no variable requires a gradient in Varz
@@ -355,11 +367,11 @@ if __name__ == "__main__":
         y_pred = model.propagate(x_te)
 
         # Log and plot results
-        eval_logging(x_te, y_te, x_tr, y_tr, y_pred, rmse(y_te, y_pred), y_pred.var(0), "Test set", _results_dir, "eval_test_preds", args.plot)
+        eval_logging(x_te, y_te, x_tr, y_tr, y_pred, rmse(y_te, y_pred), y_pred.var(0), "Test set", _results_dir, "eval_test_preds", config.plot_dir)
 
         # Run eval on entire dataset
         y_pred = model.propagate(x)
-        eval_logging(x, y, x_tr, y_tr, y_pred, rmse(y, y_pred), y_pred.var(0), "Both train/test set", _results_dir, "eval_all_preds", args.plot)
+        eval_logging(x, y, x_tr, y_tr, y_pred, rmse(y, y_pred), y_pred.var(0), "Both train/test set", _results_dir, "eval_all_preds", config.plot_dir)
 
         # Run eval on entire domain (linspace)
         num_pts = 100
@@ -368,6 +380,6 @@ if __name__ == "__main__":
         y_domain = x_domain**3.0 + 3 * eps
         y_domain = y_domain / scale  # scale with train datasets
         y_pred = model.propagate(x_domain)
-        eval_logging(x_domain, y_domain, x_tr, y_tr, y_pred, rmse(y_domain, y_pred), y_pred.var(0), "Entire domain", _results_dir, "eval_domain_preds", args.plot)
+        eval_logging(x_domain, y_domain, x_tr, y_tr, y_pred, rmse(y_domain, y_pred), y_pred.var(0), "Entire domain", _results_dir, "eval_domain_preds", config.plot_dir)
 
     logger.info(f"Total time: {(datetime.utcnow() - _start)} (H:MM:SS:ms)")
