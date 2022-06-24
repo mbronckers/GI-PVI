@@ -23,6 +23,20 @@ from wbml import experiment, out, plot
 
 logger = logging.getLogger()
 
+def plot_client_vp(config, curr_client, iter, epoch):
+        _client_plot_dir = os.path.join(config.training_plot_dir, curr_client.name)
+        Path(_client_plot_dir).mkdir(parents=True, exist_ok=True)
+        fig, _ax = plt.subplots(1, 1, figsize=(10,10))
+        scatterplot = plot.patch(sns.scatterplot)
+        _ax.set_title(f"Variational parameters - iter {iter}, epoch {epoch}")
+        _ax.set_xlabel("x")
+        _ax.set_ylabel("y")
+        scatterplot(curr_client.x, curr_client.y, label=f"Training data - {curr_client.name}", ax=_ax)
+        scatterplot(curr_client.z, curr_client.get_final_yz(), label=f"Initial inducing points - {curr_client.name}", ax=_ax)
+
+        plot.tweak(_ax)
+        plt.savefig(os.path.join(_client_plot_dir, f"{iter}_{epoch}.png"), pad_inches=0.2, bbox_inches='tight')
+
 def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot_dir: str = None):
     """ Logs the model inference results and saves plots
 

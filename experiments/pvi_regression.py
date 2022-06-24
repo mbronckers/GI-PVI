@@ -42,7 +42,7 @@ from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.metrics import rmse
 from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
-from utils.log import eval_logging  
+from utils.log import eval_logging, plot_client_vp
 
 def estimate_local_vfe(
         key: B.RandomState, 
@@ -102,6 +102,8 @@ def main(args, config, logger):
     key, x, y, scale = generate_data(key, args.dgp, N, xmin=-4., xmax=4.)
     x_tr, y_tr, x_te, y_te = split_data(x, y)
 
+    logger.info(f"Scale: {scale}")
+    
     # Define model
     model = gi.GIBNN(nn.functional.relu, args.bias)
 
@@ -112,8 +114,7 @@ def main(args, config, logger):
     
     # Deal with client split
     if args.num_clients != len(config.client_splits): 
-        # Equal split if different number of clients specified via CLI
-        config.client_splits = [1/(args.num_clients) for _ in range(args.num_clients)]
+        raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
     # We can only fix the likelihood.
@@ -172,7 +173,7 @@ def main(args, config, logger):
         # Get next client(s).
         curr_clients = next(server)
         
-        logger.info(f"SERVER - [{i}/{iters}] iterations: optimizing clients {curr_clients}")
+        logger.info(f"SERVER - {server.name} - [{i:4}/{iters:4}] iterations - optimizing clients {curr_clients}")
 
         tmp_ts = {}
         tmp_zs = {}
@@ -183,34 +184,26 @@ def main(args, config, logger):
             # Construct frozen zs,ts except for current client's.
             _zs = {}
             for client_name, client_z in zs.items():
-                if client_name != curr_client.name: 
-                    _zs[client_name] = client_z.detach().clone()
-                else:
-                    _zs[client_name] = client_z
+                _zs[client_name] = client_z.detach().clone()
             _ts = {}
             for layer_name, layer_t in ts.items():
                 for client_name, client_layer_t in layer_t.items():
                     if layer_name not in _ts: _ts[layer_name] = {}
-                    if client_name == curr_client.name:
-                        _ts[layer_name][client_name] = client_layer_t
-                    else:
-                        _ts[layer_name][client_name] = copy(client_layer_t)
+                    _ts[layer_name][client_name] = copy(client_layer_t)
 
             # Construct optimiser of only client's parameters.
             opt = getattr(torch.optim, config.optimizer)(curr_client.get_params(), **config.optimizer_params)
             
-            logger.info(f"SERVER - {server.name} - [{i}/{iters}] iter - {idx} /{num_clients} client - starting optimization of {curr_client.name}")
+            logger.info(f"SERVER - {server.name} - [{i:4}/{iters:4}] - {idx}/{num_clients} client - starting optimization of {curr_client.name}")
             
             epochs = args.epochs
             for epoch in range(epochs):
+                
                 # Construct i-th minibatch {x, y} training data
                 inds = (B.range(args.batch_size) + args.batch_size*i) % len(curr_client.x)
                 x_mb = B.take(curr_client.x, inds) # take() is for JAX
                 y_mb = B.take(curr_client.y, inds)
-                
-                # Need to make sure t[client.name] and z[client.name] take the values
-                # that are being optimised (i.e. those in client.vs).
-                
+                    
                 key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, curr_client, x_mb, y_mb, ps, _ts, _zs, S, N)
                 loss = -local_vfe
                 loss.backward()
@@ -218,6 +211,9 @@ def main(args, config, logger):
                 opt.zero_grad()
                 
                 if epoch%10==0: logger.info(f"CLIENT - {curr_client.name} - [{epoch:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+
+                # Only plot first and final iteration
+                if args.plot and (epoch == 0 or epoch==epochs-1): plot_client_vp(config, curr_client, i, epoch)
 
             # Save client's t / z to communicate back later
             tmp_zs[curr_client.name] = curr_client.z
@@ -231,7 +227,6 @@ def main(args, config, logger):
         for client_name, client_t in tmp_ts.items():
             for layer_name, layer_t in client_t.items():
                 ts[layer_name][client_name] = copy(layer_t) # no grad
-
 
     # Save var state
     _global_vs_state_dict = {}

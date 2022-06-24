@@ -51,6 +51,15 @@ class Config:
 
     load: str = None
 
+    start = None
+    start_time = None
+    results_dir = None
+    wd = None
+    plot_dir = None
+    metrics_dir = None
+    model_dir = None
+    training_plot_dir = None
+
     # Clients
     num_clients: int = 1
     def __post_init__(self):
@@ -71,6 +80,7 @@ class PVIConfig(Config):
     ll_var: float = 1e-2
 
     num_clients: int = 2
+
     def __post_init__(self):
         self.client_splits: list[float] = [0.5, 0.5]
         self.optimizer_params: dict = {"lr": self.lr_global}
