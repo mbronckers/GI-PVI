@@ -83,10 +83,11 @@ class PVIConfig(Config):
 
     ll_var: float = 1e-2
 
-    num_clients: int = 2
+    num_clients: int = 3
 
     def __post_init__(self):
-        self.client_splits: list[float] = [0.5, 0.5]
+        # Homogeneous, equal-sized split.
+        self.client_splits: list[float] = [1 / self.num_clients for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
 
 

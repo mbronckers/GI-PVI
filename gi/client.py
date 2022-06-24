@@ -10,6 +10,7 @@ from varz import Vars
 
 from gi.likelihoods import NormalLikelihood
 
+
 class Client:
     """
     Client class that contains: client-local data, the parameters of its factor, and a function how to build the factor.
@@ -23,6 +24,7 @@ class Client:
     :param yz: Pseudo (inducing) observations (outputs)
     :param nz: Pseudo noise
     """
+
     def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation], vs: Vars):
         self.name = name if name else None
         self.x = x
@@ -30,9 +32,8 @@ class Client:
         self.z = z
         self.t: dict[str, NormalPseudoObservation] = t
         self._vs: Vars = vs
-        
-        # Add optimizable client variables to vs 
-        # TODO: check that these are the ones that are in ts/zs at pvi_regressoin
+
+        # Add optimizable client variables to vs
         self.vs.unbounded(self.z, name=f"zs.{self.name}_z")
         for layer_name, _t in self.t.items():
             self.vs.unbounded(_t.yz, name=f"ts.{self.name}_{layer_name}_yz")
@@ -46,26 +47,25 @@ class Client:
         return self._vs
 
     def get_params(self):
-        """ Gets the appropriate client's variables from the client-local variable manager """
+        """Gets the appropriate client's variables from the client-local variable manager"""
         return self.vs.get_latent_vars()
 
     def get_parameters(self, vs: Vars):
-        """ Gets the appropriate client's variables from a global variable manager
+        """Gets the appropriate client's variables from a global variable manager
 
         Args:
-            vs (Vars): a global container, with all clients params in it 
+            vs (Vars): a global container, with all clients params in it
         """
         if self._parameters == None:
             _p = list(chain.from_iterable((f"ts.{self.name}_{layer_name}_yz", f"ts.{self.name}_{layer_name}_nz") for layer_name, _t in self.t.items()))
             _p.append(f"zs.{self.name}_z")
             self._parameters = _p
-        
+
         # Need to get latent representation to have non-leaf tensors for optimizer
         return vs.get_latent_vars(*(self._parameters))
 
-
     def update_nz(self):
-        """ Update likelihood factors' precision based on the current state of vs
+        """Update likelihood factors' precision based on the current state of vs
 
         Args:
             vs: optimizable variable container
@@ -75,12 +75,13 @@ class Client:
             self.t[layer_name].nz = var
 
     def get_final_yz(self):
-        return self.t[list(self.t.keys())[-1]].yz # final layer yz
+        return self.t[list(self.t.keys())[-1]].yz  # final layer yz
 
     def __repr__(self) -> str:
         return f"{self.name}"
 
-def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
+
+def build_z(key: B.RandomState, M: B.Int, x, y, random: bool = False):
     """
     Build M inducing points from data (x, y).
     - If M < len(x), select a random M-sized subset from x
@@ -93,8 +94,8 @@ def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
     :returns: key, z, y
     """
     if random:
-        key, z = B.randn(key, B.default_dtype, M, *x.shape[1:]) # [M x input_dim]
-        key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:]) # [M x output_dim]
+        key, z = B.randn(key, B.default_dtype, M, *x.shape[1:])  # [M x input_dim]
+        key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])  # [M x output_dim]
         return key, z, yz
 
     if M <= len(x):
@@ -104,17 +105,18 @@ def build_z(key: B.RandomState, M: B.Int, x, y, random: bool=False):
         z, yz = x[idx], y[idx]
     else:
         z, yz = x, y
-        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:]) # Generate z_, yz_ 
+        key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:])  # Generate z_, yz_
         key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
         z = B.concat(z, z_)
         yz = B.concat(yz, yz_)
-        
+
     return key, z, yz
+
 
 def build_ts(key, M, yz, *dims: B.Int, nz_init: float):
     """
     Builds likelihood factors per layer for one client
-    
+
     For the final layer, the pseudo observations are init to the passed <yz> (usually, the training data output y)
     For non-final layers, the pseudo obersvations <_yz> ~ N(0, 1)
 
@@ -123,16 +125,16 @@ def build_ts(key, M, yz, *dims: B.Int, nz_init: float):
     """
     ts = {}
     num_layers = len(dims) - 1
-    for i in range(num_layers):   
-        if i < num_layers - 1: 
-            _nz = B.ones(dims[i + 1], M) * nz_init # [Dout x M]
-            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1]) # [M x Dout]
+    for i in range(num_layers):
+        if i < num_layers - 1:
+            _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
+            key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
             t = NormalPseudoObservation(_yz, _nz)
-        else: 
-            # Last layer precision gets initialized to 1 
-            _nz = B.ones(dims[i + 1], M) * 1        # [Dout x M]
-            t = NormalPseudoObservation(yz, _nz) # final layer
-            
+        else:
+            # Last layer precision gets initialized to 1
+            _nz = B.ones(dims[i + 1], M) * 1  # [Dout x M]
+            t = NormalPseudoObservation(yz, _nz)  # final layer
+
         ts[f"layer{i}"] = t
-        
+
     return ts
