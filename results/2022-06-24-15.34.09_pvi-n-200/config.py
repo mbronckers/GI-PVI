@@ -13,34 +13,33 @@ from dgp import DGP
 import lab as B
 import torch
 
-
 @dataclass
 class Config:
     name: str = ""
     seed: int = 0
     plot: bool = True
-
-    iters: int = 100  # server iterations
-    epochs: int = 100  # client epochs
-
-    N: int = 100  # Number of training data pts
-    M: int = 10  # Number of inducing points
-    S: int = 10  # Number of training weight samples
-    I: int = 100  # Number of inference samples
+    
+    iters: int = 100    # server iterations 
+    epochs: int = 100   # client epochs
+    
+    N: int = 100        # Number of training data pts
+    M: int = 10         # Number of inducing points
+    S: int = 10         # Number of training weight samples
+    I: int = 100        # Number of inference samples
 
     batch_size: int = 100
 
     nz_init: float = B.exp(-4)  # precision
-    ll_var: float = 1e-3  # likelihood variance
+    ll_var: float = 1e-3        # likelihood variance
 
     # Learning rates
-    separate_lr: bool = False  # use seperate learning rates
+    separate_lr: bool = False       # use seperate learning rates
     lr_global: float = 1e-2
     lr_nz: float = 1e-3
     lr_output_var: float = 1e-3
     lr_client_z: float = lr_global
     lr_yz: float = lr_global
-
+    
     prior: Prior = Prior.StandardPrior
     dgp: DGP = DGP.ober_regression
     optimizer: str = "Adam"
@@ -63,16 +62,13 @@ class Config:
 
     # Clients
     num_clients: int = 1
-
     def __post_init__(self):
-        self.client_splits: list[float] = [1.0]
+        self.client_splits: list[float] = [1.]
         self.optimizer_params: dict = {"lr": self.lr_global}
-
-
+    
 ################################################################
 
 # The default config settings follow Ober et al.'s toy regression experiment details
-
 
 @dataclass
 class PVIConfig(Config):
@@ -89,16 +85,15 @@ class PVIConfig(Config):
         self.client_splits: list[float] = [0.5, 0.5]
         self.optimizer_params: dict = {"lr": self.lr_global}
 
-
 class Color:
-    PURPLE = "\033[95m"
-    CYAN = "\033[96m"
-    DARKCYAN = "\033[36m"
-    BLUE = "\033[94m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BOLD = "\033[1m"
-    WHITE = "\033[97m"
-    UNDERLINE = "\033[4m"
-    END = "\033[0m"
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   WHITE = '\033[97m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'

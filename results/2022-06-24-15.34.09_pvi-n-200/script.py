@@ -316,7 +316,6 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
     parser.add_argument("--iters", "-i", type=int, help="server iters", default=config.iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
-    parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
@@ -394,9 +393,6 @@ if __name__ == "__main__":
     Path(_model_dir).mkdir(parents=True, exist_ok=True)
     Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
 
-    if args.no_plot:
-        config.plot = False
-        args.plot = False
     config.start = _start
     config.start_time = _time
     config.results_dir = _results_dir

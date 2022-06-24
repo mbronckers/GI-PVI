@@ -1,0 +1,131 @@
+[2022-06-24 17:34:10] - root - DEBUG - Call: ['pvi_regression.py', '--name=pvi_N_200', '--N', '200']
+[2022-06-24 17:34:10] - root - DEBUG - Root: /Users/maxbronckers/Downloads/GI-PVI/results/2022-06-24-15.34.09_pvi-n-200
+[2022-06-24 17:34:10] - root - DEBUG - Time: 2022-06-24-15.34.09
+[2022-06-24 17:34:10] - root - DEBUG - Seed: 0
+[2022-06-24 17:34:10] - root - INFO - [97mArgs: Namespace(seed=0, epochs=100, iters=10, plot=True, name='pvi_N_200', M=10, N=200, training_samples=10, inference_samples=100, nz_init=0.01831563888873418, lr=0.01, ll_var=0.01, batch_size=100, dgp=<DGP.ober_regression: 1>, load=None, random_z=False, prior=<Prior.StandardPrior: 0>, bias=True, sep_lr=False, num_clients=2)[0m
+[2022-06-24 17:34:10] - root - INFO - Scale: 22.852776744810697
+[2022-06-24 17:34:10] - root - INFO - [97mClient splits: [0.5, 0.5][0m
+[2022-06-24 17:34:10] - root - INFO - SERVER - sequential - [   0/  10] iterations - optimizing clients [client0]
+[2022-06-24 17:34:10] - root - INFO - SERVER - sequential - [   0/  10] - 1/1 client - starting optimization of client0
+[2022-06-24 17:34:10] - root - INFO - CLIENT - client0 - [   0/ 100] - local vfe:       -4483.0, ll:       -1495.0, kl:   1491.8, error:  0.40157
+[2022-06-24 17:34:12] - root - INFO - CLIENT - client0 - [  10/ 100] - local vfe:       -4308.0, ll:       -1466.0, kl:   1374.8, error:  0.15211
+[2022-06-24 17:34:13] - root - INFO - CLIENT - client0 - [  20/ 100] - local vfe:       -4467.0, ll:       -1582.0, kl:   1303.5, error:  0.20861
+[2022-06-24 17:34:14] - root - INFO - CLIENT - client0 - [  30/ 100] - local vfe:       -3760.0, ll:       -1274.0, kl:   1211.6, error:  0.24772
+[2022-06-24 17:34:16] - root - INFO - CLIENT - client0 - [  40/ 100] - local vfe:       -4418.0, ll:       -1629.0, kl:   1160.5, error:  0.31775
+[2022-06-24 17:34:17] - root - INFO - CLIENT - client0 - [  50/ 100] - local vfe:       -4197.0, ll:       -1557.0, kl:   1084.2, error:  0.25575
+[2022-06-24 17:34:19] - root - INFO - CLIENT - client0 - [  60/ 100] - local vfe:       -3092.0, ll:       -1029.0, kl:   1033.3, error:  0.24912
+[2022-06-24 17:34:20] - root - INFO - CLIENT - client0 - [  70/ 100] - local vfe:       -3208.0, ll:       -1099.0, kl:   1009.7, error:  0.27738
+[2022-06-24 17:34:22] - root - INFO - CLIENT - client0 - [  80/ 100] - local vfe:       -3700.0, ll:       -1359.0, kl:    982.4, error:  0.25061
+[2022-06-24 17:34:23] - root - INFO - CLIENT - client0 - [  90/ 100] - local vfe:       -2687.0, ll:        -871.0, kl:    945.4, error:  0.23235
+[2022-06-24 17:34:24] - root - INFO - SERVER - sequential - [   1/  10] iterations - optimizing clients [client1]
+[2022-06-24 17:34:24] - root - INFO - SERVER - sequential - [   1/  10] - 1/1 client - starting optimization of client1
+[2022-06-24 17:34:25] - root - INFO - CLIENT - client1 - [   0/ 100] - local vfe:       -5846.0, ll:       -1109.0, kl:   3626.9, error:  0.22155
+[2022-06-24 17:34:26] - root - INFO - CLIENT - client1 - [  10/ 100] - local vfe:       -4783.0, ll:        -832.0, kl:   3119.5, error:  0.17041
+[2022-06-24 17:34:28] - root - INFO - CLIENT - client1 - [  20/ 100] - local vfe:       -5242.0, ll:       -1271.0, kl:   2700.2, error:  0.19775
+[2022-06-24 17:34:30] - root - INFO - CLIENT - client1 - [  30/ 100] - local vfe:       -4019.0, ll:        -814.0, kl:   2390.5, error:  0.15633
+[2022-06-24 17:34:31] - root - INFO - CLIENT - client1 - [  40/ 100] - local vfe:       -4309.0, ll:       -1074.0, kl:   2161.1, error:  0.23410
+[2022-06-24 17:34:33] - root - INFO - CLIENT - client1 - [  50/ 100] - local vfe:       -4766.0, ll:       -1392.0, kl:   1981.0, error:  0.17698
+[2022-06-24 17:34:35] - root - INFO - CLIENT - client1 - [  60/ 100] - local vfe:       -3155.0, ll:        -667.0, kl:   1822.1, error:  0.18637
+[2022-06-24 17:34:37] - root - INFO - CLIENT - client1 - [  70/ 100] - local vfe:       -3896.0, ll:       -1110.0, kl:   1675.2, error:  0.25054
+[2022-06-24 17:34:38] - root - INFO - CLIENT - client1 - [  80/ 100] - local vfe:       -3740.0, ll:       -1098.0, kl:   1543.1, error:  0.21784
+[2022-06-24 17:34:40] - root - INFO - CLIENT - client1 - [  90/ 100] - local vfe:       -3274.0, ll:        -920.0, kl:   1434.2, error:  0.24186
+[2022-06-24 17:34:42] - root - INFO - SERVER - sequential - [   2/  10] iterations - optimizing clients [client0]
+[2022-06-24 17:34:42] - root - INFO - SERVER - sequential - [   2/  10] - 1/1 client - starting optimization of client0
+[2022-06-24 17:34:42] - root - INFO - CLIENT - client0 - [   0/ 100] - local vfe:       -3229.0, ll:        -760.0, kl:   1710.0, error:  0.20497
+[2022-06-24 17:34:44] - root - INFO - CLIENT - client0 - [  10/ 100] - local vfe:       -3404.0, ll:        -916.0, kl:   1572.5, error:  0.16836
+[2022-06-24 17:34:45] - root - INFO - CLIENT - client0 - [  20/ 100] - local vfe:       -2737.0, ll:        -650.0, kl:   1437.3, error:  0.17979
+[2022-06-24 17:34:47] - root - INFO - CLIENT - client0 - [  30/ 100] - local vfe:       -2884.0, ll:        -771.0, kl:   1341.7, error:  0.14685
+[2022-06-24 17:34:49] - root - INFO - CLIENT - client0 - [  40/ 100] - local vfe:       -2364.0, ll:        -559.0, kl:   1245.5, error:  0.19070
+[2022-06-24 17:34:50] - root - INFO - CLIENT - client0 - [  50/ 100] - local vfe:       -3089.0, ll:        -959.0, kl:   1171.6, error:  0.16650
+[2022-06-24 17:34:52] - root - INFO - CLIENT - client0 - [  60/ 100] - local vfe:       -3384.0, ll:       -1139.0, kl:   1105.6, error:  0.24935
+[2022-06-24 17:34:54] - root - INFO - CLIENT - client0 - [  70/ 100] - local vfe:       -2160.0, ll:        -558.0, kl:   1043.7, error:  0.16956
+[2022-06-24 17:34:55] - root - INFO - CLIENT - client0 - [  80/ 100] - local vfe:       -2545.0, ll:        -776.0, kl:    992.0, error:  0.18980
+[2022-06-24 17:34:57] - root - INFO - CLIENT - client0 - [  90/ 100] - local vfe:       -2591.0, ll:        -825.0, kl:    941.6, error:  0.18078
+[2022-06-24 17:34:59] - root - INFO - SERVER - sequential - [   3/  10] iterations - optimizing clients [client1]
+[2022-06-24 17:34:59] - root - INFO - SERVER - sequential - [   3/  10] - 1/1 client - starting optimization of client1
+[2022-06-24 17:34:59] - root - INFO - CLIENT - client1 - [   0/ 100] - local vfe:       -2435.0, ll:        -905.0, kl:    624.6, error:  0.25190
+[2022-06-24 17:35:00] - root - INFO - CLIENT - client1 - [  10/ 100] - local vfe:       -2270.0, ll:        -846.0, kl:    578.7, error:  0.20985
+[2022-06-24 17:35:02] - root - INFO - CLIENT - client1 - [  20/ 100] - local vfe:       -2159.0, ll:        -804.0, kl:    550.2, error:  0.16778
+[2022-06-24 17:35:04] - root - INFO - CLIENT - client1 - [  30/ 100] - local vfe:       -2163.0, ll:        -830.0, kl:    502.6, error:  0.18925
+[2022-06-24 17:35:05] - root - INFO - CLIENT - client1 - [  40/ 100] - local vfe:       -1811.0, ll:        -669.0, kl:    473.5, error:  0.18093
+[2022-06-24 17:35:07] - root - INFO - CLIENT - client1 - [  50/ 100] - local vfe:       -2226.0, ll:        -895.0, kl:    435.2, error:  0.14658
+[2022-06-24 17:35:09] - root - INFO - CLIENT - client1 - [  60/ 100] - local vfe:       -1799.0, ll:        -688.0, kl:    423.2, error:  0.20372
+[2022-06-24 17:35:11] - root - INFO - CLIENT - client1 - [  70/ 100] - local vfe:       -2119.0, ll:        -852.0, kl:    414.5, error:  0.18590
+[2022-06-24 17:35:12] - root - INFO - CLIENT - client1 - [  80/ 100] - local vfe:       -2249.0, ll:        -917.0, kl:    414.7, error:  0.23024
+[2022-06-24 17:35:14] - root - INFO - CLIENT - client1 - [  90/ 100] - local vfe:       -1907.0, ll:        -748.0, kl:    410.0, error:  0.15303
+[2022-06-24 17:35:16] - root - INFO - SERVER - sequential - [   4/  10] iterations - optimizing clients [client0]
+[2022-06-24 17:35:16] - root - INFO - SERVER - sequential - [   4/  10] - 1/1 client - starting optimization of client0
+[2022-06-24 17:35:16] - root - INFO - CLIENT - client0 - [   0/ 100] - local vfe:       -1671.0, ll:        -542.0, kl:    586.6, error:  0.16424
+[2022-06-24 17:35:17] - root - INFO - CLIENT - client0 - [  10/ 100] - local vfe:       -1834.0, ll:        -648.0, kl:    537.1, error:  0.18702
+[2022-06-24 17:35:19] - root - INFO - CLIENT - client0 - [  20/ 100] - local vfe:       -1622.0, ll:        -555.0, kl:    512.0, error:  0.19125
+[2022-06-24 17:35:21] - root - INFO - CLIENT - client0 - [  30/ 100] - local vfe:       -1379.0, ll:        -464.0, kl:    450.9, error:  0.17809
+[2022-06-24 17:35:22] - root - INFO - CLIENT - client0 - [  40/ 100] - local vfe:       -1433.0, ll:        -505.0, kl:    421.9, error:  0.20930
+[2022-06-24 17:35:24] - root - INFO - CLIENT - client0 - [  50/ 100] - local vfe:       -1791.0, ll:        -697.0, kl:    395.9, error:  0.16799
+[2022-06-24 17:35:26] - root - INFO - CLIENT - client0 - [  60/ 100] - local vfe:       -2363.0, ll:        -992.0, kl:    379.3, error:  0.16729
+[2022-06-24 17:35:27] - root - INFO - CLIENT - client0 - [  70/ 100] - local vfe:       -1814.0, ll:        -727.0, kl:    359.4, error:  0.18872
+[2022-06-24 17:35:29] - root - INFO - CLIENT - client0 - [  80/ 100] - local vfe:       -1621.0, ll:        -635.0, kl:    351.6, error:  0.15213
+[2022-06-24 17:35:31] - root - INFO - CLIENT - client0 - [  90/ 100] - local vfe:       -1741.0, ll:        -705.0, kl:    331.6, error:  0.17667
+[2022-06-24 17:35:32] - root - INFO - SERVER - sequential - [   5/  10] iterations - optimizing clients [client1]
+[2022-06-24 17:35:32] - root - INFO - SERVER - sequential - [   5/  10] - 1/1 client - starting optimization of client1
+[2022-06-24 17:35:32] - root - INFO - CLIENT - client1 - [   0/ 100] - local vfe:       -1465.0, ll:        -636.0, kl:    193.2, error:  0.18635
+[2022-06-24 17:35:34] - root - INFO - CLIENT - client1 - [  10/ 100] - local vfe:       -1668.0, ll:        -742.0, kl:    183.3, error:  0.15837
+[2022-06-24 17:35:36] - root - INFO - CLIENT - client1 - [  20/ 100] - local vfe:       -1216.0, ll:        -523.0, kl:    169.4, error:  0.14349
+[2022-06-24 17:35:37] - root - INFO - CLIENT - client1 - [  30/ 100] - local vfe:       -1776.0, ll:        -804.0, kl:    168.4, error:  0.16303
+[2022-06-24 17:35:39] - root - INFO - CLIENT - client1 - [  40/ 100] - local vfe:        -886.0, ll:        -360.0, kl:    165.5, error:  0.14044
+[2022-06-24 17:35:41] - root - INFO - CLIENT - client1 - [  50/ 100] - local vfe:       -1406.0, ll:        -625.0, kl:    155.0, error:  0.20507
+[2022-06-24 17:35:42] - root - INFO - CLIENT - client1 - [  60/ 100] - local vfe:        -575.0, ll:        -208.0, kl:    158.0, error:  0.14419
+[2022-06-24 17:35:44] - root - INFO - CLIENT - client1 - [  70/ 100] - local vfe:        -932.0, ll:        -393.0, kl:    145.3, error:  0.15471
+[2022-06-24 17:35:46] - root - INFO - CLIENT - client1 - [  80/ 100] - local vfe:       -1360.0, ll:        -610.0, kl:    140.6, error:  0.15308
+[2022-06-24 17:35:47] - root - INFO - CLIENT - client1 - [  90/ 100] - local vfe:       -2014.0, ll:        -930.0, kl:    153.7, error:  0.13598
+[2022-06-24 17:35:49] - root - INFO - SERVER - sequential - [   6/  10] iterations - optimizing clients [client0]
+[2022-06-24 17:35:49] - root - INFO - SERVER - sequential - [   6/  10] - 1/1 client - starting optimization of client0
+[2022-06-24 17:35:49] - root - INFO - CLIENT - client0 - [   0/ 100] - local vfe:       -2024.0, ll:        -891.0, kl:    243.4, error:  0.23687
+[2022-06-24 17:35:51] - root - INFO - CLIENT - client0 - [  10/ 100] - local vfe:       -1707.0, ll:        -737.0, kl:    232.1, error:  0.15888
+[2022-06-24 17:35:52] - root - INFO - CLIENT - client0 - [  20/ 100] - local vfe:       -1432.0, ll:        -601.0, kl:    229.5, error:  0.15899
+[2022-06-24 17:35:54] - root - INFO - CLIENT - client0 - [  30/ 100] - local vfe:        -834.0, ll:        -308.0, kl:    217.0, error:  0.15965
+[2022-06-24 17:35:56] - root - INFO - CLIENT - client0 - [  40/ 100] - local vfe:       -1250.0, ll:        -519.0, kl:    212.6, error:  0.15352
+[2022-06-24 17:35:57] - root - INFO - CLIENT - client0 - [  50/ 100] - local vfe:       -1333.0, ll:        -564.0, kl:    204.9, error:  0.16001
+[2022-06-24 17:35:59] - root - INFO - CLIENT - client0 - [  60/ 100] - local vfe:       -1465.0, ll:        -629.0, kl:    206.3, error:  0.17237
+[2022-06-24 17:36:01] - root - INFO - CLIENT - client0 - [  70/ 100] - local vfe:       -1186.0, ll:        -489.0, kl:    208.0, error:  0.17126
+[2022-06-24 17:36:02] - root - INFO - CLIENT - client0 - [  80/ 100] - local vfe:       -1074.0, ll:        -437.0, kl:    200.1, error:  0.15907
+[2022-06-24 17:36:04] - root - INFO - CLIENT - client0 - [  90/ 100] - local vfe:       -1504.0, ll:        -651.0, kl:    203.0, error:  0.16278
+[2022-06-24 17:36:06] - root - INFO - SERVER - sequential - [   7/  10] iterations - optimizing clients [client1]
+[2022-06-24 17:36:06] - root - INFO - SERVER - sequential - [   7/  10] - 1/1 client - starting optimization of client1
+[2022-06-24 17:36:06] - root - INFO - CLIENT - client1 - [   0/ 100] - local vfe:       -1184.0, ll:        -529.0, kl:    126.9, error:  0.18000
+[2022-06-24 17:36:07] - root - INFO - CLIENT - client1 - [  10/ 100] - local vfe:        -614.0, ll:        -246.0, kl:    122.6, error:  0.12811
+[2022-06-24 17:36:09] - root - INFO - CLIENT - client1 - [  20/ 100] - local vfe:       -1352.0, ll:        -617.0, kl:    118.3, error:  0.17766
+[2022-06-24 17:36:11] - root - INFO - CLIENT - client1 - [  30/ 100] - local vfe:       -1501.0, ll:        -692.0, kl:    116.5, error:  0.14441
+[2022-06-24 17:36:12] - root - INFO - CLIENT - client1 - [  40/ 100] - local vfe:        -763.0, ll:        -325.0, kl:    113.9, error:  0.20860
+[2022-06-24 17:36:14] - root - INFO - CLIENT - client1 - [  50/ 100] - local vfe:       -1115.0, ll:        -503.0, kl:    110.0, error:  0.18777
+[2022-06-24 17:36:16] - root - INFO - CLIENT - client1 - [  60/ 100] - local vfe:       -1254.0, ll:        -569.0, kl:    115.6, error:  0.17671
+[2022-06-24 17:36:17] - root - INFO - CLIENT - client1 - [  70/ 100] - local vfe:        -777.0, ll:        -331.0, kl:    115.5, error:  0.14407
+[2022-06-24 17:36:19] - root - INFO - CLIENT - client1 - [  80/ 100] - local vfe:        -968.0, ll:        -431.0, kl:    104.9, error:  0.17740
+[2022-06-24 17:36:21] - root - INFO - CLIENT - client1 - [  90/ 100] - local vfe:       -1022.0, ll:        -449.0, kl:    123.5, error:  0.17314
+[2022-06-24 17:36:22] - root - INFO - SERVER - sequential - [   8/  10] iterations - optimizing clients [client0]
+[2022-06-24 17:36:22] - root - INFO - SERVER - sequential - [   8/  10] - 1/1 client - starting optimization of client0
+[2022-06-24 17:36:23] - root - INFO - CLIENT - client0 - [   0/ 100] - local vfe:       -1176.0, ll:        -510.0, kl:    155.3, error:  0.25196
+[2022-06-24 17:36:24] - root - INFO - CLIENT - client0 - [  10/ 100] - local vfe:       -1680.0, ll:        -766.0, kl:    148.1, error:  0.16686
+[2022-06-24 17:36:26] - root - INFO - CLIENT - client0 - [  20/ 100] - local vfe:        -971.0, ll:        -409.0, kl:    153.5, error:  0.14203
+[2022-06-24 17:36:28] - root - INFO - CLIENT - client0 - [  30/ 100] - local vfe:       -1444.0, ll:        -649.0, kl:    145.5, error:  0.15932
+[2022-06-24 17:36:30] - root - INFO - CLIENT - client0 - [  40/ 100] - local vfe:       -1389.0, ll:        -622.0, kl:    146.3, error:  0.15184
+[2022-06-24 17:36:31] - root - INFO - CLIENT - client0 - [  50/ 100] - local vfe:       -1149.0, ll:        -504.0, kl:    141.4, error:  0.23769
+[2022-06-24 17:36:33] - root - INFO - CLIENT - client0 - [  60/ 100] - local vfe:        -879.0, ll:        -366.0, kl:    146.9, error:  0.15798
+[2022-06-24 17:36:35] - root - INFO - CLIENT - client0 - [  70/ 100] - local vfe:       -1138.0, ll:        -497.0, kl:    144.0, error:  0.16816
+[2022-06-24 17:36:36] - root - INFO - CLIENT - client0 - [  80/ 100] - local vfe:       -1621.0, ll:        -740.0, kl:    142.2, error:  0.27967
+[2022-06-24 17:36:38] - root - INFO - CLIENT - client0 - [  90/ 100] - local vfe:        -725.0, ll:        -292.0, kl:    141.3, error:  0.15994
+[2022-06-24 17:36:40] - root - INFO - SERVER - sequential - [   9/  10] iterations - optimizing clients [client1]
+[2022-06-24 17:36:40] - root - INFO - SERVER - sequential - [   9/  10] - 1/1 client - starting optimization of client1
+[2022-06-24 17:36:40] - root - INFO - CLIENT - client1 - [   0/ 100] - local vfe:        -938.0, ll:        -412.0, kl:    114.1, error:  0.15497
+[2022-06-24 17:36:41] - root - INFO - CLIENT - client1 - [  10/ 100] - local vfe:        -534.0, ll:        -208.0, kl:    117.7, error:  0.16280
+[2022-06-24 17:36:43] - root - INFO - CLIENT - client1 - [  20/ 100] - local vfe:       -1092.0, ll:        -490.0, kl:    111.7, error:  0.18746
+[2022-06-24 17:36:45] - root - INFO - CLIENT - client1 - [  30/ 100] - local vfe:       -1073.0, ll:        -483.0, kl:    106.5, error:  0.18671
+[2022-06-24 17:36:46] - root - INFO - CLIENT - client1 - [  40/ 100] - local vfe:        -893.0, ll:        -392.0, kl:    109.9, error:  0.14604
+[2022-06-24 17:36:48] - root - INFO - CLIENT - client1 - [  50/ 100] - local vfe:       -1253.0, ll:        -575.0, kl:    103.8, error:  0.17180
+[2022-06-24 17:36:50] - root - INFO - CLIENT - client1 - [  60/ 100] - local vfe:       -1009.0, ll:        -453.0, kl:    104.1, error:  0.17932
+[2022-06-24 17:36:52] - root - INFO - CLIENT - client1 - [  70/ 100] - local vfe:       -1261.0, ll:        -578.0, kl:    105.7, error:  0.19610
+[2022-06-24 17:36:54] - root - INFO - CLIENT - client1 - [  80/ 100] - local vfe:        -516.0, ll:        -208.0, kl:     99.2, error:  0.17050
+[2022-06-24 17:36:55] - root - INFO - CLIENT - client1 - [  90/ 100] - local vfe:       -1003.0, ll:        -453.0, kl:     97.0, error:  0.18067
+[2022-06-24 17:37:04] - root - INFO - [97m Test set error (RMSE): 0.101, var: 0.161[0m
+[2022-06-24 17:37:05] - root - INFO - [97m Both train/test set error (RMSE): 0.061, var: 1.085[0m
+[2022-06-24 17:37:07] - root - INFO - [97m Entire domain error (RMSE): 0.06, var: 5.991[0m
+[2022-06-24 17:37:07] - root - INFO - Total time: 0:02:57.994760 (H:MM:SS:ms)
