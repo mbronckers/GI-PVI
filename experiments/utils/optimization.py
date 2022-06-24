@@ -5,7 +5,7 @@ import torch
 from varz import Vars, namespace
 
 
-def rebuild(vs, likelihood, clients):
+def rebuild(vs, likelihood):
     """
     For positive (constrained) variables in vs,
         we need to re-initialize the values of the objects
@@ -17,8 +17,7 @@ def rebuild(vs, likelihood, clients):
 
     _idx = vs.name_to_index["output_var"]
     likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
-    for client_name, client in clients.items():
-        client.update_nz(vs)
+    return likelihood
 
 
 @namespace("zs")

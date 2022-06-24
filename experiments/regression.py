@@ -40,7 +40,7 @@ from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable, x: B.Numeric, y: B.Numeric, ps: dict[str, gi.NaturalNormal], ts: dict[str, dict[str, gi.NormalPseudoObservation]], zs: dict[str, B.Numeric], S: int, N: int):
 
-    key, _cache = model.sample_posterior(key, ps, ts, zs, S)
+    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=S)
     out = model.propagate(x)  # out : [S x N x Dout]
 
     # Compute KL divergence.
@@ -210,9 +210,17 @@ if __name__ == "__main__":
     # Build clients
     clients = {}
     for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
+        # for i, (client_x_tr, client_y_tr) in enumerate([(x_tr, y_tr)]):
+
+        _vs = Vars(B.default_dtype)  # Initialize variable container for each client
+
         key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
+
         t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t)
+
+        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t, _vs)
+
+    curr_client = clients["client0"]
 
     # Plot initial inducing points
     if args.plot:
@@ -247,12 +255,14 @@ if __name__ == "__main__":
     likelihood = gi.likelihoods.NormalLikelihood(output_var)
 
     # Add zs, ts to optimizable containers
-    add_zs(vs, zs)
-    add_ts(vs, ts)
+    # add_zs(vs, zs)
+    # add_ts(vs, ts)
 
     # Set requirement for gradients
     vs.requires_grad(True, *vs.names)  # By default, no variable requires a gradient in Varz
-    rebuild(vs, likelihood, clients)
+    # rebuild(vs, likelihood, clients)
+    _idx = vs.name_to_index["output_var"]
+    likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
 
     # Optimizer parameters
     lr = args.lr
@@ -267,7 +277,7 @@ if __name__ == "__main__":
             **config.optimizer_params,
         )
     else:
-        opt = getattr(torch.optim, config.optimizer)(vs.get_vars(), **config.optimizer_params)
+        opt = getattr(torch.optim, config.optimizer)([{"params": curr_client.vs.get_vars()}, {"params": vs.get_vars()}], **config.optimizer_params)
 
     batch_size = min(args.batch_size, N)
     S = args.training_samples  # number of inference samples
@@ -304,7 +314,7 @@ if __name__ == "__main__":
         lls.append(exp_ll.detach().cpu().item())
 
         loss = -elbo
-        loss.backward()
+        loss.backward(retain_graph=True)
 
         if i % log_step == 0 or i == (epochs - 1):
             logger.info(f"Epoch {i:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
@@ -317,7 +327,7 @@ if __name__ == "__main__":
                 plt.savefig(os.path.join(_plot_dir, f"training/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
 
         opt.step()
-        rebuild(vs, likelihood, clients)  # Rebuild clients & likelihood
+        likelihood = rebuild(vs, likelihood)  # Rebuild  & likelihood
         opt.zero_grad()
 
     if args.plot:
@@ -333,13 +343,13 @@ if __name__ == "__main__":
 
     # GIF the inducing point updates
     if args.plot:
-        make_gif(_plot_dir)
+        make_gif(_plot_dir, curr_client.name)
 
     # Run eval on test dataset
     with torch.no_grad():
 
         # Resample <_S> inference weights
-        key, _ = model.sample_posterior(key, ps, ts, zs, args.inference_samples)
+        key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)

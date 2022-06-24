@@ -20,8 +20,7 @@ class Config:
     seed: int = 0
     plot: bool = True
 
-    iters: int = 100  # server iterations
-    epochs: int = 100  # client epochs
+    epochs: int = 1000
 
     N: int = 100  # Number of training data pts
     M: int = 10  # Number of inducing points
@@ -31,7 +30,7 @@ class Config:
     batch_size: int = 100
 
     nz_init: float = B.exp(-4)  # precision
-    ll_var: float = 1e-3  # likelihood variance
+    ll_var: float = 1e-2  # likelihood variance
 
     # Learning rates
     separate_lr: bool = False  # use seperate learning rates
@@ -78,12 +77,10 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
 
-    epochs: int = 100
-    iters: int = 10
+    iters: int = 10  # server iterations
+    epochs: int = 100  # client epochs
 
-    ll_var: float = 1e-2
-
-    num_clients: int = 3
+    num_clients: int = 1
 
     def __post_init__(self):
         # Homogeneous, equal-sized split.
