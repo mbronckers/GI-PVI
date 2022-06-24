@@ -27,6 +27,7 @@
             "justMyCode": true,
             "args": [
                 "--inference_samples=10",
+                "--no_plot",
                 "--name=pvi_debug"
             ]
         },
