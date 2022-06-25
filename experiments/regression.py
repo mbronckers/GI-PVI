@@ -206,14 +206,14 @@ if __name__ == "__main__":
     vs = Vars(B.default_dtype)
 
     # Define likelihood.
-    output_var = vs.positive(args.ll_var, name="output_var")
-    likelihood = gi.likelihoods.NormalLikelihood(output_var)
+    # output_var = vs.positive(args.ll_var, name="output_var")
+    likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Set requirement for gradients
     vs.requires_grad(True, *vs.names)  # By default, no variable requires a gradient in Varz
-    # rebuild(vs, likelihood, clients)
-    _idx = vs.name_to_index["output_var"]
-    likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
+    # likelihood = rebuild(vs, likelihood)
+    # _idx = vs.name_to_index["output_var"]
+    # likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
 
     # Optimizer parameters
     lr = args.lr
@@ -278,7 +278,7 @@ if __name__ == "__main__":
                 plt.savefig(os.path.join(_plot_dir, f"training/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
 
         opt.step()
-        likelihood = rebuild(vs, likelihood)  # Rebuild  & likelihood
+        # likelihood = rebuild(vs, likelihood)  # Rebuild likelihood
         opt.zero_grad()
 
     if args.plot:
@@ -286,7 +286,14 @@ if __name__ == "__main__":
         plt.savefig(os.path.join(_plot_dir, "elbo.png"), pad_inches=0.2, bbox_inches="tight")
 
     # Save metrics and parameter state
-    _vs_state_dict = dict(zip(vs.names, [vs[_name] for _name in vs.names]))
+    _global_vs_state_dict = {}
+    if vs.names != []:
+        _global_vs_state_dict["output_var"] = vs["output_var"]
+    for _name, _c in clients.items():
+        _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
+        _global_vs_state_dict.update(_vs_state_dict)
+    torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
+
     torch.save(_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
     _results_training = pd.DataFrame({"lls": lls, "kls": kls, "elbos": elbos, "errors": errors})
     _results_training.index.name = "epoch"
