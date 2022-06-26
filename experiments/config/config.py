@@ -77,11 +77,11 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
 
-    iters: int = 10  # server iterations
-    epochs: int = 100  # client epochs
+    iters: int = 1  # server iterations
+    epochs: int = 1000  # client epochs
 
     num_clients: int = 1
-    ll_var: float = 1e-2  # fixed likelihood variance
+    # ll_var: float = 1e-2  # fixed likelihood variance
 
     def __post_init__(self):
         # Homogeneous, equal-sized split.

@@ -6,5 +6,6 @@
     "python.testing.pytestEnabled": true,
     "explorer.confirmDelete": false,
     "editor.formatOnPaste": false,
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "python.formatting.provider": "black"
 }

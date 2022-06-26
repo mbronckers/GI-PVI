@@ -159,7 +159,7 @@ def main(args, config, logger):
         # Get next client(s).
         curr_clients = next(server)
 
-        logger.info(f"SERVER - {server.name} - iter [{i:2}/{iters}] - optimizing {curr_clients}")
+        logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - optimizing {curr_clients}")
 
         frozen_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
         frozen_zs: dict[str, B.Numeric] = {}
@@ -178,7 +178,7 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = getattr(torch.optim, config.optimizer)(curr_client.get_params(), **config.optimizer_params)
 
-            logger.info(f"SERVER - {server.name} - iter [{i:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
+            logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
             # Make another frozen ts/zs, except for current client.
             tmp_ts = {}
@@ -211,7 +211,7 @@ def main(args, config, logger):
                 curr_client.update_nz()
                 opt.zero_grad()
 
-                if (epoch + 1) % 10 == 0 or (epoch + 1) == epochs:
+                if epoch == 0 or (epoch + 1) % 10 == 0 or (epoch + 1) == epochs:
                     logger.info(
                         f"CLIENT - {curr_client.name} - iter {i:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )

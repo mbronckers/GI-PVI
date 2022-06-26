@@ -5,7 +5,7 @@ import shutil
 import sys
 from datetime import datetime
 from typing import Callable
-
+from copy import copy
 from matplotlib import pyplot as plt
 
 file_dir = os.path.dirname(__file__)
@@ -206,16 +206,17 @@ if __name__ == "__main__":
     vs = Vars(B.default_dtype)
 
     # Define likelihood.
-    # output_var = vs.positive(args.ll_var, name="output_var")
-    likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+    output_var = vs.positive(args.ll_var, name="output_var")
+    likelihood = gi.likelihoods.NormalLikelihood(output_var)
+    # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Set requirement for gradients
     vs.requires_grad(True, *vs.names)  # By default, no variable requires a gradient in Varz
-    # likelihood = rebuild(vs, likelihood)
+    likelihood = rebuild(vs, likelihood)
     # _idx = vs.name_to_index["output_var"]
     # likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
 
-    # Optimizer parameters
+    # Optimizer parameters: client's params + ll var
     lr = args.lr
     if args.sep_lr:
         opt = getattr(torch.optim, config.optimizer)(
@@ -228,7 +229,10 @@ if __name__ == "__main__":
             **config.optimizer_params,
         )
     else:
-        opt = getattr(torch.optim, config.optimizer)([{"params": curr_client.vs.get_vars()}, {"params": vs.get_vars()}], **config.optimizer_params)
+        if vs.names != []:
+            opt = getattr(torch.optim, config.optimizer)([{"params": curr_client.vs.get_vars()}, {"params": vs.get_vars()}], **config.optimizer_params)
+        else:
+            opt = getattr(torch.optim, config.optimizer)([{"params": curr_client.vs.get_vars()}], **config.optimizer_params)
 
     batch_size = min(args.batch_size, N)
     S = args.training_samples  # number of inference samples
@@ -252,12 +256,10 @@ if __name__ == "__main__":
 
         # Construct i-th minibatch {x, y} training data
         inds = (B.range(batch_size) + batch_size * i) % len(x_tr)
-        x_mb = B.take(x_tr, inds)  # take() is for JAX
-        y_mb = B.take(y_tr, inds)
+        x_mb = B.take(curr_client.x, inds)  # take() is for JAX
+        y_mb = B.take(curr_client.y, inds)
 
         key, elbo, exp_ll, kl, error = estimate_elbo(key, model, likelihood, x_mb, y_mb, ps, ts, zs, S, N)
-
-        logger.debug(f"[{i:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
         elbos.append(elbo.detach().cpu().item())
         errors.append(error.item())
@@ -267,8 +269,10 @@ if __name__ == "__main__":
         loss = -elbo
         loss.backward(retain_graph=True)
 
-        if (i + 1) % log_step == 0 or i == (epochs - 1):
-            logger.info(f"Epoch {i+1:5} - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+        if i == 0 or (i + 1) % log_step == 0 or i == (epochs - 1):
+            logger.info(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+        else:
+            logger.debug(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
             if args.plot:
                 _inducing_inputs = curr_client.z
@@ -278,7 +282,7 @@ if __name__ == "__main__":
                 plt.savefig(os.path.join(_plot_dir, f"training/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
 
         opt.step()
-        # likelihood = rebuild(vs, likelihood)  # Rebuild likelihood
+        if vs.names != []: likelihood = rebuild(vs, likelihood)  # Rebuild likelihood if it's not fixed.
         opt.zero_grad()
 
     if args.plot:
@@ -301,10 +305,22 @@ if __name__ == "__main__":
 
     # GIF the inducing point updates
     if args.plot:
-        make_gif(_plot_dir, curr_client.name)
+        make_gif(config.plot_dir, curr_client.name)
 
     # Run eval on test dataset
     with torch.no_grad():
+
+        # Collect clients
+        ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
+        zs: dict[str, B.Numeric] = {}
+        for client_name, client in clients.items():
+            _t = client.t
+            for layer_name, layer_t in _t.items():
+                if layer_name not in ts:
+                    ts[layer_name] = {}
+                ts[layer_name][client_name] = copy(layer_t)
+
+            zs[client_name] = client.z.detach().clone()
 
         # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)

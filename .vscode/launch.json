@@ -4,20 +4,19 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // {
-        //     "name": "Toy Regression - Debug",
-        //     "type": "python",
-        //     "request": "launch",
-        //     "program": "${workspaceFolder}/experiments/regression.py",
-        //     "console": "integratedTerminal",
-        //     "justMyCode": true,
-        //     "args": [
-        //         "--plot",
-        //         "--epochs=100",
-        //         "--inference_samples=10",
-        //         "--name=debug"
-        //     ]
-        // },
+        {
+            "name": "Global VI Regression - Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiments/regression.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--no_plot",
+                "--inference_samples=10",
+                "--name=vi_debug"
+            ]
+        },
         {
             "name": "PVI Regression - Debug",
             "type": "python",
