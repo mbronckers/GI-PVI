@@ -60,8 +60,8 @@ def estimate_local_vfe(
     N: B.Int,
     iter: B.Int,
 ):
-    # Cavity distribution is defined by all but this client's approximate likelihoods (and corresponding inducing locations)
-    if iter == 0 or (len(zs.keys) == 1):
+    # Cavity distribution: all except this client's approximate likelihoods (and associated inducing locations)
+    if iter == 0 or (len(zs.keys()) == 1):  # if first iteration or only one client
         # Cavity distributions are equal to the prior
         zs_cav = None
         ts_cav = None
@@ -151,9 +151,9 @@ def main(args, config, logger):
 
     # Construct server.
     server = SequentialServer(clients)  # SynchronousServer(clients)
+    iters = args.iters * config.num_clients if isinstance(server, SequentialServer) else args.iters  # Loop over all clients <iters> times.
 
     # Perform PVI.
-    iters = args.iters
     for i in range(iters):
 
         # Get next client(s).
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
-    parser.add_argument("--iters", "-i", type=int, help="server iters", default=config.iters)
+    parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
