@@ -29,6 +29,7 @@ import seaborn as sns
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 from gi.utils.plotting import line_plot, plot_confidence, scatter_plot, plot_predictions
+from gi.client import Client
 
 from priors import build_prior, parse_prior_arg
 from dgp import generate_data, split_data, split_data_clients, DGP
@@ -175,7 +176,7 @@ if __name__ == "__main__":
 
         clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t, _vs)
 
-    curr_client = clients["client0"]
+    curr_client: Client = clients["client0"]
 
     # Plot initial inducing points
     if args.plot:
@@ -279,6 +280,11 @@ if __name__ == "__main__":
 
         loss = -elbo
         loss.backward()
+        opt.step()
+        curr_client.update_nz()
+        if not config.fix_ll:
+            likelihood = rebuild(vs, likelihood)  # Rebuild likelihood if it's not fixed.
+        opt.zero_grad()
 
         if i == 0 or (i + 1) % log_step == 0 or i == (epochs - 1):
             logger.info(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
@@ -291,14 +297,7 @@ if __name__ == "__main__":
                 Path(os.path.join(config.training_plot_dir, curr_client.name)).mkdir(parents=True, exist_ok=True)
                 plt.savefig(os.path.join(config.training_plot_dir, f"{curr_client.name}/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
         else:
-
             logger.debug(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
-
-        opt.step()
-        curr_client.update_nz()
-        if not config.fix_ll:
-            likelihood = rebuild(vs, likelihood)  # Rebuild likelihood if it's not fixed.
-        opt.zero_grad()
 
     if args.plot:
         _ax = line_plot(x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")

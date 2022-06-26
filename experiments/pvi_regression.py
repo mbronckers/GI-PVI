@@ -61,7 +61,7 @@ def estimate_local_vfe(
     iter: B.Int,
 ):
     # Cavity distribution is defined by all but this client's approximate likelihoods (and corresponding inducing locations)
-    if iter == 0:
+    if iter == 0 or (len(zs.keys) == 1):
         # Cavity distributions are equal to the prior
         zs_cav = None
         ts_cav = None
@@ -200,7 +200,7 @@ def main(args, config, logger):
             for epoch in range(epochs):
 
                 # Construct i-th minibatch {x, y} training data
-                inds = (B.range(args.batch_size) + args.batch_size * i) % len(curr_client.x)
+                inds = (B.range(batch_size) + batch_size * epoch) % len(curr_client.x)
                 x_mb = B.take(curr_client.x, inds)  # take() is for JAX
                 y_mb = B.take(curr_client.y, inds)
 
