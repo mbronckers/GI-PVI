@@ -31,6 +31,7 @@ class Config:
 
     nz_init: float = B.exp(-4)  # precision
     ll_var: float = 1e-2  # likelihood variance
+    fix_ll: bool = True  # fix ll variance
 
     # Learning rates
     separate_lr: bool = False  # use seperate learning rates

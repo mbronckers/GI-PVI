@@ -206,15 +206,16 @@ if __name__ == "__main__":
     vs = Vars(B.default_dtype)
 
     # Define likelihood.
-    output_var = vs.positive(args.ll_var, name="output_var")
-    likelihood = gi.likelihoods.NormalLikelihood(output_var)
-    # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+    if not config.fix_ll:
+        output_var = vs.positive(args.ll_var, name="output_var")
+        likelihood = gi.likelihoods.NormalLikelihood(output_var)
+    else:
+        likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Set requirement for gradients
-    vs.requires_grad(True, *vs.names)  # By default, no variable requires a gradient in Varz
-    likelihood = rebuild(vs, likelihood)
-    # _idx = vs.name_to_index["output_var"]
-    # likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
+    if not config.fix_ll:
+        vs.requires_grad(True, *vs.names)  # By default, no variable requires a gradient in Varz
+        likelihood = rebuild(vs, likelihood)
 
     # Optimizer parameters: client's params + ll var
     lr = args.lr
@@ -254,6 +255,16 @@ if __name__ == "__main__":
     # Run training
     for i in range(epochs):
 
+        ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
+        zs: dict[str, B.Numeric] = {}
+        for client_name, client in clients.items():
+            _t = client.t
+            for layer_name, layer_t in _t.items():
+                if layer_name not in ts:
+                    ts[layer_name] = {}
+                ts[layer_name][client_name] = layer_t
+            zs[client_name] = client.z
+
         # Construct i-th minibatch {x, y} training data
         inds = (B.range(batch_size) + batch_size * i) % len(x_tr)
         x_mb = B.take(curr_client.x, inds)  # take() is for JAX
@@ -267,7 +278,7 @@ if __name__ == "__main__":
         lls.append(exp_ll.detach().cpu().item())
 
         loss = -elbo
-        loss.backward(retain_graph=True)
+        loss.backward()
 
         if i == 0 or (i + 1) % log_step == 0 or i == (epochs - 1):
             logger.info(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
@@ -275,14 +286,17 @@ if __name__ == "__main__":
             logger.debug(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
             if args.plot:
-                _inducing_inputs = curr_client.z
-                _pseudo_outputs = curr_client.get_final_yz()
+                _inducing_inputs = curr_client.z.detach().cpu()
+                _pseudo_outputs = curr_client.get_final_yz().detach().cpu()
 
-                scatter_plot(ax=None, x1=x_tr, y1=y_tr, x2=_inducing_inputs, y2=_pseudo_outputs, desc1="Training data", desc2="Variational params", xlabel="x", ylabel="y", title=f"Epoch {i}")
-                plt.savefig(os.path.join(_plot_dir, f"training/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
+                scatter_plot(ax=None, x1=curr_client.x, y1=curr_client.x, x2=_inducing_inputs, y2=_pseudo_outputs, desc1="Training data", desc2="Variational params", xlabel="x", ylabel="y", title=f"Epoch {i}")
+                Path(os.path.join(config.training_plot_dir, curr_client.name)).mkdir(parents=True, exist_ok=True)
+                plt.savefig(os.path.join(config.training_plot_dir, f"{curr_client.name}/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
 
         opt.step()
-        if vs.names != []: likelihood = rebuild(vs, likelihood)  # Rebuild likelihood if it's not fixed.
+        curr_client.update_nz()
+        if not config.fix_ll:
+            likelihood = rebuild(vs, likelihood)  # Rebuild likelihood if it's not fixed.
         opt.zero_grad()
 
     if args.plot:
