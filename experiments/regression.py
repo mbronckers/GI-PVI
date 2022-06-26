@@ -287,11 +287,11 @@ if __name__ == "__main__":
                 _inducing_inputs = curr_client.z.detach().cpu()
                 _pseudo_outputs = curr_client.get_final_yz().detach().cpu()
 
-                scatter_plot(ax=None, x1=curr_client.x, y1=curr_client.x, x2=_inducing_inputs, y2=_pseudo_outputs, desc1="Training data", desc2="Variational params", xlabel="x", ylabel="y", title=f"Epoch {i}")
+                scatter_plot(ax=None, x1=curr_client.x, y1=curr_client.y, x2=_inducing_inputs, y2=_pseudo_outputs, desc1="Training data", desc2="Variational params", xlabel="x", ylabel="y", title=f"Epoch {i}")
                 Path(os.path.join(config.training_plot_dir, curr_client.name)).mkdir(parents=True, exist_ok=True)
                 plt.savefig(os.path.join(config.training_plot_dir, f"{curr_client.name}/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
-
         else:
+
             logger.debug(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
 
         opt.step()
