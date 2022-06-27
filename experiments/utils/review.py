@@ -25,7 +25,10 @@ if __name__ == "__main__":
     results_dir = f"/homes/mojb2/Thesis/GI-PVI/results/" if len(sys.argv) == 1 else sys.argv[1]
     exp_dir = latest_subdir(results_dir) if len(sys.argv) <= 2 else os.path.join(results_dir, sys.argv[2])
 
-    _vs_state_dict = torch.load(exp_dir + "/model/_vs.pt")
+    if torch.cuda.is_available():
+        _vs_state_dict = torch.load(exp_dir + "/model/_vs.pt")
+    else:
+        _vs_state_dict = torch.load(exp_dir + "/model/_vs.pt", map_location=torch.device("cpu"))
 
     vs: Vars = Vars(torch.float64)
 

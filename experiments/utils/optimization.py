@@ -87,7 +87,7 @@ def load_vs(fpath):
     assert os.path.exists(fpath)
     _vs_state_dict = torch.load(fpath)
 
-    vs: Vars = vars(B.default_dtype)
+    vs: Vars = Vars(B.default_dtype)
     for idx, name in enumerate(_vs_state_dict.keys()):
         if name.__contains__("output_var") or name.__contains__("nz"):
             vs.positive(_vs_state_dict[name], name=name)
