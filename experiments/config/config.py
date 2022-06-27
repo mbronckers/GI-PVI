@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import os
 from dataclasses import dataclass
+from gi.server import SequentialServer, Server, SynchronousServer
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -52,7 +53,7 @@ class Config:
 
     load: str = None
 
-    log_step: int = 100
+    log_step: int = 20
 
     start = None
     start_time = None
@@ -80,8 +81,11 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
 
-    iters: int = 1  # server iterations
-    epochs: int = 1000  # client epochs
+    iters: int = 10  # server iterations
+    epochs: int = 100  # client epochs
+
+    server_type: Server = SequentialServer
+    # server_type: Server = SynchronousServer
 
     num_clients: int = 2
     # ll_var: float = 1e-2  # fixed likelihood variance
