@@ -231,4 +231,4 @@ class NormalPseudoObservation:
         )
 
     def __copy__(self):
-        return NormalPseudoObservation(deepcopy(self.yz), deepcopy(self.nz.detach().clone()))
+        return NormalPseudoObservation(deepcopy(self.yz.detach().clone()), deepcopy(self.nz.detach().clone()))

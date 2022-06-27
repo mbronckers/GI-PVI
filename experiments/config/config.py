@@ -81,14 +81,15 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
 
-    iters: int = 1  # server iterations
+    iters: int = 10  # server iterations
     epochs: int = 100  # client epochs
 
     server_type: Server = SequentialServer
     # server_type: Server = SynchronousServer
 
-    num_clients: int = 1
+    num_clients: int = 2
     ll_var: float = 1e-2  # fixed likelihood variance
+    log_step: int = 10
 
     def __post_init__(self):
         # Homogeneous, equal-sized split.
