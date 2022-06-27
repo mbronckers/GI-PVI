@@ -83,7 +83,9 @@ class PVIConfig(Config):
 
     iters: int = 10  # server iterations
     epochs: int = 100  # client epochs
-    N: int = 40  # Number of training data pts
+
+    # Note: number of test points is also equal to N
+    N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 20  # Number of inducing points per client
 
     server_type: Server = SequentialServer
