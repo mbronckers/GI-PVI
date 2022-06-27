@@ -16,7 +16,7 @@ import torch
 
 @dataclass
 class Config:
-    name: str = ""
+    name: str = "global-vi"
     seed: int = 0
     plot: bool = True
 
@@ -34,7 +34,7 @@ class Config:
     fix_ll: bool = True  # fix ll variance
 
     # Learning rates
-    separate_lr: bool = False  # use seperate learning rates
+    separate_lr: bool = False  # True => use seperate learning rates
     lr_global: float = 1e-2
     lr_nz: float = 1e-3
     lr_output_var: float = 1e-3
@@ -51,6 +51,8 @@ class Config:
     dims = [1, 50, 50, 1]
 
     load: str = None
+
+    log_step: int = 100
 
     start = None
     start_time = None
@@ -78,8 +80,8 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
 
-    iters: int = 10  # server iterations
-    epochs: int = 100  # client epochs
+    iters: int = 1  # server iterations
+    epochs: int = 1000  # client epochs
 
     num_clients: int = 2
     # ll_var: float = 1e-2  # fixed likelihood variance

@@ -13,7 +13,7 @@ from gi.likelihoods import NormalLikelihood
 
 class Client:
     """
-    Client class that contains: client-local data, the parameters of its factor, and a function how to build the factor.
+    Client class that contains: client-local data, the parameters of its factor, and container to store the optimizable parameters
 
     Each client in GI-PVI has their own set of inducing points.
 
@@ -49,20 +49,6 @@ class Client:
     def get_params(self):
         """Gets the appropriate client's variables from the client-local variable manager"""
         return self.vs.get_latent_vars()
-
-    def get_parameters(self, vs: Vars):
-        """Gets the appropriate client's variables from a global variable manager
-
-        Args:
-            vs (Vars): a global container, with all clients params in it
-        """
-        if self._parameters == None:
-            _p = list(chain.from_iterable((f"ts.{self.name}_{layer_name}_yz", f"ts.{self.name}_{layer_name}_nz") for layer_name, _t in self.t.items()))
-            _p.append(f"zs.{self.name}_z")
-            self._parameters = _p
-
-        # Need to get latent representation to have non-leaf tensors for optimizer
-        return vs.get_latent_vars(*(self._parameters))
 
     def update_nz(self):
         """Update likelihood factors' precision based on the current state of vs

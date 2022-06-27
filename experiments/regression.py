@@ -241,7 +241,7 @@ if __name__ == "__main__":
     epochs = args.epochs
 
     # Logging
-    log_step = 100  # report every <log_step> epochs
+    log_step = config.log_step  # report every <log_step> epochs
     olds = {}  # to keep track of old parameter values
     elbos = []
     errors = []
@@ -305,14 +305,13 @@ if __name__ == "__main__":
 
     # Save metrics and parameter state
     _global_vs_state_dict = {}
-    if vs.names != []:
+    if not config.fix_ll:
         _global_vs_state_dict["output_var"] = vs["output_var"]
     for _name, _c in clients.items():
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
 
-    torch.save(_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
     _results_training = pd.DataFrame({"lls": lls, "kls": kls, "elbos": elbos, "errors": errors})
     _results_training.index.name = "epoch"
     _results_training.to_csv(os.path.join(_results_dir, "metrics/training.csv"))

@@ -126,7 +126,7 @@ def main(args, config, logger):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
-    # We can only fix the likelihood.
+    # We can only fix the likelihood variance in PVI.
     likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Build clients
@@ -148,9 +148,11 @@ def main(args, config, logger):
     batch_size = min(args.batch_size, N)
     S = args.training_samples  # number of training inference samples
     epochs = args.epochs
+    log_step = config.log_step
 
     # Construct server.
-    server = SequentialServer(clients)  # SynchronousServer(clients)
+    # server = SequentialServer(clients)
+    server = SynchronousServer(clients)
     iters = args.iters * config.num_clients if isinstance(server, SequentialServer) else args.iters  # Loop over all clients <iters> times.
 
     # Perform PVI.
@@ -211,17 +213,17 @@ def main(args, config, logger):
                 curr_client.update_nz()
                 opt.zero_grad()
 
-                if epoch == 0 or (epoch + 1) % 10 == 0 or (epoch + 1) == epochs:
+                if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {i:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {i:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-                # Only plot every 10th epoch
-                if args.plot and (epoch % 10 == 0):
+                # Only plot every <log_step> epoch
+                if args.plot and (epoch % log_step == 0):
                     plot_client_vp(config, curr_client, i, epoch)
 
     # Save var state
