@@ -95,14 +95,9 @@ def main(args, config, logger):
     # Build clients
     clients = {}
     for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
-
-        _vs = Vars(B.default_dtype)  # Initialize variable container for each client
-
-        key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
-
-        t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-
-        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t, _vs)
+        _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
+        key = _client.key
+        clients[f"client{i}"] = _client
 
     curr_client: Client = clients["client0"]
 

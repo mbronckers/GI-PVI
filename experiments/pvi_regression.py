@@ -126,20 +126,15 @@ def main(args, config, logger):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
-    # We can only fix the likelihood variance in PVI.
+    # Likelihood variance is fixed in PVI.
     likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Build clients
     clients = {}
     for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
-
-        _vs = Vars(B.default_dtype)  # Initialize variable container for each client
-
-        key, z, yz = gi.client.build_z(key, M, client_x_tr, client_y_tr, args.random_z)
-
-        t = gi.client.build_ts(key, M, yz, *dims, nz_init=args.nz_init)
-
-        clients[f"client{i}"] = gi.Client(f"client{i}", client_x_tr, client_y_tr, z, t, _vs)
+        _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
+        key = _client.key
+        clients[f"client{i}"] = _client
 
     # Plot initial inducing points
     plot_all_inducing_pts(clients, config.plot_dir)
