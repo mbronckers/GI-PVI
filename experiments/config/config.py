@@ -23,8 +23,8 @@ class Config:
 
     epochs: int = 1000
 
-    N: int = 100  # Number of training data pts
-    M: int = 10  # Number of inducing points
+    N: int = 40  # Number of training data pts
+    M: int = 40  # Number of inducing points
     S: int = 10  # Number of training weight samples
     I: int = 100  # Number of inference samples
 
@@ -83,6 +83,8 @@ class PVIConfig(Config):
 
     iters: int = 10  # server iterations
     epochs: int = 100  # client epochs
+    N: int = 40  # Number of training data pts
+    M: int = 20  # Number of inducing points per client
 
     server_type: Server = SequentialServer
     # server_type: Server = SynchronousServer
