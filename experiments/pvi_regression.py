@@ -108,8 +108,7 @@ def main(args, config, logger):
 
     # Setup regression dataset.
     N = args.N  # num training points
-    key, x, y, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
-    x_tr, y_tr, x_te, y_te = split_data(x, y)
+    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
 
     logger.info(f"Scale: {scale}")
 
@@ -216,7 +215,7 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Only plot every <log_step> epoch
-                    if args.plot and ((epoch+1) % log_step == 0):
+                    if args.plot and ((epoch + 1) % log_step == 0):
                         plot_client_vp(config, curr_client, i, epoch)
                 else:
                     logger.debug(

@@ -147,3 +147,4 @@ uci/
 *uci.ipynb
 *gif.ipynb
 *plot_eval.ipynb
+*test_gvi_pvi.py
