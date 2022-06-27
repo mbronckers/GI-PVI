@@ -42,7 +42,7 @@ from dgp import DGP, generate_data, split_data, split_data_clients
 from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
+from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs, construct_optimizer
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
@@ -152,7 +152,11 @@ def main(args, config, logger):
 
     # Construct server.
     server = config.server_type(clients)
-    iters = args.iters * config.num_clients if isinstance(server, SequentialServer) else args.iters  # Loop over all clients <iters> times.
+    if isinstance(server, SequentialServer):
+        # Loop over all clients <iters> times.
+        iters = args.iters * config.num_clients
+    else:
+        iters = args.iters
 
     # Perform PVI.
     for i in range(iters):
@@ -176,7 +180,7 @@ def main(args, config, logger):
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
-            opt = getattr(torch.optim, config.optimizer)(curr_client.get_params(), **config.optimizer_params)
+            opt = construct_optimizer(args, config, curr_client, pvi=True)
 
             logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
@@ -216,14 +220,14 @@ def main(args, config, logger):
                     logger.info(
                         f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )
-                     # Only plot every <log_step> epoch
-                    if args.plot and (epoch % log_step == 0): plot_client_vp(config, curr_client, i, epoch)
+                    # Only plot every <log_step> epoch
+                    if args.plot and (epoch % log_step == 0):
+                        plot_client_vp(config, curr_client, i, epoch)
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-               
     # Save var state
     _global_vs_state_dict = {}
     for _name, _c in clients.items():

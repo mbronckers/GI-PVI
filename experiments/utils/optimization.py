@@ -1,8 +1,49 @@
+import sys
 import os
+
+from typing import Optional
+
+file_dir = os.path.dirname(__file__)
+_root_dir = os.path.abspath(os.path.join(file_dir, ".."))
+sys.path.insert(0, os.path.abspath(_root_dir))
+
 import lab as B
 import lab.torch
 import torch
 from varz import Vars, namespace
+from config.config import Config
+from gi.client import Client
+
+
+def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs: Optional[Vars] = None):
+    """Constructs optimizer containing current client's parameters
+
+    Args:
+        args: Arguments namespace specifying learning rate parameters
+        config (Config): Configuration object
+        curr_client (Client): Client running optimization
+        pvi (bool): PVI = True. Global VI = False.
+
+    Returns:
+        (torch.optim): Optimizer
+    """
+    if args.sep_lr:
+        lr = args.lr
+        params = [
+            {"params": curr_client.get_params("*nz"), "lr": config.lr_nz},
+            {"params": curr_client.get_params("*z"), "lr": lr},  # inducing
+            {"params": curr_client.get_params("*yz"), "lr": lr},  # pseudo obs
+        ]
+
+        # If running global VI & optimizing ll variance
+        if not pvi and not config.fix_ll:
+            params.append({"params": vs.get_params("output_var"), "lr": config.lr_output_var})
+    else:
+        params = curr_client.get_params()
+
+    opt = getattr(torch.optim, config.optimizer)(params, **config.optimizer_params)
+
+    return opt
 
 
 def rebuild(vs, likelihood):

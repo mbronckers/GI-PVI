@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import chain
 
-from typing import Optional
+from typing import Optional, Union
 from gi.distributions import NormalPseudoObservation
 import lab as B
 import lab.torch
@@ -46,9 +46,12 @@ class Client:
     def vs(self):
         return self._vs
 
-    def get_params(self):
+    def get_params(self, names: Optional[Union[str, list]] = None) -> list:
         """Gets the appropriate client's variables from the client-local variable manager"""
-        return self.vs.get_latent_vars()
+        if names != None:
+            return self.vs.get_latent_vars(names)
+        else:
+            return self.vs.get_latent_vars()
 
     def update_nz(self):
         """Update likelihood factors' precision based on the current state of vs

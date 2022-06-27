@@ -3,10 +3,13 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from copy import copy
 from datetime import datetime
 from typing import Callable
-from copy import copy
+
 from matplotlib import pyplot as plt
+
+from utils.optimization import construct_optimizer
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -22,22 +25,22 @@ import lab as B
 import lab.torch
 import numpy as np
 import pandas as pd
-from slugify import slugify
+import seaborn as sns
 import torch
 import torch.nn as nn
-import seaborn as sns
+from gi.client import Client
+from gi.utils.plotting import line_plot, plot_confidence, plot_predictions, scatter_plot
+from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
-from gi.utils.plotting import line_plot, plot_confidence, scatter_plot, plot_predictions
-from gi.client import Client
 
+from config.config import Color, Config
+from dgp import DGP, generate_data, split_data, split_data_clients
 from priors import build_prior, parse_prior_arg
-from dgp import generate_data, split_data, split_data_clients, DGP
-from config.config import Config, Color
 from utils.gif import make_gif
-from utils.metrics import rmse
-from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs
 from utils.log import eval_logging
+from utils.metrics import rmse
+from utils.optimization import add_ts, add_zs, get_vs_state, load_vs, rebuild
 
 
 def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable, x: B.Numeric, y: B.Numeric, ps: dict[str, gi.NaturalNormal], ts: dict[str, dict[str, gi.NormalPseudoObservation]], zs: dict[str, B.Numeric], S: int, N: int):
@@ -63,81 +66,7 @@ def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable, x: 
     return key, elbo, exp_ll, kl, rmse
 
 
-if __name__ == "__main__":
-    import warnings
-
-    warnings.filterwarnings("ignore")
-
-    config = Config()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--epochs", "-e", type=int, help="epochs", default=config.epochs)
-    parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
-    parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
-    parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
-    parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
-    parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
-    parser.add_argument("--training_samples", "-S", type=int, help="number of training weight samples", default=config.S)
-    parser.add_argument("--inference_samples", "-I", type=int, help="number of inference weight samples", default=config.I)
-    parser.add_argument("--nz_init", type=float, help="Client likelihood factor noise initial value", default=config.nz_init)
-    parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)
-    parser.add_argument("--ll_var", type=float, help="likelihood var", default=config.ll_var)
-    parser.add_argument("--batch_size", "-b", type=int, help="training batch size", default=config.batch_size)
-    parser.add_argument("--dgp", "-d", type=int, help="dgp/dataset type", default=config.dgp)
-    parser.add_argument("--load", "-l", type=str, help="model directory to load (e.g. experiment_name)", default=config.load)
-    parser.add_argument("--random_z", "-z", action="store_true", help="Randomly initializes global inducing points z", default=config.random_z)
-    parser.add_argument("--prior", "-P", type=str, help="prior type", default=config.prior)
-    parser.add_argument("--bias", help="Use bias vectors in BNN", default=config.bias)
-    parser.add_argument("--sep_lr", help="Use separate LRs for parameters (see config)", default=config.separate_lr)
-    parser.add_argument("--num_clients", "-nc", help="Number of clients (implicit equal split)", default=config.num_clients)
-    args = parser.parse_args()
-
-    # Create experiment directories
-    _start = datetime.utcnow()
-    _time = _start.strftime("%Y-%m-%d-%H.%M.%S")
-    _results_dir_name = "results"
-    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify(args.name)}")
-    _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
-    _plot_dir = os.path.join(_results_dir, "plots")
-    _metrics_dir = os.path.join(_results_dir, "metrics")
-    _model_dir = os.path.join(_results_dir, "model")
-    _training_plot_dir = os.path.join(_plot_dir, "training")
-    Path(_plot_dir).mkdir(parents=True, exist_ok=True)
-    Path(_training_plot_dir).mkdir(parents=True, exist_ok=True)
-    Path(_model_dir).mkdir(parents=True, exist_ok=True)
-    Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
-
-    if args.no_plot:
-        config.plot = False
-        args.plot = False
-    config.start = _start
-    config.start_time = _time
-    config.results_dir = _results_dir
-    config.wd = _wd
-    config.plot_dir = _plot_dir
-    config.metrics_dir = _metrics_dir
-    config.model_dir = _model_dir
-    config.training_plot_dir = _training_plot_dir
-
-    # Save script
-    if os.path.exists(os.path.abspath(sys.argv[0])):
-        shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(os.path.join(_root_dir, "experiments/config/config.py"), _wd.file("config.py"))
-
-    else:
-        out("Could not save calling script.")
-
-    #### Logging ####
-    logging.config.fileConfig(os.path.join(file_dir, "config/logging.conf"), defaults={"logfilepath": _results_dir})
-    logger = logging.getLogger()
-    np.set_printoptions(linewidth=np.inf)
-
-    # Log program info
-    logger.debug(f"Call: {sys.argv}")
-    logger.debug(f"Root: {_results_dir}")
-    logger.debug(f"Time: {_time}")
-    logger.debug(f"Seed: {args.seed}")
-    logger.info(f"{Color.WHITE}Args: {args}{Color.END}")
+def main(args, config, logger):
 
     # Lab variable initialization
     B.default_dtype = torch.float64
@@ -166,7 +95,6 @@ if __name__ == "__main__":
     # Build clients
     clients = {}
     for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
-        # for i, (client_x_tr, client_y_tr) in enumerate([(x_tr, y_tr)]):
 
         _vs = Vars(B.default_dtype)  # Initialize variable container for each client
 
@@ -219,22 +147,7 @@ if __name__ == "__main__":
         likelihood = rebuild(vs, likelihood)
 
     # Optimizer parameters: client's params + ll var
-    lr = args.lr
-    if args.sep_lr:
-        opt = getattr(torch.optim, config.optimizer)(
-            [
-                {"params": vs.get_latent_vars("*nz"), "lr": config.lr_nz},
-                {"params": vs.get_latent_vars("output_var"), "lr": config.lr_output_var},  # ll var
-                {"params": vs.get_latent_vars("*client*_z"), "lr": lr},  # inducing
-                {"params": vs.get_latent_vars("*yz"), "lr": lr},  # pseudo obs
-            ],
-            **config.optimizer_params,
-        )
-    else:
-        if vs.names != []:
-            opt = getattr(torch.optim, config.optimizer)([{"params": curr_client.vs.get_vars()}, {"params": vs.get_vars()}], **config.optimizer_params)
-        else:
-            opt = getattr(torch.optim, config.optimizer)([{"params": curr_client.vs.get_vars()}], **config.optimizer_params)
+    opt = construct_optimizer(args, config, curr_client, pvi=False, vs=vs)
 
     batch_size = min(args.batch_size, N)
     S = args.training_samples  # number of inference samples
@@ -358,3 +271,82 @@ if __name__ == "__main__":
         eval_logging(x_domain, y_domain, x_tr, y_tr, y_pred, rmse(y_domain, y_pred), y_pred.var(0), "Entire domain", _results_dir, "eval_domain_preds", config.plot_dir)
 
     logger.info(f"Total time: {(datetime.utcnow() - _start)} (H:MM:SS:ms)")
+
+
+if __name__ == "__main__":
+    import warnings
+
+    warnings.filterwarnings("ignore")
+
+    config = Config()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
+    parser.add_argument("--epochs", "-e", type=int, help="epochs", default=config.epochs)
+    parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
+    parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
+    parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
+    parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
+    parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
+    parser.add_argument("--training_samples", "-S", type=int, help="number of training weight samples", default=config.S)
+    parser.add_argument("--inference_samples", "-I", type=int, help="number of inference weight samples", default=config.I)
+    parser.add_argument("--nz_init", type=float, help="Client likelihood factor noise initial value", default=config.nz_init)
+    parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)
+    parser.add_argument("--ll_var", type=float, help="likelihood var", default=config.ll_var)
+    parser.add_argument("--batch_size", "-b", type=int, help="training batch size", default=config.batch_size)
+    parser.add_argument("--dgp", "-d", type=int, help="dgp/dataset type", default=config.dgp)
+    parser.add_argument("--load", "-l", type=str, help="model directory to load (e.g. experiment_name)", default=config.load)
+    parser.add_argument("--random_z", "-z", action="store_true", help="Randomly initializes global inducing points z", default=config.random_z)
+    parser.add_argument("--prior", "-P", type=str, help="prior type", default=config.prior)
+    parser.add_argument("--bias", help="Use bias vectors in BNN", default=config.bias)
+    parser.add_argument("--sep_lr", help="Use separate LRs for parameters (see config)", default=config.separate_lr)
+    parser.add_argument("--num_clients", "-nc", help="Number of clients (implicit equal split)", default=config.num_clients)
+    args = parser.parse_args()
+
+    # Create experiment directories
+    _start = datetime.utcnow()
+    _time = _start.strftime("%Y-%m-%d-%H.%M.%S")
+    _results_dir_name = "results"
+    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify(args.name)}")
+    _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
+    _plot_dir = os.path.join(_results_dir, "plots")
+    _metrics_dir = os.path.join(_results_dir, "metrics")
+    _model_dir = os.path.join(_results_dir, "model")
+    _training_plot_dir = os.path.join(_plot_dir, "training")
+    Path(_plot_dir).mkdir(parents=True, exist_ok=True)
+    Path(_training_plot_dir).mkdir(parents=True, exist_ok=True)
+    Path(_model_dir).mkdir(parents=True, exist_ok=True)
+    Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
+
+    if args.no_plot:
+        config.plot = False
+        args.plot = False
+    config.start = _start
+    config.start_time = _time
+    config.results_dir = _results_dir
+    config.wd = _wd
+    config.plot_dir = _plot_dir
+    config.metrics_dir = _metrics_dir
+    config.model_dir = _model_dir
+    config.training_plot_dir = _training_plot_dir
+
+    # Save script
+    if os.path.exists(os.path.abspath(sys.argv[0])):
+        shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
+        shutil.copy(os.path.join(_root_dir, "experiments/config/config.py"), _wd.file("config.py"))
+
+    else:
+        out("Could not save calling script.")
+
+    #### Logging ####
+    logging.config.fileConfig(os.path.join(file_dir, "config/logging.conf"), defaults={"logfilepath": _results_dir})
+    logger = logging.getLogger()
+    np.set_printoptions(linewidth=np.inf)
+
+    # Log program info
+    logger.debug(f"Call: {sys.argv}")
+    logger.debug(f"Root: {_results_dir}")
+    logger.debug(f"Time: {_time}")
+    logger.debug(f"Seed: {args.seed}")
+    logger.info(f"{Color.WHITE}Args: {args}{Color.END}")
+
+    main(args, config, logger)
