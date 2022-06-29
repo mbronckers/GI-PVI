@@ -152,6 +152,45 @@ def main(args, config, logger):
     else:
         iters = args.iters
 
+    # Plot initial model predictions without training
+    with torch.no_grad():
+
+        # Collect clients
+        ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
+        zs: dict[str, B.Numeric] = {}
+        for client_name, client in clients.items():
+            _t = client.t
+            for layer_name, layer_t in _t.items():
+                if layer_name not in ts:
+                    ts[layer_name] = {}
+                ts[layer_name][client_name] = copy(layer_t)
+
+            zs[client_name] = client.z.detach().clone()
+
+        # Resample <_S> inference weights
+        key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
+
+        # Run eval on entire domain (linspace)
+        num_pts = 100
+        x_domain = B.linspace(-6, 6, num_pts)[..., None]
+        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+        y_domain = x_domain**3.0 + 3 * eps
+        y_domain = y_domain / scale  # scale with train datasets
+        y_pred = model.propagate(x_domain)
+        eval_logging(
+            x_domain,
+            y_domain,
+            x_tr,
+            y_tr,
+            y_pred,
+            rmse(y_domain, y_pred),
+            y_pred.var(0),
+            "Entire domain - no train",
+            _results_dir,
+            "no_train_domain_preds",
+            config.plot_dir,
+        )
+
     # Perform PVI.
     for i in range(iters):
 
