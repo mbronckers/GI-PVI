@@ -18,6 +18,7 @@ import logging.config
 
 logger = logging.getLogger()
 
+
 class Prior(enum.IntEnum):
     StandardPrior = 0
     NealPrior = 1
@@ -37,27 +38,28 @@ def parse_prior_arg(arg: str):
 
 
 def build_prior(*dims: B.Int, prior: Union[Prior, str], bias: bool):
-    """ 
+    """
     :param dims: BNN dimensionality [Din x *D_latents x Dout]
     """
-    
-    if type(prior) == str: prior = parse_prior_arg(prior)
+
+    if type(prior) == str:
+        prior = parse_prior_arg(prior)
 
     ps = {}
-    
+
     for i in range(len(dims) - 1):
-        dim_in = dims[i]+1 if bias else dims[i]
-        mean = B.zeros(B.default_dtype, dims[i + 1], dim_in, 1) # [Dout x Din+bias x 1]
-        
+        dim_in = dims[i] + 1 if bias else dims[i]
+        mean = B.zeros(B.default_dtype, dims[i + 1], dim_in, 1)  # [Dout x Din+bias x 1]
+
         if prior == Prior.StandardPrior:
             var = B.eye(B.default_dtype, dim_in)
         elif prior == Prior.NealPrior:
-            var = (1/dims[i]) * B.eye(B.default_dtype, dim_in)
+            var = (1 / dim_in) * B.eye(B.default_dtype, dim_in)
         elif prior == Prior.HePrior:
-            var = (2/dims[i]) * B.eye(B.default_dtype, dim_in)
-        
+            var = (2 / dim_in) * B.eye(B.default_dtype, dim_in)
+
         # [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
         var = B.tile(var, dims[i + 1], 1, 1)
         ps[f"layer{i}"] = gi.NaturalNormal.from_normal(gi.Normal(mean, var))
-        
+
     return ps

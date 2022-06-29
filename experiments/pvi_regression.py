@@ -340,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--nz_init",
         type=float,
-        help="Client likelihood factor noise initial value",
+        help="Initial value of client's likelihood precision",
         default=config.nz_init,
     )
     parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)

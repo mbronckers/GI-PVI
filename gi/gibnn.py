@@ -109,14 +109,17 @@ class GIBNN:
             # Sample weights from posterior distribution q. q already has S passed via _zs
             key, w = q.sample(key)  # w is [S, Dout, Din] of layer i.
 
-            # Get rid of last dimension.
-            w = w[..., 0]  # [S, Dout, Din]
-
             # Compute KL div
+            # logq = q.logpdf(w)
+            # logp = p_.logpdf(w)
+            # kl_qp = logq - logp
             kl_qp = q.kl(p_)  # [S, Dlatent] = [S, Dout]
 
             # Sum across output dimensions. [S]
             kl_qp = B.sum(kl_qp, -1)
+
+            # Get rid of last dimension.
+            w = w[..., 0]  # [S, Dout, Din]
 
             # Save posterior w samples and KL to cache
             self._cache[layer_name] = {"w": w, "kl": kl_qp}

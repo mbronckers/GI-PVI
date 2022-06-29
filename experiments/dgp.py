@@ -20,7 +20,7 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         """Build train data with test data in between the train space
         Equal number of training points as test points"""
         key, xl, yl = dgp1(key, int(size / 2), xmin, xmin + ((xmax - xmin) / 4))
-        key, x_te, y_te = dgp1(key, size, xmin + ((xmax - xmin) / 4), xmax - ((xmax - xmin) / 4))
+        key, x_te, y_te = dgp1(key, size * 2, xmin + ((xmax - xmin) / 4), xmax - ((xmax - xmin) / 4))
         key, xr, yr = dgp1(key, int(size / 2), xmax - ((xmax - xmin) / 4), xmax)
 
         x_all = B.concat(xl, x_te, xr, axis=0)
@@ -32,6 +32,7 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         y_tr = B.concat(yl, yr, axis=0)
 
         y_tr = y_tr / scale
+        y_te = y_te / scale
 
         return key, x_all, y_all, x_tr, y_tr, x_te, y_te, scale
 

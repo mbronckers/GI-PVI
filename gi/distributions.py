@@ -4,6 +4,7 @@ from plum import convert
 from matrix import AbstractMatrix, Diagonal, structured
 import torch
 
+
 class Normal:
     def __init__(self, mean, var):
         self.mean = mean
@@ -23,14 +24,8 @@ class Normal:
 
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        return (
-            B.iqf_diag(other.var, other.mean - self.mean)[..., 0]
-            + B.ratio(self.var, other.var)
-            + B.logdet(other.var)
-            - B.logdet(self.var)
-            - B.cast(self.dtype, self.dim) 
-        ) / 2
-        
+        return (B.iqf_diag(other.var, other.mean - self.mean)[..., 0] + B.ratio(self.var, other.var) + B.logdet(other.var) - B.logdet(self.var) - B.cast(self.dtype, self.dim)) / 2
+
     def logpdf(self, x):
         """Compute the log-pdf.
         Args:
@@ -53,19 +48,33 @@ class Normal:
                 available_x = B.take(x, available)
                 return Normal(available_mean, available_var).logpdf(available_x)
 
-        logpdfs = (
-            -(
-                B.logdet(self.var)[..., None]  # Correctly line up with `iqf_diag`.
-                + B.cast(self.dtype, self.dim) * B.cast(self.dtype, B.log_2_pi)
-                + B.iqf_diag(self.var, B.subtract(x, self.mean)[..., None])
-                # Compute the diagonal of `transpose(b) inv(a) c` where `a` is assumed to be PD 
-                # => (x-m)T @ inv(var) @ (x-m)
+        if len(B.shape(x)) == 2 or len(B.shape(x)) == 3:
+            logpdfs = (
+                -(
+                    B.logdet(self.var)[..., None]  # Correctly line up with `iqf_diag`.
+                    + B.cast(self.dtype, self.dim) * B.cast(self.dtype, B.log_2_pi)
+                    + B.iqf_diag(self.var, B.subtract(x, self.mean)[..., None])
+                    # Compute the diagonal of `transpose(b) inv(a) c` where `a` is assumed to be PD
+                    # => (x-m)T @ inv(var) @ (x-m)
+                )
+                / 2
             )
-            / 2
-        )
+        elif len(B.shape(x)) == 4:
+            logpdfs = (
+                -(
+                    B.logdet(self.var)[..., None]  # Correctly line up with `iqf_diag`.
+                    + B.cast(self.dtype, self.dim) * B.cast(self.dtype, B.log_2_pi)
+                    + B.iqf_diag(self.var, B.subtract(x, self.mean))
+                    # Compute the diagonal of `transpose(b) inv(a) c` where `a` is assumed to be PD
+                    # => (x-m)T @ inv(var) @ (x-m)
+                )
+                / 2
+            )
+        else:
+            raise ValueError("Unsupported shape of input.")
+
         return logpdfs[..., 0] if B.shape(logpdfs, -1) == 1 else logpdfs
-        
-        
+
     @property
     def dtype(self):
         """dtype: Data type of the variance."""
@@ -79,18 +88,19 @@ class Normal:
     def __eq__(self, __o: "Normal") -> bool:
         return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
 
+
 class NaturalNormal:
     def __init__(self, lam, prec):
         """
         :param lam: first natural parameter of Normal dist = precision x mean
-        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision 
+        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
-        self.lam = lam 
+        self.lam = lam
         self.prec = convert(prec, AbstractMatrix)
-        
+
         self._mean = None
         self._var = None
-    
+
     @property
     def dtype(self):
         """dtype: Data type of the precision."""
@@ -108,7 +118,7 @@ class NaturalNormal:
         - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
         """
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
-    
+
     @property
     def mean(self):
         """column vector: Mean."""
@@ -122,7 +132,7 @@ class NaturalNormal:
         if self._var is None:
             self._var = B.pd_inv(self.prec)
         return self._var
-    
+
     def kl(self, other: "NaturalNormal"):
         """Compute the Kullback-Leibler divergence with respect to another normal
         parametrised by its natural parameters.
@@ -130,18 +140,21 @@ class NaturalNormal:
             other (:class:`.NaturalNormal`): Other.
         Returns:
             scalar: KL divergence with respect to `other`.
-        
+
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))                 # M in wiki
-        diff = self.mean - other.mean                                          # mu1 - mu0
+        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
+        diff = self.mean - other.mean  # mu1 - mu0
         _kl = 0.5 * (
-            B.sum(B.sum(ratio**2, -1), -1)                                      
-            - B.logdet(B.mm(ratio, ratio, tr_a=True))                          # ratio^T @ ratio
-            + B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)              # (diff)^T @ prec @ diff
-            - B.cast(self.dtype, self.dim)                                     # subtract dimension |K| scalar
+            B.sum(B.sum(ratio**2, -1), -1)
+            - B.logdet(B.mm(ratio, ratio, tr_a=True))  # ratio^T @ ratio
+            + B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)  # (diff)^T @ prec @ diff
+            - B.cast(self.dtype, self.dim)  # subtract dimension |K| scalar
         )
         return _kl
+
+    def logpdf(self, x):
+        return Normal.from_naturalnormal(self).logpdf(x)
 
     def sample(self, key: B.RandomState, num: B.Int = 1):
         """
@@ -149,54 +162,51 @@ class NaturalNormal:
         """
         # Sample noise (epsilon)
         if num > 1:
-            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam)) # [num x q.lam.shape]
+            key, noise = B.randn(key, B.default_dtype, num, *B.shape(self.lam))  # [num x q.lam.shape]
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
-        
+
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
         sample = self.mean + B.mm(B.cholesky(self.var), noise)
-        
+
         if not structured(sample):
-            sample = B.dense(sample) # transform Tensor to Dense matrix
-        
+            sample = B.dense(sample)  # transform Tensor to Dense matrix
+
         return key, sample
 
     def __mul__(self, other: "NaturalNormal"):
-        return NaturalNormal(
-            self.lam + other.lam, 
-            self.prec + other.prec
-            )
+        return NaturalNormal(self.lam + other.lam, self.prec + other.prec)
 
     def __truediv__(self, other: "NaturalNormal"):
-        return NaturalNormal(
-            self.lam - other.lam, 
-            self.prec - other.prec
-            )
+        return NaturalNormal(self.lam - other.lam, self.prec - other.prec)
 
     def __rtruediv__(self, other: "NaturalNormal"):
-        return NaturalNormal(
-            other.lam - self.lam, 
-            other.prec - self.prec
-            )
+        return NaturalNormal(other.lam - self.lam, other.prec - self.prec)
 
     def __eq__(self, __o: "NaturalNormal") -> bool:
-        
+
         return (torch.all(torch.isclose(B.dense(self.lam), B.dense(__o.lam))) and torch.all(torch.isclose(B.dense(self.prec), B.dense(__o.prec)))).item()
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
 
+
 class NormalPseudoObservation:
     def __init__(self, yz, nz):
         """
         :param yz: inducing point observation (pseudo-observations)
-        :param nz: inducing point noise (precision)
+        :param nz: inducing point noise precision
 
-        yz is denoted by \\Lambda_{\\ell} in Ober et al. 
+        The pseudo-observations (_yz) are denoted by v^{\ell} in Ober et al.
+        The precision of the inducing likelihood (prec_yz) is denoted by \\Lambda_{\\ell} in Ober et al.
+        The inducing inputs (_z) are denoted by \\phi(U_{\\ell-1}) in Ober et al., but also as Xi in their code
+        ---
+        The mean of the q over the weights is (Sigma_w \\times _z @ prec_yz @ _yz)
+        The precision of the q over the weights is (prior precision + z^T @ prec_yz @ z)
         """
-        self.yz = yz    # [M x Dout]
-        self.nz = nz    # [Dout x M]
-        
+        self.yz = yz  # [M x Dout]
+        self.nz = nz  # [Dout x M]
+
     def __call__(self, z):
 
         """
@@ -206,29 +216,28 @@ class NormalPseudoObservation:
         """
         # (S, 1, M, Din)
         _z = B.expand_dims(z, 1)
-        
+
         # (1, Dout, M, 1).
         _yz = B.expand_dims(B.transpose(self.yz, (-1, -2)))
         _yz = B.expand_dims(_yz, -1)
-        
+
         # (Dout, M, M).
-        prec_yz = B.diag_construct(self.nz**(-1))
-        
+        prec_yz = B.diag_construct(self.nz)  # the precision of the "inducing-points likelihood"
+
         # (1, Dout, M, M).
         _prec_yz = B.expand_dims(prec_yz, 0)
-        
+
         # (S, Dout, Din, Din).
-        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z)) # z^T @ prec_yz @ z
+        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))  # zT @ prec_yz @ z //? = XLX = XiT @ Lambda @ Xi
 
         # (S, Dout, Din, 1)
-        lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz)) # z^T @ prec_yz @ yz
-        
+        # lambda \\propto prec*mean, mean_w = (prec^-1) * XLY => lambda = XLY
+        lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))  # @ _z * _nz @ _yz = XLY
+
         return NaturalNormal(lam_w, prec_w)
 
     def __repr__(self) -> str:
-        return (
-                f"yz: {self.yz.shape}, nz: {self.nz.shape}"
-        )
+        return f"yz: {self.yz.shape}, nz: {self.nz.shape}"
 
     def __copy__(self):
         return NormalPseudoObservation(deepcopy(self.yz.detach().clone()), deepcopy(self.nz.detach().clone()))

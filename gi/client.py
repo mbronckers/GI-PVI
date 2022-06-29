@@ -22,10 +22,9 @@ class Client:
     :param z: Global inducing points. (we have client-local inducing points)
     :param t: Likelihood factors per layer. Dict<k=layer, v=NormalPseudoObservation()>
     :param yz: Pseudo (inducing) observations (outputs)
-    :param nz: Pseudo noise
+    :param nz: Pseudo noise (precision)
     """
 
-    # def __init__(self, name: Optional[str], x, y, z, t: dict[str, NormalPseudoObservation], vs: Vars, key: B.RandomState):
     def __init__(self, key: B.RandomState, name: Optional[str], x, y, M, *dims, random_z, nz_init):
         self.name = name if name else None
         self.x = x
@@ -124,8 +123,8 @@ class Client:
             vs: optimizable variable container
         """
         for i, layer_name in enumerate(self.t.keys()):
-            var = self.vs[f"ts.{self.name}_{layer_name}_nz"]
-            self.t[layer_name].nz = var
+            _prec = self.vs[f"ts.{self.name}_{layer_name}_nz"]
+            self.t[layer_name].nz = _prec
 
     def get_final_yz(self):
         return self.t[list(self.t.keys())[-1]].yz  # final layer yz

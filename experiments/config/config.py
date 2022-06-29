@@ -81,19 +81,21 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
 
-    iters: int = 10  # server iterations
-    epochs: int = 100  # client epochs
+    iters: int = 1  # server iterations
+    epochs: int = 1000  # client epochs
 
     # Note: number of test points is also equal to N
     N: int = 40  # Num total training data pts, not the number of data pts per client.
-    M: int = 20  # Number of inducing points per client
+    M: int = 40  # Number of inducing points per client
 
     server_type: Server = SequentialServer
-    # server_type: Server = SynchronousServer
 
-    num_clients: int = 2
+    lr_global: float = 0.01
+
+    num_clients: int = 1
     ll_var: float = 1e-2  # fixed likelihood variance
-    log_step: int = 10
+
+    log_step: int = 50
 
     def __post_init__(self):
         # Homogeneous, equal-sized split.
