@@ -96,9 +96,9 @@ class PVIConfig(Config):
 
     nz_init: float = B.exp(-4)  # precision of the inducing points
     # ll_var: float = 0.01  # fixed likelihood variance
-    
+
     separate_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.05
     lr_nz: float = 0.01
     lr_client_z: float = 0.01
     lr_yz: float = 0.01

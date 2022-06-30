@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import sys
+from typing import Optional, Tuple
 
 import pandas as pd
 import seaborn as sns
@@ -53,7 +54,21 @@ def plot_all_inducing_pts(clients, _plot_dir):
     plt.savefig(os.path.join(_plot_dir, "init_zs.png"), pad_inches=0.2, bbox_inches="tight")
 
 
-def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_dir, _fname, _plot_dir: str = None):
+def eval_logging(
+    x,
+    y,
+    x_tr,
+    y_tr,
+    y_pred,
+    error,
+    pred_var,
+    data_name,
+    _results_dir,
+    _fname,
+    _plot_dir: str = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    xlim: Optional[Tuple[float, float]] = None,
+):
     """Logs the model inference results and saves plots
 
     Args:
@@ -93,7 +108,9 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
     # Plot model predictions:
 
     # Plot eval data, training data, and model predictions (in that order)
-    _ax = scatter_plot(None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+    _ax = scatter_plot(
+        None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)", ylim=ylim, xlim=xlim
+    )
     scatterplot = plot.patch(sns.scatterplot)
     scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])
 
@@ -109,7 +126,7 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
     plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
 
     # Plot all sampled functions
-    ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
+    ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)", ylim=ylim, xlim=xlim)
 
     _sampled_funcs_dir = os.path.join(_plot_dir, "sampled_funcs")
     Path(_sampled_funcs_dir).mkdir(parents=True, exist_ok=True)

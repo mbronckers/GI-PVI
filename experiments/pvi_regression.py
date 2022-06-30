@@ -89,14 +89,14 @@ def estimate_local_vfe(
         kl += layer_cache["kl"]
 
     # Compute the expected log-likelihood.
-    exp_ll = likelihood(out).logpdf(y).mean(0) # take expectation wrt q (i.e. mean of inference samples) 
+    exp_ll = likelihood(out).logpdf(y).mean(0)  # take expectation wrt q (i.e. mean of inference samples)
     exp_ll = exp_ll.sum(-1)  # sum across batch
     kl = kl.mean()  # across inference samples
-    error = (y - out.mean(0)).detach()  # error of mean prediction
+    error = (y - out.mean(0)).detach().clone()  # error of mean prediction
     rmse = B.sqrt(B.mean(error**2))
 
     # Mini-batching estimator of ELBO; (N / batch_size)
-    elbo = ((N / len(x)) * exp_ll) - kl/len(x)
+    elbo = ((N / len(x)) * exp_ll) - kl / len(x)
 
     return key, elbo, exp_ll, kl, rmse
 
@@ -127,7 +127,7 @@ def main(args, config, logger):
 
     # Likelihood variance is fixed in PVI.
     # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
-    likelihood = gi.likelihoods.NormalLikelihood(3/scale)
+    likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
 
     # Build clients
     clients = {}
@@ -309,7 +309,11 @@ def main(args, config, logger):
 
     model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
 
+    print("Final layer nz:")
+    print(curr_client.vs["ts.client0_layer2_nz"].log())
+
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
+
 
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
@@ -382,6 +386,29 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             "eval_domain_preds",
             config.plot_dir,
         )
+
+        # Run eval on entire domain (linspace)
+        num_pts = 100
+        x_domain = B.linspace(-6, 6, num_pts)[..., None]
+        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+        y_domain = x_domain**3.0 + 3 * eps
+        y_domain = y_domain / scale  # scale with train datasets
+        y_pred = model.propagate(x_domain)
+        eval_logging(
+            x_domain,
+            y_domain,
+            x_tr,
+            y_tr,
+            y_pred,
+            rmse(y_domain, y_pred),
+            y_pred.var(0),
+            "Entire domain",
+            _results_dir,
+            "eval_domain_preds_fix_ylim",
+            config.plot_dir,
+            ylim=(-4, 4),
+        )
+
 
 if __name__ == "__main__":
     import warnings

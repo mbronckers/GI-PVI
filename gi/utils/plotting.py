@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Tuple
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -17,7 +17,20 @@ sns.set_palette(colors)
 matplotlib.use("Agg")
 
 
-def scatter_plot(ax, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, desc1: str, desc2: str, xlabel: Optional[str] = None, ylabel: Optional[str] = None, title: Optional[str] = None):
+def scatter_plot(
+    ax,
+    x1: Tensor,
+    y1: Tensor,
+    x2: Tensor,
+    y2: Tensor,
+    desc1: str,
+    desc2: str,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    title: Optional[str] = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    xlim: Optional[Tuple[float, float]] = None,
+):
 
     if ax == None:
         fig, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -26,7 +39,10 @@ def scatter_plot(ax, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, desc1: str,
     scatterplot(y=y1, x=x1, label=desc1, ax=ax)
     scatterplot(y=y2, x=x2, label=desc2, ax=ax)
 
-    # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
+    if ylim != None:
+        ax.set_ylim(ylim)
+    if xlim != None:
+        ax.set_xlim(xlim)
     if xlabel != None:
         ax.set_xlabel(xlabel)
     if ylabel != None:
@@ -40,7 +56,17 @@ def scatter_plot(ax, x1: Tensor, y1: Tensor, x2: Tensor, y2: Tensor, desc1: str,
     return ax
 
 
-def plot_predictions(ax, x: Tensor, y: Tensor, desc: str, xlabel: Optional[str] = None, ylabel: Optional[str] = None, title: Optional[str] = None):
+def plot_predictions(
+    ax,
+    x: Tensor,
+    y: Tensor,
+    desc: str,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    title: Optional[str] = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    xlim: Optional[Tuple[float, float]] = None,
+):
 
     if ax == None:
         fig, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -52,7 +78,10 @@ def plot_predictions(ax, x: Tensor, y: Tensor, desc: str, xlabel: Optional[str] 
     else:
         lineplot(y=y, x=x, ax=ax, color=colors[0], alpha=0.3)
 
-    # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
+    if ylim != None:
+        ax.set_ylim(ylim)
+    if xlim != None:
+        ax.set_xlim(xlim)
     if xlabel != None:
         ax.set_xlabel(xlabel)
     if ylabel != None:
@@ -79,7 +108,7 @@ def plot_confidence(ax, x, quartiles, all: bool = False):
     return ax
 
 
-def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None):
+def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None, ylim: Optional[Tuple[float, float]] = None, xlim: Optional[Tuple[float, float]] = None):
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     lw = 2  # linewidth=lw
@@ -90,8 +119,10 @@ def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None):
     sns.lineplot(y=y, x=x, label=f"{desc}", ax=ax, color=colors[0])
 
     ax.legend()
-    # ax.set_xlabel(f'{}')
-    # ax.set(ylim=(0.60, 1.01), xlim=(-0.005, 0.20))
+    if ylim != None:
+        ax.set_ylim(ylim)
+    if xlim != None:
+        ax.set_xlim(xlim)
     if xlabel != None:
         ax.set_xlabel(xlabel)
     if ylabel != None:
