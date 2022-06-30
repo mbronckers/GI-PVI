@@ -28,7 +28,7 @@ class Config:
     S: int = 10  # Number of training weight samples
     I: int = 100  # Number of inference samples
 
-    batch_size: int = 100
+    batch_size: int = 40
 
     nz_init: float = B.exp(-4)  # precision
     ll_var: float = 1e-2  # likelihood variance
@@ -36,11 +36,11 @@ class Config:
 
     # Learning rates
     separate_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 1e-2
-    lr_nz: float = 1e-3
+    lr_global: float = 0.05
+    lr_nz: float = 0.001
     lr_output_var: float = 1e-3
-    lr_client_z: float = lr_global
-    lr_yz: float = lr_global
+    lr_client_z: float = 0.01
+    lr_yz: float = 0.01
 
     prior: Prior = Prior.StandardPrior
     dgp: DGP = DGP.ober_regression
@@ -80,22 +80,28 @@ class Config:
 @dataclass
 class PVIConfig(Config):
     name: str = "pvi"
+    log_step: int = 50
 
     iters: int = 1  # server iterations
-    epochs: int = 1000  # client epochs
+    epochs: int = 2000  # client epochs
 
     # Note: number of test points is also equal to N
     N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 40  # Number of inducing points per client
 
     server_type: Server = SequentialServer
-
-    lr_global: float = 0.01
-
     num_clients: int = 1
-    ll_var: float = 1e-2  # fixed likelihood variance
 
-    log_step: int = 50
+    prior: Prior = Prior.NealPrior
+
+    nz_init: float = B.exp(-4)  # precision of the inducing points
+    # ll_var: float = 0.01  # fixed likelihood variance
+    
+    separate_lr: bool = False  # True => use seperate learning rates
+    lr_global: float = 0.01
+    lr_nz: float = 0.01
+    lr_client_z: float = 0.01
+    lr_yz: float = 0.01
 
     def __post_init__(self):
         # Homogeneous, equal-sized split.

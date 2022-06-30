@@ -66,6 +66,7 @@ class Client:
         """
         if random:
             key, z = B.randn(key, B.default_dtype, M, *x.shape[1:])  # [M x input_dim]
+            # z = z * (B.max(x)-B.min(x)) + B.min(x) # scale with domain range
             key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])  # [M x output_dim]
             return key, z, yz
 

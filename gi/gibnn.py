@@ -115,8 +115,8 @@ class GIBNN:
             # kl_qp = logq - logp
             kl_qp = q.kl(p_)  # [S, Dlatent] = [S, Dout]
 
-            # Sum across output dimensions. [S]
-            kl_qp = B.sum(kl_qp, -1)
+            # Sum across output dimensions. 
+            kl_qp = B.sum(kl_qp, -1) # [S]
 
             # Get rid of last dimension.
             w = w[..., 0]  # [S, Dout, Din]

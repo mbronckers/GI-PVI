@@ -89,14 +89,14 @@ def estimate_local_vfe(
         kl += layer_cache["kl"]
 
     # Compute the expected log-likelihood.
-    exp_ll = likelihood(out).logpdf(y)
-    exp_ll = exp_ll.mean(0).sum()  # take mean across inference samples and sum
+    exp_ll = likelihood(out).logpdf(y).mean(0) # take expectation wrt q (i.e. mean of inference samples) 
+    exp_ll = exp_ll.sum(-1)  # sum across batch
     kl = kl.mean()  # across inference samples
     error = (y - out.mean(0)).detach()  # error of mean prediction
     rmse = B.sqrt(B.mean(error**2))
 
-    # Mini-batching estimator of ELBO (N / batch_size)
-    elbo = ((N / len(x)) * exp_ll) - kl
+    # Mini-batching estimator of ELBO; (N / batch_size)
+    elbo = ((N / len(x)) * exp_ll) - kl/len(x)
 
     return key, elbo, exp_ll, kl, rmse
 
@@ -126,7 +126,8 @@ def main(args, config, logger):
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
     # Likelihood variance is fixed in PVI.
-    likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+    # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+    likelihood = gi.likelihoods.NormalLikelihood(3/scale)
 
     # Build clients
     clients = {}
@@ -169,6 +170,40 @@ def main(args, config, logger):
 
         # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
+
+        # Get <_S> predictions, calculate average RMSE, variance
+        y_pred = model.propagate(x_te)
+
+        # Log and plot results
+        eval_logging(
+            x_te,
+            y_te,
+            x_tr,
+            y_tr,
+            y_pred,
+            rmse(y_te, y_pred),
+            y_pred.var(0),
+            "Test set",
+            _results_dir,
+            "no_train_test_preds",
+            config.plot_dir,
+        )
+
+        # Run eval on entire dataset
+        y_pred = model.propagate(x)
+        eval_logging(
+            x,
+            y,
+            x_tr,
+            y_tr,
+            y_pred,
+            rmse(y, y_pred),
+            y_pred.var(0),
+            "Both train/test set",
+            _results_dir,
+            "no_train_all_preds",
+            config.plot_dir,
+        )
 
         # Run eval on entire domain (linspace)
         num_pts = 100
@@ -251,14 +286,14 @@ def main(args, config, logger):
 
                 if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Only plot every <log_step> epoch
                     if args.plot and ((epoch + 1) % log_step == 0):
                         plot_client_vp(config, curr_client, i, epoch)
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
     # Save var state
@@ -272,8 +307,12 @@ def main(args, config, logger):
         for c_name, client in clients.items():
             make_gif(config.plot_dir, c_name)
 
-    with torch.no_grad():
+    model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
 
+    logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
+
+def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
+    with torch.no_grad():
         # Collect clients
         ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
         zs: dict[str, B.Numeric] = {}
@@ -343,9 +382,6 @@ def main(args, config, logger):
             "eval_domain_preds",
             config.plot_dir,
         )
-
-    logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
-
 
 if __name__ == "__main__":
     import warnings

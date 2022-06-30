@@ -13,8 +13,7 @@ class NormalLikelihood:
         self.var = var
 
     def __call__(self, x):
-        var = B.ones(x) * self.var
-        return gi.distributions.Normal(x, Diagonal(var))
+        return gi.distributions.Normal(mean=x, var=Diagonal(B.ones(x) * self.var))
 
     def __repr__(self) -> str:
         return f"var: {self.var}"

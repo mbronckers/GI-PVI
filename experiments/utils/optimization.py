@@ -30,9 +30,9 @@ def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs
     if args.sep_lr:
         lr = args.lr
         params = [
-            {"params": curr_client.get_params("*nz"), "lr": config.lr_nz},
-            {"params": curr_client.get_params("*z"), "lr": lr},  # inducing
-            {"params": curr_client.get_params("*yz"), "lr": lr},  # pseudo obs
+            {"params": curr_client.get_params("ts.*_nz"), "lr": config.lr_nz},
+            {"params": curr_client.get_params("zs.*_z"), "lr": config.lr_client_z},  # inducing
+            {"params": curr_client.get_params("ts.*_yz"), "lr": config.lr_yz},  # pseudo obs
         ]
 
         # If running global VI & optimizing ll variance
