@@ -95,13 +95,16 @@ def eval_logging(x, y, x_tr, y_tr, y_pred, error, pred_var, data_name, _results_
     # Plot eval data, training data, and model predictions (in that order)
     _ax = scatter_plot(None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)")
     scatterplot = plot.patch(sns.scatterplot)
-    scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions", color=gi.utils.plotting.colors[3])
+    scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])
 
-    # Plot confidence bounds
+    # Plot confidence bounds (1 and 2 std deviations)
     _preds_idx = [f"preds_{i}" for i in range(_S)]
-    quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.05, 0.25, 0.75, 0.95)), axis=1)  # [num quartiles x num preds]
+    # [num quartiles x num preds]
+    quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.02275, 0.15865, 0.84135, 0.97725)), axis=1)
     _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=True)
+
     # _ax.legend(loc='upper right', prop={'size': 12})
+
     plot.tweak(_ax)
     plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
 
