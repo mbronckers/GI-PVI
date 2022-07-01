@@ -103,7 +103,8 @@ class Client:
                 t = NormalPseudoObservation(_yz, _nz)
             else:
                 # Last layer precision gets initialized to 1
-                _nz = B.ones(dims[i + 1], M) * 1  # [Dout x M]
+                # _nz = B.ones(dims[i + 1], M) * 1  # [Dout x M]
+                _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
                 t = NormalPseudoObservation(yz, _nz)  # final layer
 
             ts[f"layer{i}"] = t

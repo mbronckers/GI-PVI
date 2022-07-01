@@ -96,7 +96,11 @@ def estimate_local_vfe(
     rmse = B.sqrt(B.mean(error**2))
 
     # Mini-batching estimator of ELBO; (N / batch_size)
-    elbo = ((N / len(x)) * exp_ll) - kl / len(x)
+
+    elbo = ((N / len(x)) * exp_ll) - kl
+
+    # elbo =  (exp_ll/len(x)) - kl / len(x)
+    # elbo = ((N / len(x)) * exp_ll) - (kl / len(x))
 
     return key, elbo, exp_ll, kl, rmse
 
@@ -309,8 +313,8 @@ def main(args, config, logger):
 
     model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
 
-    print("Final layer nz:")
-    print(curr_client.vs["ts.client0_layer2_nz"].log())
+    # print("Final layer nz:")
+    # print(curr_client.vs["ts.client0_layer2_nz"].log())
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
