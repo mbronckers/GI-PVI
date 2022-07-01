@@ -38,15 +38,15 @@ class Normal:
         x = B.uprank(x)
 
         # Handle missing data. We don't handle missing data for batched computation.
-        if B.rank(x) == 2 and B.shape(x, 1) == 1:
-            available = B.jit_to_numpy(~B.isnan(x[:, 0]))
-            if not B.all(available):
-                # Take the elements of the mean, variance, and inputs corresponding to
-                # the available data.
-                available_mean = B.take(self.mean, available)
-                available_var = B.submatrix(self.var, available)
-                available_x = B.take(x, available)
-                return Normal(available_mean, available_var).logpdf(available_x)
+        # if B.rank(x) == 2 and B.shape(x, 1) == 1:
+        #     available = B.jit_to_numpy(~B.isnan(x[:, 0]))
+        #     if not B.all(available):
+        #         # Take the elements of the mean, variance, and inputs corresponding to
+        #         # the available data.
+        #         available_mean = B.take(self.mean, available)
+        #         available_var = B.submatrix(self.var, available)
+        #         available_x = B.take(x, available)
+        #         return Normal(available_mean, available_var).logpdf(available_x)
 
         if len(B.shape(x)) == 2 or len(B.shape(x)) == 3:
             logpdfs = (

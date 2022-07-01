@@ -97,9 +97,9 @@ def estimate_local_vfe(
 
     # Mini-batching estimator of ELBO; (N / batch_size)
 
-    elbo = ((N / len(x)) * exp_ll) - kl
-
-    # elbo =  (exp_ll/len(x)) - kl / len(x)
+    elbo = (exp_ll - kl) / len(x)
+    # elbo = ((N / len(x)) * exp_ll) - (kl)
+    # elbo = (exp_ll / len(x)) - kl / len(x)
     # elbo = ((N / len(x)) * exp_ll) - (kl / len(x))
 
     return key, elbo, exp_ll, kl, rmse
