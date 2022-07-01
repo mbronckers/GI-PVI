@@ -113,27 +113,8 @@ if __name__ == "__main__":
     B.default_dtype = torch.float64
     key = B.create_random_state(B.default_dtype, seed=0)
 
-    # Setup regression dataset.
-    N = 40  # num training points
-    key, x1, y1, scale1 = generate_data(key, 1, N, xmin=-4, xmax=-2)
-    print(x1)
-    print(x1.shape)
-    print(key)
-    print(scale1)
-    key, x2, y2, scale2 = generate_data(key, 1, N, xmin=2, xmax=4)
-    print(x2)
-    print(x2.shape)
-    print(key)
-    print(scale2)
+    N = 1000
+    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, 1, N, xmin=-4.0, xmax=4.0)
 
-    y1 = y1 * scale1
-    y2 = y2 * scale2
-
-    x_tr = B.concat(x1, x2, axis=0)
-    y_tr = B.concat(y1, y2, axis=0)
-    scale = B.std(y_tr)
-    print(scale)
-    y_tr = y_tr / scale
-
-    plt.scatter(x_tr, y_tr)
-    plt.show()
+    print(f"Scale: {scale}")
+    
