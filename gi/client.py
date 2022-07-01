@@ -1,8 +1,11 @@
 from __future__ import annotations
+from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
 
 from typing import Optional, Union
+
+import torch
 from gi.distributions import NormalPseudoObservation
 import lab as B
 import lab.torch
@@ -70,7 +73,12 @@ class Client:
             key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])  # [M x output_dim]
             return key, z, yz
 
-        if M <= len(x):
+        if M == len(x):
+            # Initialize inducing points to data
+            z = x.clone()
+            yz = y.clone()
+
+        elif M < len(x):
             # Select random subset of size M of training points x
             key, perm = B.randperm(key, B.default_dtype, len(x))
             idx = perm[:M]
@@ -99,8 +107,13 @@ class Client:
         for i in range(num_layers):
             if i < num_layers - 1:
                 _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
-                key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
-                t = NormalPseudoObservation(_yz, _nz)
+                
+                # key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
+                
+                # Temporary initialization to M linspace vectors: [M x Dout]
+                _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i+1]), B.ones(M))
+                _yz = _yz.transpose(-1, -2)
+                t = NormalPseudoObservation(_yz.detach().clone(), _nz)
             else:
                 # Last layer precision gets initialized to 1
                 # _nz = B.ones(dims[i + 1], M) * 1  # [Dout x M]

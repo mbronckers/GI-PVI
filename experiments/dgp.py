@@ -113,7 +113,7 @@ if __name__ == "__main__":
     B.default_dtype = torch.float64
     key = B.create_random_state(B.default_dtype, seed=0)
 
-    N = 1000
+    N = 40
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, 1, N, xmin=-4.0, xmax=4.0)
 
     print(f"Scale: {scale}")

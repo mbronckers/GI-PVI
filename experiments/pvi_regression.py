@@ -97,10 +97,10 @@ def estimate_local_vfe(
 
     # Mini-batching estimator of ELBO; (N / batch_size)
 
-    elbo = (exp_ll - kl) / len(x)
+    # elbo = (exp_ll - kl) / len(x)
     # elbo = ((N / len(x)) * exp_ll) - (kl)
     # elbo = (exp_ll / len(x)) - kl / len(x)
-    # elbo = ((N / len(x)) * exp_ll) - (kl / len(x))
+    elbo = ((N / len(x)) * exp_ll) - (kl / len(x))
 
     return key, elbo, exp_ll, kl, rmse
 
@@ -113,7 +113,9 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
-
+    # torch.save(x_tr, os.path.join(_results_dir, 'x_tr.pt'))
+    # torch.save(y_tr, os.path.join(_results_dir, 'y_tr.pt'))
+    
     logger.info(f"Scale: {scale}")
 
     # Define model
@@ -135,10 +137,14 @@ def main(args, config, logger):
 
     # Build clients
     clients = {}
-    for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
-        _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
-        key = _client.key
-        clients[f"client{i}"] = _client
+    _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
+    key = _client.key
+    clients[f"client0"] = _client
+
+    # for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
+    #     _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
+    #     key = _client.key
+    #     clients[f"client{i}"] = _client
 
     # Plot initial inducing points
     plot_all_inducing_pts(clients, config.plot_dir)
@@ -158,77 +164,77 @@ def main(args, config, logger):
         iters = args.iters
 
     # Plot initial model predictions without training
-    with torch.no_grad():
+    # with torch.no_grad():
 
-        # Collect clients
-        ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
-        zs: dict[str, B.Numeric] = {}
-        for client_name, client in clients.items():
-            _t = client.t
-            for layer_name, layer_t in _t.items():
-                if layer_name not in ts:
-                    ts[layer_name] = {}
-                ts[layer_name][client_name] = copy(layer_t)
+    #     # Collect clients
+    #     ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
+    #     zs: dict[str, B.Numeric] = {}
+    #     for client_name, client in clients.items():
+    #         _t = client.t
+    #         for layer_name, layer_t in _t.items():
+    #             if layer_name not in ts:
+    #                 ts[layer_name] = {}
+    #             ts[layer_name][client_name] = copy(layer_t)
 
-            zs[client_name] = client.z.detach().clone()
+    #         zs[client_name] = client.z.detach().clone()
 
-        # Resample <_S> inference weights
-        key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
+    #     # Resample <_S> inference weights
+    #     key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
 
-        # Get <_S> predictions, calculate average RMSE, variance
-        y_pred = model.propagate(x_te)
+    #     # Get <_S> predictions, calculate average RMSE, variance
+    #     y_pred = model.propagate(x_te)
 
-        # Log and plot results
-        eval_logging(
-            x_te,
-            y_te,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_te, y_pred),
-            y_pred.var(0),
-            "Test set",
-            _results_dir,
-            "no_train_test_preds",
-            config.plot_dir,
-        )
+    #     # Log and plot results
+    #     eval_logging(
+    #         x_te,
+    #         y_te,
+    #         x_tr,
+    #         y_tr,
+    #         y_pred,
+    #         rmse(y_te, y_pred),
+    #         y_pred.var(0),
+    #         "Test set",
+    #         _results_dir,
+    #         "no_train_test_preds",
+    #         config.plot_dir,
+    #     )
 
-        # Run eval on entire dataset
-        y_pred = model.propagate(x)
-        eval_logging(
-            x,
-            y,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y, y_pred),
-            y_pred.var(0),
-            "Both train/test set",
-            _results_dir,
-            "no_train_all_preds",
-            config.plot_dir,
-        )
+    #     # Run eval on entire dataset
+    #     y_pred = model.propagate(x)
+    #     eval_logging(
+    #         x,
+    #         y,
+    #         x_tr,
+    #         y_tr,
+    #         y_pred,
+    #         rmse(y, y_pred),
+    #         y_pred.var(0),
+    #         "Both train/test set",
+    #         _results_dir,
+    #         "no_train_all_preds",
+    #         config.plot_dir,
+    #     )
 
-        # Run eval on entire domain (linspace)
-        num_pts = 100
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain - no train",
-            _results_dir,
-            "no_train_domain_preds",
-            config.plot_dir,
-        )
+    #     # Run eval on entire domain (linspace)
+    #     num_pts = 100
+    #     x_domain = B.linspace(-6, 6, num_pts)[..., None]
+    #     key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+    #     y_domain = x_domain**3.0 + 3 * eps
+    #     y_domain = y_domain / scale  # scale with train datasets
+    #     y_pred = model.propagate(x_domain)
+    #     eval_logging(
+    #         x_domain,
+    #         y_domain,
+    #         x_tr,
+    #         y_tr,
+    #         y_pred,
+    #         rmse(y_domain, y_pred),
+    #         y_pred.var(0),
+    #         "Entire domain - no train",
+    #         _results_dir,
+    #         "no_train_domain_preds",
+    #         config.plot_dir,
+    #     )
 
     # Perform PVI.
     for i in range(iters):
@@ -392,7 +398,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         )
 
         # Run eval on entire domain (linspace)
-        num_pts = 100
+        num_pts = 1000
         x_domain = B.linspace(-6, 6, num_pts)[..., None]
         key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
         y_domain = x_domain**3.0 + 3 * eps
