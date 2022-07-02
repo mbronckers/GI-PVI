@@ -37,17 +37,6 @@ class Normal:
         """
         x = B.uprank(x)
 
-        # Handle missing data. We don't handle missing data for batched computation.
-        # if B.rank(x) == 2 and B.shape(x, 1) == 1:
-        #     available = B.jit_to_numpy(~B.isnan(x[:, 0]))
-        #     if not B.all(available):
-        #         # Take the elements of the mean, variance, and inputs corresponding to
-        #         # the available data.
-        #         available_mean = B.take(self.mean, available)
-        #         available_var = B.submatrix(self.var, available)
-        #         available_x = B.take(x, available)
-        #         return Normal(available_mean, available_var).logpdf(available_x)
-
         if len(B.shape(x)) == 2 or len(B.shape(x)) == 3:
             logpdfs = (
                 -(
@@ -123,7 +112,8 @@ class NaturalNormal:
     def mean(self):
         """column vector: Mean."""
         if self._mean is None:
-            self._mean = B.cholsolve(B.chol(self.prec), self.lam)
+            # self._mean = B.cholsolve(B.chol(self.prec), self.lam)
+            self._mean = torch.cholesky_solve(self.lam, torch.linalg.cholesky(B.dense(self.prec)))
         return self._mean
 
     @property
@@ -154,7 +144,11 @@ class NaturalNormal:
         return _kl
 
     def logpdf(self, x):
+        # Ours
         return Normal.from_naturalnormal(self).logpdf(x)
+
+        # Torch
+        return torch.distributions.normal.Normal(loc=B.dense(self.mean), scale=B.dense(self.var)).log_prob(x)
 
     def sample(self, key: B.RandomState, num: B.Int = 1):
         """
@@ -166,8 +160,20 @@ class NaturalNormal:
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
 
+        # Our method:
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
-        sample = self.mean + B.mm(B.cholesky(self.var), noise)
+        # sample = self.mean + B.mm(B.cholesky(self.var), noise)
+
+        dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober
+        # dW = B.triangular_solve(B.dense(B.chol(self.prec).T), noise, lower_a=True)  # Us
+
+        # L et's see
+        # L = B.chol(self.prec)
+        # dW = torch.linalg.solve_triangular(B.dense(L.T), noise, upper=False)
+        # dW = torch.linalg.solve_triangular(B.dense(B.chol(self.prec).T), noise, upper=False)
+
+        # dW = B.mm(B.cholesky(self.var), noise)
+        sample = self.mean + dW  # us
 
         if not structured(sample):
             sample = B.dense(sample)  # transform Tensor to Dense matrix

@@ -13,8 +13,8 @@ from wbml import plot
 
 colors = sns.color_palette("bright")
 sns.set_palette(colors)
-# matplotlib.rcParams['figure.dpi'] = 600 # for high quality, retina plots
-matplotlib.use("Agg")
+# matplotlib.rcParams["figure.dpi"] = 500  # for high quality, retina plots
+# matplotlib.use("Agg")
 
 
 def scatter_plot(

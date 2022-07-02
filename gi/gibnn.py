@@ -110,13 +110,13 @@ class GIBNN:
             key, w = q.sample(key)  # w is [S, Dout, Din] of layer i.
 
             # Compute KL div
-            # logq = q.logpdf(w)
-            # logp = p_.logpdf(w)
-            # kl_qp = logq - logp
-            kl_qp = q.kl(p_)  # [S, Dlatent] = [S, Dout]
+            logq = q.logpdf(w)
+            logp = p_.logpdf(w)
+            # kl_qp = q.kl(p_)  # [S, Dlatent] = [S, Dout] //  analytical estimator
+            kl_qp = logq - logp  # MC estimator
 
-            # Sum across output dimensions. 
-            kl_qp = B.sum(kl_qp, -1) # [S]
+            # Sum across output dimensions.
+            kl_qp = B.sum(kl_qp, -1)  # [S]
 
             # Get rid of last dimension.
             w = w[..., 0]  # [S, Dout, Din]
