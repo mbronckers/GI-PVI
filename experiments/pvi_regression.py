@@ -248,10 +248,11 @@ def main(args, config, logger):
 
     model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
 
-    # print("Final layer nz:")
-    # print(curr_client.vs["ts.client0_layer2_nz"])
-    # print("Final layer log nz:")
-    # print(curr_client.vs["ts.client0_layer2_nz"].log())
+    if config.deterministic and args.num_clients == 1:
+        print("Final layer nz:")
+        print(curr_client.vs["ts.client0_layer2_nz"])
+        print("Final layer log nz:")
+        print(curr_client.vs["ts.client0_layer2_nz"].log())
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
