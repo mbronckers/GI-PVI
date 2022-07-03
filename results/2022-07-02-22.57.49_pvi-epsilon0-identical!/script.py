@@ -89,7 +89,13 @@ def estimate_local_vfe(
         kl += layer_cache["kl"]
 
     # Compute the expected log-likelihood.
-    exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
+    # exp_ll = likelihood(out).logpdf(y).mean(0)  # take expectation wrt q (i.e. mean of inference samples)
+
+    # exp_ll = likelihood(out).log_prob(y).sum(-1).mean(0)  # take expectation wrt q (i.e. mean of inference samples)
+    # exp_ll = exp_ll.sum(-1)  # sum across inference samples
+    # kl = kl.mean()  # across inference samples
+
+    exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)
 
     error = (y - out.mean(0)).detach().clone()  # error of mean prediction
     rmse = B.sqrt(B.mean(error**2))
@@ -97,7 +103,7 @@ def estimate_local_vfe(
     # Mini-batching estimator of ELBO; (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl / len(x)
 
-    # Takes mean wrt q (inference samples)
+    # return key, elbo, exp_ll, kl, rmse
     return key, elbo.mean(), exp_ll.mean(), kl.mean(), rmse
 
 
@@ -135,18 +141,14 @@ def main(args, config, logger):
 
     # Build clients
     clients = {}
+    _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
+    key = _client.key
+    clients[f"client0"] = _client
 
-    if config.deterministic and args.num_clients > 1:
-        raise ValueError("Deterministic mode is not supported with multiple clients.")
-    if config.deterministic and args.num_clients == 1:
-        _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
-        key = _client.key
-        clients[f"client0"] = _client
-    else:
-        for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
-            _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
-            key = _client.key
-            clients[f"client{i}"] = _client
+    # for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
+    #     _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
+    #     key = _client.key
+    #     clients[f"client{i}"] = _client
 
     # Plot initial inducing points
     plot_all_inducing_pts(clients, config.plot_dir)
@@ -248,10 +250,10 @@ def main(args, config, logger):
 
     model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
 
-    # print("Final layer nz:")
-    # print(curr_client.vs["ts.client0_layer2_nz"])
-    # print("Final layer log nz:")
-    # print(curr_client.vs["ts.client0_layer2_nz"].log())
+    print("Final layer nz:")
+    print(curr_client.vs["ts.client0_layer2_nz"])
+    print("Final layer log nz:")
+    print(curr_client.vs["ts.client0_layer2_nz"].log())
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
@@ -360,6 +362,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         ax.set_axisbelow(True)  # Show grid lines below other elements.
         ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
         plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
+        # plt.show()
 
 
 if __name__ == "__main__":
