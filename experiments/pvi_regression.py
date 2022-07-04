@@ -143,7 +143,7 @@ def main(args, config, logger):
         key = _client.key
         clients[f"client0"] = _client
     else:
-        for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(x_tr, y_tr, config.client_splits)):
+        for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(key, x_tr, y_tr, config.client_splits)):
             _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
             key = _client.key
             clients[f"client{i}"] = _client
