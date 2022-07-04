@@ -125,7 +125,7 @@ def main(args, config, logger):
     logger.info(f"Scale: {scale}")
 
     # Define model
-    model = gi.GIBNN(nn.functional.relu, args.bias)
+    model = gi.GIBNN(nn.functional.relu, args.bias, config.kl)
 
     # Build prior
     M = args.M  # number of inducing points

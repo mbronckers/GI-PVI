@@ -2,14 +2,17 @@ import lab as B
 import torch
 import logging
 
+from experiments.kl import KL, compute_kl
+
 logger = logging.getLogger()
 
 
 class GIBNN:
-    def __init__(self, nonlinearity, bias):
+    def __init__(self, nonlinearity, bias: bool, kl: KL):
         self.nonlinearity = nonlinearity
         self._cache = {}
         self.bias = bias
+        self.kl = kl
 
     def process_z(self, zs: dict, S: B.Int):
         """Shape zs into appropriate form and return separate dictionary. (Dicts are pass-by-reference.)
@@ -109,11 +112,8 @@ class GIBNN:
             # Sample weights from posterior distribution q. q already has S passed via _zs
             key, w = q.sample(key)  # w is [S, Dout, Din] of layer i.
 
-            # Compute KL div
-            logq = q.logpdf(w)
-            logp = p_.logpdf(w)
-            # kl_qp = q.kl(p_)  # [S, Dlatent] = [S, Dout] //  analytical estimator
-            kl_qp = logq - logp  # MC estimator
+            # Compute KL divergence between prior and posterior
+            kl_qp = compute_kl(self.kl, q, p_, w)
 
             # Sum across output dimensions.
             kl_qp = B.sum(kl_qp, -1)  # [S]

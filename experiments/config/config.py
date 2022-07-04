@@ -13,6 +13,7 @@ from dgp import DGP
 import lab as B
 import torch
 from gi.server import SequentialServer, Server, SynchronousServer
+from kl import KL
 
 
 @dataclass
@@ -82,7 +83,7 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
     log_step: int = 50
-    deterministic: bool = True
+    deterministic: bool = False
 
     iters: int = 1  # server iterations
     epochs: int = 2000  # client epochs
@@ -95,6 +96,7 @@ class PVIConfig(Config):
     num_clients: int = 1
 
     prior: Prior = Prior.NealPrior
+    kl: KL = KL.Analytical
 
     nz_init: float = B.exp(-4)  # precision of the inducing points
     # ll_var: float = 0.01  # fixed likelihood variance
