@@ -35,7 +35,7 @@ class Client:
 
         # Build inducing points
         key, z, yz = self.build_z(key, M, x, y, random=random_z)
-        self.z = z
+        self.z: B.Numeric = z
 
         # Build approximate likelihood factors
         self.key, t = self.build_ts(key, M, yz, *dims, nz_init=nz_init)
@@ -107,11 +107,11 @@ class Client:
         for i in range(num_layers):
             if i < num_layers - 1:
                 _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
-                
+
                 # key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
-                
+
                 # Temporary initialization to M linspace vectors: [M x Dout]
-                _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i+1]), B.ones(M))
+                _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i + 1]), B.ones(M))
                 _yz = _yz.transpose(-1, -2)
                 t = NormalPseudoObservation(_yz.detach().clone(), _nz)
             else:

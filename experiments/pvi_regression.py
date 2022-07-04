@@ -6,7 +6,7 @@ import os
 import shutil
 import sys
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Optional
 
 from matplotlib import pyplot as plt
 
@@ -32,6 +32,7 @@ from gi.server import SequentialServer, SynchronousServer
 
 from gi.utils.plotting import line_plot, plot_confidence, plot_predictions, scatter_plot
 from gi.distributions import NormalPseudoObservation
+from gi.client import Client
 
 from slugify import slugify
 from varz import Vars, namespace
@@ -42,7 +43,7 @@ from dgp import DGP, generate_data, split_data, split_data_clients
 from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs, construct_optimizer
+from utils.optimization import rebuild, add_zs, add_ts, get_vs_state, load_vs, construct_optimizer, collect_vp, cavity_distributions
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
@@ -60,25 +61,8 @@ def estimate_local_vfe(
     N: B.Int,
     iter: B.Int,
 ):
-    # Cavity distribution: all except this client's approximate likelihoods (and associated inducing locations)
-    if iter == 0 or (len(zs.keys()) == 1):  # if first iteration or only one client
-        # Cavity distributions are equal to the prior
-        zs_cav = None
-        ts_cav = None
-    else:
-        # Create inducing point collections
-        zs_cav = {}
-        for client_name, _client_z in zs.items():
-            if client_name != client.name:
-                zs_cav[client_name] = _client_z.detach().clone()
-
-        # Create cavity distributions. Construct from scratch to avoid linked copies.
-        ts_cav = {}
-        for layer_name, _t in ts.items():
-            ts_cav[layer_name] = {}
-            for client_name, client_t in _t.items():
-                if client_name != client.name:
-                    ts_cav[layer_name][client_name] = copy(client_t)
+    # Compute cavity distributions
+    zs_cav, ts_cav = cavity_distributions(client, ts, zs, iter)
 
     key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
     out = model.propagate(x)  # out : [S x N x Dout]
@@ -119,8 +103,8 @@ def main(args, config, logger):
     # y_tr = torch.load("experiments/data/y_tr.pt", map_location=torch.device("cpu"))
 
     # Save training data used in results directory
-    torch.save(x_tr, os.path.join(_results_dir, "x_tr.pt"))
-    torch.save(y_tr, os.path.join(_results_dir, "y_tr.pt"))
+    # torch.save(x_tr, os.path.join(_results_dir, "x_tr.pt"))
+    # torch.save(y_tr, os.path.join(_results_dir, "y_tr.pt"))
 
     logger.info(f"Scale: {scale}")
 
@@ -146,7 +130,7 @@ def main(args, config, logger):
     logger.info(f"Likelihood variance: {likelihood.var}")
 
     # Build clients
-    clients = {}
+    clients: dict[str, Client] = {}
 
     if config.deterministic and args.num_clients > 1:
         raise ValueError("Deterministic mode is not supported with multiple clients.")
@@ -189,14 +173,7 @@ def main(args, config, logger):
         logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - optimizing {curr_clients}")
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
-        frozen_zs: dict[str, B.Numeric] = {}
-        for client_name, client in clients.items():
-            frozen_zs[client_name] = client.z.detach().clone()
-            for layer_name, client_layer_t in client.t.items():
-                if layer_name not in frozen_ts:
-                    frozen_ts[layer_name] = {}
-                frozen_ts[layer_name][client_name] = copy(client_layer_t)
+        frozen_ts, frozen_zs = collect_vp(clients, None)
 
         num_clients = len(curr_clients)
         for idx, curr_client in enumerate(curr_clients):
@@ -207,20 +184,7 @@ def main(args, config, logger):
             logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
             # Make another frozen ts/zs, except for current client.
-            tmp_ts = {}
-            tmp_zs = {curr_client.name: curr_client.z}
-            for layer_name, layer_t in curr_client.t.items():
-                if layer_name not in tmp_ts:
-                    tmp_ts[layer_name] = {}
-                tmp_ts[layer_name][curr_client.name] = layer_t
-            for client_name, client in clients.items():
-                if client_name != curr_client.name:
-                    tmp_zs[client_name] = client.z.detach().clone()
-
-                    for layer_name, client_layer_t in client.t.items():
-                        if layer_name not in tmp_ts:
-                            tmp_ts[layer_name] = {}
-                        tmp_ts[layer_name][client_name] = copy(client_layer_t)
+            tmp_ts, tmp_zs = collect_vp(clients, curr_client)
 
             # Run client-local optimization
             epochs = args.epochs
@@ -359,6 +323,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             config.plot_dir,
             ylim=(-4, 4),
         )
+
         # Ober's plot
         mean_ys = y_pred.mean(0)
         std_ys = y_pred.std(0)
@@ -387,6 +352,7 @@ if __name__ == "__main__":
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
+    parser.add_argument("--det", action="store_true", help="Deterministic training data split", default=config.deterministic)
     parser.add_argument(
         "--training_samples",
         "-S",
