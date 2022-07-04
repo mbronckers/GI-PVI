@@ -28,6 +28,7 @@
             "args": [
                 "--inference_samples=10",
                 // "--no_plot",
+                "--e=1000",
                 "--name=pvi_debug"
             ]
         },

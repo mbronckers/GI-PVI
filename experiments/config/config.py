@@ -82,7 +82,7 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
     log_step: int = 50
-    deterministic: bool = False
+    deterministic: bool = True
 
     iters: int = 1  # server iterations
     epochs: int = 2000  # client epochs

@@ -111,8 +111,13 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
-    # torch.save(x_tr, os.path.join(_results_dir, 'x_tr.pt'))
-    # torch.save(y_tr, os.path.join(_results_dir, 'y_tr.pt'))
+    # torch.save(x_tr, "experiments/data/x_tr.pt")
+    # torch.save(y_tr, "experiments/data/x_tr.pt")
+    torch.save(x_tr, os.path.join(_results_dir, "x_tr.pt"))
+    torch.save(y_tr, os.path.join(_results_dir, "y_tr.pt"))
+
+    # x_tr = torch.load("experiments/data/x_tr.pt", map_location=torch.device("cpu"))
+    # y_tr = torch.load("experiments/data/y_tr.pt", map_location=torch.device("cpu"))
 
     logger.info(f"Scale: {scale}")
 
@@ -133,7 +138,8 @@ def main(args, config, logger):
     if config.deterministic:
         likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
     else:
-        likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
+        # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Build clients
     clients = {}
@@ -145,7 +151,9 @@ def main(args, config, logger):
         key = _client.key
         clients[f"client0"] = _client
     else:
-        for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(key, x_tr, y_tr, config.client_splits)):
+        _tmp_key = B.create_random_state(B.default_dtype, seed=1)
+        # for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(key, x_tr, y_tr, config.client_splits)):
+        for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)):
             _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
             key = _client.key
             clients[f"client{i}"] = _client
@@ -357,6 +365,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         ax.set_axisbelow(True)  # Show grid lines below other elements.
         ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
         plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
+
 
 if __name__ == "__main__":
     import warnings
