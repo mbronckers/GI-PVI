@@ -162,18 +162,13 @@ class NaturalNormal:
 
         # Our method:
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
-        # sample = self.mean + B.mm(B.cholesky(self.var), noise)
-
-        dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober
-        # dW = B.triangular_solve(B.dense(B.chol(self.prec).T), noise, lower_a=True)  # Us
-
-        # L et's see
-        # L = B.chol(self.prec)
-        # dW = torch.linalg.solve_triangular(B.dense(L.T), noise, upper=False)
-        # dW = torch.linalg.solve_triangular(B.dense(B.chol(self.prec).T), noise, upper=False)
-
-        # dW = B.mm(B.cholesky(self.var), noise)
-        sample = self.mean + dW  # us
+    
+        dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober    
+        # dW = B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
+        # dW = B.mm(B.cholesky(self.var), noise) # old
+        
+        # sample = self.mean + B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
+        sample = self.mean + dW
 
         if not structured(sample):
             sample = B.dense(sample)  # transform Tensor to Dense matrix

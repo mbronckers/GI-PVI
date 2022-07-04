@@ -130,8 +130,10 @@ def main(args, config, logger):
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
     # Likelihood variance is fixed in PVI.
-    # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
-    likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
+    if config.deterministic:
+        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
+    else:
+        likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
 
     # Build clients
     clients = {}
@@ -248,12 +250,6 @@ def main(args, config, logger):
 
     model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
 
-    if config.deterministic and args.num_clients == 1:
-        print("Final layer nz:")
-        print(curr_client.vs["ts.client0_layer2_nz"])
-        print("Final layer log nz:")
-        print(curr_client.vs["ts.client0_layer2_nz"].log())
-
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
 
@@ -361,7 +357,6 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         ax.set_axisbelow(True)  # Show grid lines below other elements.
         ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
         plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
-
 
 if __name__ == "__main__":
     import warnings
