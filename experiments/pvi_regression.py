@@ -111,13 +111,16 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
+
+    # Code to save/load data
     # torch.save(x_tr, "experiments/data/x_tr.pt")
     # torch.save(y_tr, "experiments/data/x_tr.pt")
-    torch.save(x_tr, os.path.join(_results_dir, "x_tr.pt"))
-    torch.save(y_tr, os.path.join(_results_dir, "y_tr.pt"))
-
     # x_tr = torch.load("experiments/data/x_tr.pt", map_location=torch.device("cpu"))
     # y_tr = torch.load("experiments/data/y_tr.pt", map_location=torch.device("cpu"))
+
+    # Save training data used in results directory
+    torch.save(x_tr, os.path.join(_results_dir, "x_tr.pt"))
+    torch.save(y_tr, os.path.join(_results_dir, "y_tr.pt"))
 
     logger.info(f"Scale: {scale}")
 
@@ -140,6 +143,7 @@ def main(args, config, logger):
     else:
         likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
         # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+    logger.info(f"Likelihood variance: {likelihood.var}")
 
     # Build clients
     clients = {}
@@ -151,8 +155,9 @@ def main(args, config, logger):
         key = _client.key
         clients[f"client0"] = _client
     else:
+        # We use a separate key here to create consistent keys with deterministic (i.e. not calling split_data) runs of PVI.
+        # otherwise, replace _tmp_key with key
         _tmp_key = B.create_random_state(B.default_dtype, seed=1)
-        # for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(key, x_tr, y_tr, config.client_splits)):
         for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)):
             _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_init=args.nz_init)
             key = _client.key

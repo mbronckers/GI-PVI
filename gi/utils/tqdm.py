@@ -41,13 +41,13 @@ def train_with_tqdm(net: nn.Module, train_data: DataLoader, epochs: int, eval_da
                 net.evaluate(eval_data)
 
                 # Update tqdm progress bar
-                t_epoch.set_postfix_str(f'Loss: {loss:.5f}, {net.eval_metric}: {net.eval_score:.5f}')
+                t_epoch.set_postfix_str(f"Loss: {loss:.5f}, {net.eval_metric}: {net.eval_score:.5f}")
             else:
-                t_epoch.set_postfix_str(f'Loss: {loss:.5f}, {net.eval_metric}: {net.eval_score:.5f}')
+                t_epoch.set_postfix_str(f"Loss: {loss:.5f}, {net.eval_metric}: {net.eval_score:.5f}")
 
-            if not hasattr(net, 'best_loss') or net.best_loss is None:
+            if not hasattr(net, "best_loss") or net.best_loss is None:
                 net.best_loss = loss
-            
+
             # Save the latest model
             if loss <= net.best_loss or not epoch % 100:
                 net.best_loss = loss
@@ -57,7 +57,9 @@ def train_with_tqdm(net: nn.Module, train_data: DataLoader, epochs: int, eval_da
                 # NOTE: this is intentionally inside the model saving loop; only early stop
                 # if a model has just been saved.
                 if net.early_stopping and np.abs(loss.item() - prev_loss) < net.early_stopping_thresh:
-                    logger.warn(f'Early stopping at epoch {e_num+1} as the absolute loss difference between the previous run and the current was less than {net.early_stopping_thresh}')
+                    logger.warn(
+                        f"Early stopping at epoch {e_num+1} as the absolute loss difference between the previous run and the current was less than {net.early_stopping_thresh}"
+                    )
                     break
 
     # Save the final model

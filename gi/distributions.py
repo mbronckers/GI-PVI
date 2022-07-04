@@ -160,13 +160,11 @@ class NaturalNormal:
         else:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
 
-        # Our method:
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
-    
-        dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober    
+        dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober
         # dW = B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
         # dW = B.mm(B.cholesky(self.var), noise) # old
-        
+
         # sample = self.mean + B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
         sample = self.mean + dW
 
@@ -229,7 +227,7 @@ class NormalPseudoObservation:
         _prec_yz = B.expand_dims(prec_yz, 0)
 
         # (S, Dout, Din, Din).
-        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))  # zT @ prec_yz @ z //? = XLX = XiT @ Lambda @ Xi
+        prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))  # zT @ prec_yz @ z = XLX = XiT @ Lambda @ Xi
 
         # (S, Dout, Din, 1)
         # lambda \\propto prec*mean, mean_w = (prec^-1) * XLY => lambda = XLY
