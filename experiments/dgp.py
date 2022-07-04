@@ -37,11 +37,6 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         y_tr = y_tr / scale
         y_te = y_te / scale
 
-        # scatter = plot.patch(plt.scatter)
-        # plt.scatter(x_all, y_all)
-        # plt.scatter(x_tr, y_tr)
-        # plt.scatter(x_te, y_te)
-        # plt.show()
         return key, x_all, y_all, x_tr, y_tr, x_te, y_te, scale
 
     elif dgp == DGP.sinusoid:
@@ -91,7 +86,7 @@ def split_data(x, y, lb_mid=-2.0, ub_mid=2.0):
     return x_tr, y_tr, x_te, y_te
 
 
-def split_data_clients(x, y, splits):
+def split_data_clients(key, x, y, splits):
     """Split data based on list of splits provided"""
     # Cannot verify that dataset is Sized
     if len(x) != len(y) or not (sum(splits) == len(x) or sum(splits) == 1):
@@ -101,7 +96,9 @@ def split_data_clients(x, y, splits):
     if sum(splits) == 1.0:
         splits = [int(len(x) * split) for split in splits]
 
-    indices = B.to_numpy(B.randperm(sum(splits)))
+    key, indices = B.randperm(key, B.default_dtype, sum(splits))
+
+    indices = B.to_numpy(indices)
 
     return [(x[indices[offset - length : offset]], y[indices[offset - length : offset]]) for offset, length in zip(accumulate(splits), splits)]
 
@@ -117,4 +114,3 @@ if __name__ == "__main__":
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, 1, N, xmin=-4.0, xmax=4.0)
 
     print(f"Scale: {scale}")
-    
