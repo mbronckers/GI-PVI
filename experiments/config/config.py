@@ -20,6 +20,7 @@ class Config:
     name: str = "global-vi"
     seed: int = 0
     plot: bool = True
+    deterministic: bool = False
 
     epochs: int = 1000
 
@@ -81,7 +82,7 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
     log_step: int = 50
-    deterministic: bool = True
+    deterministic: bool = False
 
     iters: int = 1  # server iterations
     epochs: int = 2000  # client epochs
