@@ -344,7 +344,7 @@ if __name__ == "__main__":
     parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
-    parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
+    parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
     parser.add_argument("--det", action="store_true", help="Deterministic training data split and ll variance", default=config.deterministic)
@@ -408,10 +408,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create experiment directories
+    config.name += args.name
     _start = datetime.utcnow()
-    _time = _start.strftime("%Y-%m-%d-%H.%M.%S")
+    _time = _start.strftime("%m-%d-%H.%M.%S")
     _results_dir_name = "results"
-    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify(args.name)}")
+    _results_dir = os.path.join(_root_dir, _results_dir_name, f"{_time}_{slugify(config.name)}")
     _wd = experiment.WorkingDirectory(_results_dir, observe=True, seed=args.seed)
     _plot_dir = os.path.join(_results_dir, "plots")
     _metrics_dir = os.path.join(_results_dir, "metrics")
