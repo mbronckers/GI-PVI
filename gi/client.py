@@ -28,7 +28,7 @@ class Client:
     :param nz: Pseudo noise (precision)
     """
 
-    def __init__(self, key: B.RandomState, name: Optional[str], x, y, M, *dims, random_z, nz_init):
+    def __init__(self, key: B.RandomState, name: Optional[str], x, y, M, *dims, random_z, nz_inits):
         self.name = name if name else None
         self.x = x
         self.y = y
@@ -38,7 +38,7 @@ class Client:
         self.z: B.Numeric = z
 
         # Build approximate likelihood factors
-        self.key, t = self.build_ts(key, M, yz, *dims, nz_init=nz_init)
+        self.key, t = self.build_ts(key, M, yz, *dims, nz_inits=nz_inits)
         self.t: dict[str, NormalPseudoObservation] = t
 
         # Add optimizable client variables to vs
@@ -69,15 +69,16 @@ class Client:
         """
         if random:
             key, z = B.randn(key, B.default_dtype, M, *x.shape[1:])  # [M x input_dim]
-            # z = z * (B.max(x)-B.min(x)) + B.min(x) # scale with domain range
             key, yz = B.randn(key, B.default_dtype, M, *y.shape[1:])  # [M x output_dim]
+
+            # z = z * (B.max(x)-B.min(x)) + B.min(x) # scale with domain range
+
             return key, z, yz
 
         if M == len(x):
             # Initialize inducing points to data
             z = x.clone()
             yz = y.clone()
-
         elif M < len(x):
             # Select random subset of size M of training points x
             key, perm = B.randperm(key, B.default_dtype, len(x))
@@ -92,7 +93,8 @@ class Client:
 
         return key, z, yz
 
-    def build_ts(self, key, M, yz, *dims: B.Int, nz_init: float):
+    # def build_ts(self, key, M, yz, *dims: B.Int, nz_init: float, final_layer_nz_init: float):
+    def build_ts(self, key, M, yz, *dims: B.Int, nz_inits: list[float]):
         """
         Builds likelihood factors per layer for one client
 
@@ -104,9 +106,10 @@ class Client:
         """
         ts = {}
         num_layers = len(dims) - 1
-        for i in range(num_layers):
+        assert len(nz_inits) == num_layers
+        for i, nz_init in enumerate(nz_inits):
             if i < num_layers - 1:
-                _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
+                _nz = B.ones(dims[i + 1], M) * nz_inits[i]  # [Dout x M]
 
                 key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
 
@@ -114,11 +117,9 @@ class Client:
                 # _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i + 1]), B.ones(M))
                 # _yz = _yz.transpose(-1, -2)
                 # t = NormalPseudoObservation(_yz.detach().clone(), _nz)
-                
+
                 t = NormalPseudoObservation(_yz, _nz)
             else:
-                # Last layer precision gets initialized to 1
-                # _nz = B.ones(dims[i + 1], M) * 1  # [Dout x M]
                 _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
                 t = NormalPseudoObservation(yz, _nz)  # final layer
 

@@ -84,7 +84,6 @@ class PVIConfig(Config):
     name: str = "pvi"
     log_step: int = 50
     deterministic: bool = False
-
     iters: int = 1  # server iterations
     epochs: int = 2000  # client epochs
 
@@ -98,7 +97,6 @@ class PVIConfig(Config):
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
 
-    nz_init: float = B.exp(-4)  # precision of the inducing points
     # ll_var: float = 0.01  # fixed likelihood variance
 
     separate_lr: bool = False  # True => use seperate learning rates
@@ -108,6 +106,10 @@ class PVIConfig(Config):
     lr_yz: float = 0.01
 
     def __post_init__(self):
+        # Precisions of the inducing points per layer
+        self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
+        self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [1 / self.num_clients for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
