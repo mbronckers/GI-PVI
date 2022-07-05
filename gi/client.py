@@ -113,8 +113,9 @@ class Client:
                 # Temporary initialization to M linspace vectors: [M x Dout]
                 # _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i + 1]), B.ones(M))
                 # _yz = _yz.transpose(-1, -2)
-
-                t = NormalPseudoObservation(_yz.detach().clone(), _nz)
+                # t = NormalPseudoObservation(_yz.detach().clone(), _nz)
+                
+                t = NormalPseudoObservation(_yz, _nz)
             else:
                 # Last layer precision gets initialized to 1
                 # _nz = B.ones(dims[i + 1], M) * 1  # [Dout x M]
