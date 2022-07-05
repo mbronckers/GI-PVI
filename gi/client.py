@@ -108,11 +108,12 @@ class Client:
             if i < num_layers - 1:
                 _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
 
-                # key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
+                key, _yz = B.randn(key, B.default_dtype, M, dims[i + 1])  # [M x Dout]
 
                 # Temporary initialization to M linspace vectors: [M x Dout]
-                _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i + 1]), B.ones(M))
-                _yz = _yz.transpose(-1, -2)
+                # _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i + 1]), B.ones(M))
+                # _yz = _yz.transpose(-1, -2)
+
                 t = NormalPseudoObservation(_yz.detach().clone(), _nz)
             else:
                 # Last layer precision gets initialized to 1
