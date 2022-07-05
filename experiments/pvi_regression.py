@@ -64,6 +64,11 @@ def estimate_local_vfe(
     # Compute cavity distributions
     zs_cav, ts_cav = cavity_distributions(client, ts, zs, iter)
 
+    # Communicated posterior communicated to client in 1st iter is the prior
+    if iter == 0:
+        ts = {k: {client.name: client.t[k]} for k, _ in ts.items()}
+        zs = {client.name: client.z}
+
     key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
     out = model.propagate(x)  # out : [S x N x Dout]
 
@@ -151,7 +156,6 @@ def main(args, config, logger):
     plot_all_inducing_pts(clients, config.plot_dir)
 
     # Optimizer parameters
-    batch_size = min(args.batch_size, N)
     S = args.training_samples  # number of training inference samples
     epochs = args.epochs
     log_step = config.log_step
@@ -183,11 +187,12 @@ def main(args, config, logger):
 
             logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
-            # Make another frozen ts/zs, except for current client.
-            tmp_ts, tmp_zs = collect_vp(clients, curr_client)
+            # Construct the posterior communicated to client.
+            tmp_ts, tmp_zs = collect_vp(clients, curr_client)  # All detached except current client.
 
             # Run client-local optimization
             epochs = args.epochs
+            batch_size = min(len(curr_client.x), min(args.batch_size, N))
             for epoch in range(epochs):
 
                 # Construct epoch-th minibatch {x, y} training data
@@ -232,17 +237,7 @@ def main(args, config, logger):
 
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
-        # Collect clients
-        ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
-        zs: dict[str, B.Numeric] = {}
-        for client_name, client in clients.items():
-            _t = client.t
-            for layer_name, layer_t in _t.items():
-                if layer_name not in ts:
-                    ts[layer_name] = {}
-                ts[layer_name][client_name] = copy(layer_t)
-
-            zs[client_name] = client.z.detach().clone()
+        ts, zs = collect_vp(clients, None)
 
         # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
@@ -260,7 +255,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             rmse(y_te, y_pred),
             y_pred.var(0),
             "Test set",
-            _results_dir,
+            config.results_dir,
             "eval_test_preds",
             config.plot_dir,
         )
@@ -276,7 +271,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             rmse(y, y_pred),
             y_pred.var(0),
             "Both train/test set",
-            _results_dir,
+            config.results_dir,
             "eval_all_preds",
             config.plot_dir,
         )
@@ -297,7 +292,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             rmse(y_domain, y_pred),
             y_pred.var(0),
             "Entire domain",
-            _results_dir,
+            config.results_dir,
             "eval_domain_preds",
             config.plot_dir,
         )
@@ -318,7 +313,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             rmse(y_domain, y_pred),
             y_pred.var(0),
             "Entire domain",
-            _results_dir,
+            config.results_dir,
             "eval_domain_preds_fix_ylim",
             config.plot_dir,
             ylim=(-4, 4),
@@ -352,7 +347,7 @@ if __name__ == "__main__":
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default=config.name)
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
-    parser.add_argument("--det", action="store_true", help="Deterministic training data split", default=config.deterministic)
+    parser.add_argument("--det", action="store_true", help="Deterministic training data split and ll variance", default=config.deterministic)
     parser.add_argument(
         "--training_samples",
         "-S",
