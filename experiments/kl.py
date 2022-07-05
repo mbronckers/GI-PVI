@@ -24,12 +24,12 @@ class KL(enum.IntEnum):
     MC = 1
 
 
-def compute_kl(kl: KL, q, p_, w):
+def compute_kl(kl: KL, q, p, w):
     """Compute KL divergence between prior and posterior
 
     Args:
         q (_type_): Posterior distribution
-        p_ (_type_): Prior distribution
+        p (_type_): Prior distribution
         w (_type_): Drawn weight samples
 
     Raises:
@@ -37,10 +37,10 @@ def compute_kl(kl: KL, q, p_, w):
     """
 
     if kl == KL.Analytical:
-        kl_qp = q.kl(p_)
+        kl_qp = q.kl(p)
     elif kl == KL.MC:
         logq = q.logpdf(w)
-        logp = p_.logpdf(w)
+        logp = p.logpdf(w)
         kl_qp = logq - logp  # MC estimator
     else:
         raise ValueError("Unknown KL estimator type")

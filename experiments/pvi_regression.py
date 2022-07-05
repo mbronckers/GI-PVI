@@ -140,7 +140,7 @@ def main(args, config, logger):
     if config.deterministic and args.num_clients > 1:
         raise ValueError("Deterministic mode is not supported with multiple clients.")
     if config.deterministic and args.num_clients == 1:
-        _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits)
+        _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
         key = _client.key
         clients[f"client0"] = _client
     else:
@@ -148,7 +148,7 @@ def main(args, config, logger):
         # otherwise, replace _tmp_key with key
         _tmp_key = B.create_random_state(B.default_dtype, seed=1)
         for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)):
-            _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits)
+            _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
             key = _client.key
             clients[f"client{i}"] = _client
 

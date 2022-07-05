@@ -83,32 +83,28 @@ class Config:
 class PVIConfig(Config):
     name: str = "pvi"
     log_step: int = 50
-    deterministic: bool = False
+
+    deterministic: bool = False  # deterministic client training data and likelihood variance (3/scale)
+    linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
+
+    # Communication settings
     iters: int = 1  # server iterations
-    epochs: int = 2000  # client epochs
+    epochs: int = 2000  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 40  # Num total training data pts, not the number of data pts per client.
-    M: int = 40  # Number of inducing points per client
+    M: int = 20  # Number of inducing points per client
 
+    num_clients: int = 2
     server_type: Server = SequentialServer
-    num_clients: int = 1
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
 
-    # ll_var: float = 0.01  # fixed likelihood variance
-
-    separate_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
-    lr_nz: float = 0.01
-    lr_client_z: float = 0.01
-    lr_yz: float = 0.01
-
     def __post_init__(self):
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
-        self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+        # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [1 / self.num_clients for _ in range(self.num_clients)]

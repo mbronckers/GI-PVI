@@ -112,8 +112,7 @@ class NaturalNormal:
     def mean(self):
         """column vector: Mean."""
         if self._mean is None:
-            # self._mean = B.cholsolve(B.chol(self.prec), self.lam)
-            self._mean = torch.cholesky_solve(self.lam, torch.linalg.cholesky(B.dense(self.prec)))
+            self._mean = B.cholsolve(B.chol(self.prec), self.lam)
         return self._mean
 
     @property
@@ -133,7 +132,7 @@ class NaturalNormal:
 
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        ratio = B.solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
+        ratio = B.triangular_solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
         diff = self.mean - other.mean  # mu1 - mu0
         _kl = 0.5 * (
             B.sum(B.sum(ratio**2, -1), -1)
