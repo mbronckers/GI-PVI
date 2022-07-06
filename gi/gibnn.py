@@ -11,10 +11,7 @@ logger = logging.getLogger()
 
 class GIBNN(BaseBNN):
     def __init__(self, nonlinearity, bias: bool, kl: KL):
-        super().__init__()
-        self.nonlinearity = nonlinearity
-        self.bias = bias
-        self.kl = kl
+        super().__init__(nonlinearity, bias, kl)
 
     def process_z(self, zs: dict, S: B.Int):
         """Shape zs into appropriate form and return separate dictionary. (Dicts are pass-by-reference.)
@@ -96,13 +93,14 @@ class GIBNN(BaseBNN):
         if zs_p:
             _zs_p = self.process_z(zs_p, S)
 
+        # Construct posterior and prior, sample, propagate.
         for i, (layer_name, p) in enumerate(ps.items()):
 
             # Init posterior to prior
             q = p
             p_ = p
 
-            # Compute new posterior distribution by multiplying client factors
+            # Compute new posterior by multiplying client factors
             for client_name, t in ts[layer_name].items():
                 q *= t(_zs[client_name])  # propagate prev layer's inducing outputs
 
@@ -111,20 +109,8 @@ class GIBNN(BaseBNN):
                 for client_name, t in ts_p[layer_name].items():
                     p_ *= t(_zs_p[client_name])
 
-            # Sample weights from posterior distribution q. q already has S passed via _zs
-            key, w = q.sample(key)  # w is [S, Dout, Din] of layer i.
-
-            # Compute KL divergence between prior and posterior
-            kl_qp = compute_kl(self.kl, q, p_, w)
-
-            # Sum across output dimensions.
-            kl_qp = B.sum(kl_qp, -1)  # [S]
-
-            # Get rid of last dimension.
-            w = w[..., 0]  # [S, Dout, Din]
-
-            # Save posterior w samples and KL to cache
-            self._cache[layer_name] = {"w": w, "kl": kl_qp}
+            # Sample q, compute KL, and store drawn weights.
+            key, w = self._sample_posterior(key, q, p, layer_name)
 
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             if i < len(ps.keys()) - 1:

@@ -2,10 +2,33 @@ import lab as B
 import torch
 import logging
 
+from experiments.kl import KL, compute_kl
+
 
 class BaseBNN:
-    def __init__(self) -> None:
+    def __init__(self, nonlinearity, bias: bool, kl: KL) -> None:
         self._cache = {}
+        self.nonlinearity = nonlinearity
+        self.bias = bias
+        self.kl = kl
+
+    def _sample_posterior(self, key, q, p, layer_name):
+        # Sample weights from posterior distribution q. q already has S passed in its parameters.
+        key, w = q.sample(key)  # w is [S, Dout, Din] of layer i.
+
+        # Compute KL divergence between prior and posterior
+        kl_qp = compute_kl(self.kl, q, p, w)
+
+        # Sum across output dimensions.
+        kl_qp = B.sum(kl_qp, -1)  # [S]
+
+        # Get rid of last dimension.
+        w = w[..., 0]  # [S, Dout, Din]
+
+        # Save posterior w samples and KL to cache
+        self._cache[layer_name] = {"w": w, "kl": kl_qp}
+
+        return key, w
 
     def propagate(self, x):
         """Propagates input through BNN using S cached posterior weight samples.

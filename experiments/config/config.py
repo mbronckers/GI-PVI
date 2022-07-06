@@ -81,7 +81,6 @@ class Config:
 
 @dataclass
 class PVIConfig(Config):
-    name: str = "pvi"
     log_step: int = 50
 
     deterministic: bool = False  # deterministic client training data and likelihood variance (3/scale)
@@ -102,6 +101,13 @@ class PVIConfig(Config):
     kl: KL = KL.Analytical
 
     def __post_init__(self):
+        # Directory name
+        if isinstance(self.server_type, SequentialServer):
+            self.name = "seq_pvi"
+        else:
+            self.name = "sync_pvi"
+        self.name += f"{self.num_clients}c_{self.iters}i_{self.epochs}e_{self.N}N_{self.M}M_{self.kl}"
+
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
