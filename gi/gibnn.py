@@ -1,3 +1,4 @@
+from typing import Callable
 import lab as B
 import torch
 import logging
@@ -128,3 +129,39 @@ class GIBNN(BaseBNN):
     def S(self):
         """Returns cached number of weight samples"""
         return self._cache["layer0"]["w"].shape[0]
+
+    def compute_ell(self, out, y):
+        raise NotImplementedError
+
+    def compute_error(self, out, y):
+        raise NotImplementedError
+
+
+class GIBNN_Regression(GIBNN):
+    def __init__(self, nonlinearity, bias: bool, kl: KL, likelihood: Callable):
+        super().__init__(nonlinearity, bias, kl)
+        self.likelihood = likelihood
+
+    def compute_ell(self, out, y):
+        return self.likelihood(out).log_prob(y).sum(-1).mean(-1)
+
+    def compute_error(self, out, y):
+        error = (y - out.mean(0)).detach().clone()  # error of mean prediction
+        rmse = B.sqrt(B.mean(error**2))
+        return rmse
+
+
+class GIBNN_Classification(GIBNN):
+    def __init__(self, nonlinearity, bias: bool, kl: KL):
+        super().__init__(nonlinearity, bias, kl)
+
+    def compute_ell(self, out, y):
+        return torch.distributions.Categorical(logits=out).log_prob(y).mean()
+
+    def compute_error(self, out, y):
+        # out: [S x N x Dout]; y [N x Dout]
+        output = out.log_softmax(-1).logsumexp(0) - B.log(out.shape[0])
+        pred = output.argmax(dim=-1, keepdim=True)
+        correct = pred.eq(y.view_as(pred)).float().mean()
+        accuracy = correct / y.shape[0]
+        return accuracy

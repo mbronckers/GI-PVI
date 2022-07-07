@@ -87,14 +87,15 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 10  # server iterations
-    epochs: int = 400  # client-local epochs
+    iters: int = 1  # server iterations
+    epochs: int = 2000  # client-local epochs
 
     # Note: number of test points is also equal to N
-    N: int = 60  # Num total training data pts, not the number of data pts per client.
-    M: int = 20  # Number of inducing points per client
+    N: int = 40  # Num total training data pts, not the number of data pts per client.
+    M: int = 40  # Number of inducing points per client
+    # batch_size: int = 30
 
-    num_clients: int = 2
+    num_clients: int = 1
     server_type: Server = SequentialServer
 
     prior: Prior = Prior.NealPrior

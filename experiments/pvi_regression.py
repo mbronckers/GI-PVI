@@ -50,7 +50,6 @@ from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 def estimate_local_vfe(
     key: B.RandomState,
     model: gi.GIBNN,
-    likelihood: Callable,
     client: gi.client.Client,
     x,
     y,
@@ -78,16 +77,16 @@ def estimate_local_vfe(
         kl += layer_cache["kl"]
 
     # Compute the expected log-likelihood.
-    exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
-
-    error = (y - out.mean(0)).detach().clone()  # error of mean prediction
-    rmse = B.sqrt(B.mean(error**2))
+    # exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
+    exp_ll = model.compute_ell(out, y)
+    error = model.compute_error(out, y)
 
     # Mini-batching estimator of ELBO; (N / batch_size)
     elbo = ((N / len(x)) * exp_ll) - kl / len(x)
+    # elbo = exp_ll - kl / N
 
     # Takes mean wrt q (inference samples)
-    return key, elbo.mean(), exp_ll.mean(), kl.mean(), rmse
+    return key, elbo.mean(), exp_ll.mean(), kl.mean(), error
 
 
 def main(args, config, logger):
@@ -100,21 +99,7 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
-
-    # Code to save/load data
-    # torch.save(x_tr, "experiments/data/x_tr.pt")
-    # torch.save(y_tr, "experiments/data/x_tr.pt")
-    # x_tr = torch.load("experiments/data/x_tr.pt", map_location=torch.device("cpu"))
-    # y_tr = torch.load("experiments/data/y_tr.pt", map_location=torch.device("cpu"))
-
-    # Save training data used in results directory
-    # torch.save(x_tr, os.path.join(_results_dir, "x_tr.pt"))
-    # torch.save(y_tr, os.path.join(_results_dir, "y_tr.pt"))
-
     logger.info(f"Scale: {scale}")
-
-    # Define model
-    model = gi.GIBNN(nn.functional.relu, args.bias, config.kl)
 
     # Build prior
     M = args.M  # number of inducing points
@@ -130,9 +115,11 @@ def main(args, config, logger):
     if config.deterministic:
         likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
     else:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
-        # likelihood = gi.likelihoods.NormalLikelihood(args.ll_var)
+        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # (args.ll_var)
     logger.info(f"Likelihood variance: {likelihood.var}")
+
+    # Define model
+    model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
 
     # Build clients
     clients: dict[str, Client] = {}
@@ -200,7 +187,7 @@ def main(args, config, logger):
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
