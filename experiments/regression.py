@@ -9,7 +9,7 @@ from typing import Callable
 
 from matplotlib import pyplot as plt
 
-from utils.optimization import construct_optimizer
+from gi.utils.optimization import construct_optimizer
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -40,10 +40,21 @@ from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.log import eval_logging
 from utils.metrics import rmse
-from utils.optimization import add_ts, add_zs, get_vs_state, load_vs, rebuild
+from gi.utils.optimization import add_ts, add_zs, get_vs_state, load_vs, rebuild
 
 
-def estimate_elbo(key: B.RandomState, model: gi.GIBNN, likelihood: Callable, x: B.Numeric, y: B.Numeric, ps: dict[str, gi.NaturalNormal], ts: dict[str, dict[str, gi.NormalPseudoObservation]], zs: dict[str, B.Numeric], S: int, N: int):
+def estimate_elbo(
+    key: B.RandomState,
+    model: gi.GIBNN,
+    likelihood: Callable,
+    x: B.Numeric,
+    y: B.Numeric,
+    ps: dict[str, gi.NaturalNormal],
+    ts: dict[str, dict[str, gi.NormalPseudoObservation]],
+    zs: dict[str, B.Numeric],
+    S: int,
+    N: int,
+):
 
     key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=S)
     out = model.propagate(x)  # out : [S x N x Dout]
@@ -195,17 +206,32 @@ def main(args, config, logger):
         opt.zero_grad()
 
         if i == 0 or (i + 1) % log_step == 0 or i == (epochs - 1):
-            logger.info(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+            logger.info(
+                f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+            )
 
             if args.plot:
                 _inducing_inputs = curr_client.z.detach().cpu()
                 _pseudo_outputs = curr_client.get_final_yz().detach().cpu()
 
-                scatter_plot(ax=None, x1=curr_client.x, y1=curr_client.y, x2=_inducing_inputs, y2=_pseudo_outputs, desc1="Training data", desc2="Variational params", xlabel="x", ylabel="y", title=f"Epoch {i}")
+                scatter_plot(
+                    ax=None,
+                    x1=curr_client.x,
+                    y1=curr_client.y,
+                    x2=_inducing_inputs,
+                    y2=_pseudo_outputs,
+                    desc1="Training data",
+                    desc2="Variational params",
+                    xlabel="x",
+                    ylabel="y",
+                    title=f"Epoch {i}",
+                )
                 Path(os.path.join(config.training_plot_dir, curr_client.name)).mkdir(parents=True, exist_ok=True)
                 plt.savefig(os.path.join(config.training_plot_dir, f"{curr_client.name}/{_time}_{i}.png"), pad_inches=0.2, bbox_inches="tight")
         else:
-            logger.debug(f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}")
+            logger.debug(
+                f"Epoch [{i+1:4}/{epochs:4}] - elbo: {round(elbo.item(), 0):13.1f}, ll: {round(exp_ll.item(), 0):13.1f}, kl: {round(kl.item(), 1):8.1f}, error: {round(error.item(), 5):8.5f}"
+            )
 
     if args.plot:
         _ax = line_plot(x=[i for i in range(len(elbos))], y=elbos, desc="Training", xlabel="Epoch", ylabel="ELBO", title="ELBO convergence")
