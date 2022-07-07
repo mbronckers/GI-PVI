@@ -95,17 +95,19 @@ class PVIConfig(Config):
     M: int = 20  # Number of inducing points per client
 
     num_clients: int = 2
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
 
     def __post_init__(self):
         # Directory name
-        if isinstance(self.server_type, SequentialServer):
+        if self.server_type == SequentialServer:
             self.name = "seq_pvi"
-        else:
+        elif self.server_type == SynchronousServer:
             self.name = "sync_pvi"
+        else:
+            self.name = "pvi"
         self.name += f"{self.num_clients}c_{self.iters}i_{self.epochs}e_{self.N}N_{self.M}M_{self.kl}"
 
         # Precisions of the inducing points per layer

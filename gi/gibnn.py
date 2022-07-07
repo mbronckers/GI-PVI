@@ -116,11 +116,11 @@ class GIBNN(BaseBNN):
             if i < len(ps.keys()) - 1:
                 self.propagate_z(_zs, w, nonlinearity=True)
                 if zs_p:
-                    self.propagate_z(_zs_p, w.detach().clone(), nonlinearity=True)
+                    self.propagate_z(_zs_p, w, nonlinearity=True)
             else:
                 self.propagate_z(_zs, w, nonlinearity=False)
                 if zs_p:
-                    self.propagate_z(_zs_p, w.detach().clone(), nonlinearity=False)
+                    self.propagate_z(_zs_p, w, nonlinearity=False)
 
         return key, self._cache
 

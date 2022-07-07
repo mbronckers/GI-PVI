@@ -78,9 +78,10 @@ class Normal:
         return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
 
 
-class NaturalNormal:
+class NaturalNormalFactor:
     def __init__(self, lam, prec):
         """
+        NaturalNormalFactor (NNF) is not a proper distribution, so we cannot sample from it.
         :param lam: first natural parameter of Normal dist = precision x mean
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
@@ -107,6 +108,68 @@ class NaturalNormal:
         - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
         """
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
+
+    @property
+    def mean(self):
+        """column vector: Mean."""
+        if self._mean is None:
+            self._mean = B.cholsolve(B.chol(self.prec), self.lam)
+        return self._mean
+
+    @property
+    def var(self):
+        """matrix: Variance."""
+        if self._var is None:
+            self._var = B.pd_inv(self.prec)
+        return self._var
+
+    def __mul__(self, other: "NaturalNormalFactor"):
+        return NaturalNormalFactor(self.lam + other.lam, self.prec + other.prec)
+
+    def __truediv__(self, other: "NaturalNormalFactor"):
+        return NaturalNormalFactor(self.lam - other.lam, self.prec - other.prec)
+
+    def __rtruediv__(self, other: "NaturalNormalFactor"):
+        return NaturalNormalFactor(other.lam - self.lam, other.prec - self.prec)
+
+    def __repr__(self) -> str:
+        return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
+
+
+class NaturalNormal:
+    def __init__(self, lam, prec):
+        """
+        :param lam: first natural parameter of Normal dist = precision x mean
+        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
+        """
+        self.lam = lam
+        self.prec = convert(prec, AbstractMatrix)
+
+        self._mean = None
+        self._var = None
+
+    @property
+    def dtype(self):
+        """dtype: Data type of the precision."""
+        return B.dtype(self.prec)
+
+    @property
+    def dim(self):
+        """int: Dimensionality."""
+        return B.shape_matrix(self.prec)[0]
+
+    @classmethod
+    def from_normal(cls, dist: Normal):
+        """
+        Convert class:Normal into class:NaturalNormal
+        - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
+        """
+        return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
+
+    @classmethod
+    def from_factor(cls, factor: NaturalNormalFactor):
+        """Converts NaturalNormalFactor into NaturalNormal distribution"""
+        return cls(lam=factor.lam, prec=factor.prec)
 
     @property
     def mean(self):
@@ -161,8 +224,6 @@ class NaturalNormal:
 
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
         dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober
-        # dW = B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
-        # dW = B.mm(B.cholesky(self.var), noise) # old
 
         # sample = self.mean + B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
         sample = self.mean + dW
@@ -180,10 +241,6 @@ class NaturalNormal:
 
     def __rtruediv__(self, other: "NaturalNormal"):
         return NaturalNormal(other.lam - self.lam, other.prec - self.prec)
-
-    def __eq__(self, __o: "NaturalNormal") -> bool:
-
-        return (torch.all(torch.isclose(B.dense(self.lam), B.dense(__o.lam))) and torch.all(torch.isclose(B.dense(self.prec), B.dense(__o.prec)))).item()
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
