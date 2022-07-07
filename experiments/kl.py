@@ -23,6 +23,18 @@ class KL(enum.IntEnum):
     Analytical = 0
     MC = 1
 
+    def __repr__(self) -> str:
+        if self.value == 0:
+            return "Analytic"
+        else:
+            return "MC"
+
+    def __str__(self) -> str:
+        if self.value == 0:
+            return "Analytic"
+        else:
+            return "MC"
+
 
 def compute_kl(kl: KL, q, p, w):
     """Compute KL divergence between prior and posterior

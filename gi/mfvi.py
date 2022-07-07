@@ -4,7 +4,7 @@ import torch
 import logging
 
 from experiments.kl import KL, compute_kl
-from gi.distributions import NaturalNormal
+from gi.distributions import NaturalNormal, NaturalNormalFactor
 from gi.models.bnn import BaseBNN
 
 
@@ -38,7 +38,7 @@ class MFVI(BaseBNN):
 
         return _x
 
-    def sample_posterior(self, key, qs: dict[str, dict[str, NaturalNormal]], ps: dict[str, NaturalNormal]):
+    def sample_posterior(self, key, qs: dict[str, dict[str, NaturalNormalFactor]], ps: dict[str, NaturalNormal]):
 
         # Construct posterior, sample, and propagate
         for i, (layer_name, p) in enumerate(ps.items()):
@@ -46,6 +46,7 @@ class MFVI(BaseBNN):
             q: NaturalNormal = p
 
             # Build posterior. layer_client_q is NaturalNormal
+            # should make NNFactor => no sampling function because the factor can have negative precision (i.e. not be a distribution)
             for (client_name, layer_client_q) in qs[layer_name].items():
 
                 q *= layer_client_q
