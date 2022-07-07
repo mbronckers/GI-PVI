@@ -43,8 +43,51 @@ from dgp import DGP, generate_data, split_data, split_data_clients
 from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import construct_optimizer, collect_vp
+from experiments.utils.optimization import construct_optimizer, collect_vp, cavity_distributions
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
+
+
+def estimate_local_vfe(
+    key: B.RandomState,
+    model: gi.GIBNN,
+    likelihood: Callable,
+    client: gi.client.Client,
+    x,
+    y,
+    ps: dict[str, gi.NaturalNormal],
+    ts: dict[str, dict[str, gi.NormalPseudoObservation]],
+    zs: dict[str, B.Numeric],
+    S: B.Int,
+    N: B.Int,
+    iter: B.Int,
+):
+    # Compute cavity distributions
+    zs_cav, ts_cav = cavity_distributions(client, ts, zs, iter)
+
+    # Communicated posterior communicated to client in 1st iter is the prior
+    if iter == 0:
+        ts = {k: {client.name: client.t[k]} for k, _ in ts.items()}
+        zs = {client.name: client.z}
+
+    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
+    out = model.propagate(x)  # out : [S x N x Dout]
+
+    # Compute KL divergence.
+    kl = 0.0
+    for layer_name, layer_cache in _cache.items():  # stored KL in cache already
+        kl += layer_cache["kl"]
+
+    # Compute the expected log-likelihood.
+    exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
+
+    error = (y - out.mean(0)).detach().clone()  # error of mean prediction
+    rmse = B.sqrt(B.mean(error**2))
+
+    # Mini-batching estimator of ELBO; (N / batch_size)
+    elbo = ((N / len(x)) * exp_ll) - kl / len(x)
+
+    # Takes mean wrt q (inference samples)
+    return key, elbo.mean(), exp_ll.mean(), kl.mean(), rmse
 
 
 def main(args, config, logger):
@@ -56,8 +99,9 @@ def main(args, config, logger):
 
     # Setup regression dataset.
     N = args.N  # num training points
-    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
-    logger.info(f"Scale: {scale}")
+
+    # Define model
+    model = gi.GIBNN(nn.functional.relu, args.bias, config.kl)
 
     # Build prior
     M = args.M  # number of inducing points
@@ -75,9 +119,6 @@ def main(args, config, logger):
     else:
         likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # (args.ll_var)
     logger.info(f"Likelihood variance: {likelihood.var}")
-
-    # Define model
-    model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
 
     # Build clients
     clients: dict[str, Client] = {}
@@ -145,7 +186,7 @@ def main(args, config, logger):
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -171,110 +212,7 @@ def main(args, config, logger):
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
 
-    if args.plot:
-        for c_name, client in clients.items():
-            make_gif(config.plot_dir, c_name)
-
-    model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
-
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
-
-
-def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
-    with torch.no_grad():
-        ts, zs = collect_vp(clients, None)
-
-        # Resample <_S> inference weights
-        key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
-
-        # Get <_S> predictions, calculate average RMSE, variance
-        y_pred = model.propagate(x_te)
-
-        # Log and plot results
-        eval_logging(
-            x_te,
-            y_te,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_te, y_pred),
-            y_pred.var(0),
-            "Test set",
-            config.results_dir,
-            "eval_test_preds",
-            config.plot_dir,
-        )
-
-        # Run eval on entire dataset
-        y_pred = model.propagate(x)
-        eval_logging(
-            x,
-            y,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y, y_pred),
-            y_pred.var(0),
-            "Both train/test set",
-            config.results_dir,
-            "eval_all_preds",
-            config.plot_dir,
-        )
-
-        # Run eval on entire domain (linspace)
-        num_pts = 100
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain",
-            config.results_dir,
-            "eval_domain_preds",
-            config.plot_dir,
-        )
-
-        # Run eval on entire domain (linspace)
-        num_pts = 1000
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain",
-            config.results_dir,
-            "eval_domain_preds_fix_ylim",
-            config.plot_dir,
-            ylim=(-4, 4),
-        )
-
-        # Ober's plot
-        mean_ys = y_pred.mean(0)
-        std_ys = y_pred.std(0)
-        ax = plt.gca()
-        # plt.yticks(np.arange(B.min(ys), B.max(ys)+1, 1.0))
-        plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
-        plt.plot(x_domain, mean_ys)
-        plt.scatter(x_tr, y_tr, c="r")
-        ax.set_axisbelow(True)  # Show grid lines below other elements.
-        ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
-        plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
 
 if __name__ == "__main__":

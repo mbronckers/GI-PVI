@@ -16,7 +16,7 @@ import lab as B
 import lab.torch
 import torch
 from varz import Vars, namespace
-from config.config import Config
+from experiments.config.config import Config
 from gi.client import Client
 
 
@@ -64,22 +64,6 @@ def rebuild(vs, likelihood):
     _idx = vs.name_to_index["output_var"]
     likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
     return likelihood
-
-
-@namespace("zs")
-def add_zs(vs, zs):
-    """Add client inducing points to optimizable params in vs"""
-    for client_name, client_z in zs.items():
-        vs.unbounded(client_z, name=f"{client_name}_z")
-
-
-@namespace("ts")
-def add_ts(vs, ts):
-    """Add client likelihood factors to optimizable params in vs"""
-    for layer_name, client_dict in ts.items():
-        for client_name, t in client_dict.items():
-            vs.unbounded(t.yz, name=f"{client_name}_{layer_name}_yz")
-            vs.positive(t.nz, name=f"{client_name}_{layer_name}_nz")
 
 
 def cavity_distributions(client: Client, ts: dict[str, dict[str, gi.NormalPseudoObservation]], zs: dict[str, B.Numeric], iter: B.Int):
@@ -145,6 +129,48 @@ def collect_vp(clients: dict[str, Client], curr_client: Optional[Client] = None)
                     tmp_ts[layer_name] = {}
                 tmp_ts[layer_name][client_name] = copy(client_layer_t)
     return tmp_ts, tmp_zs
+
+
+def estimate_local_vfe(
+    key: B.RandomState,
+    model: gi.GIBNN,
+    client: gi.client.Client,
+    x,
+    y,
+    ps: dict[str, gi.NaturalNormal],
+    ts: dict[str, dict[str, gi.NormalPseudoObservation]],
+    zs: dict[str, B.Numeric],
+    S: B.Int,
+    N: B.Int,
+    iter: B.Int,
+):
+    # Compute cavity distributions
+    zs_cav, ts_cav = cavity_distributions(client, ts, zs, iter)
+
+    # Communicated posterior communicated to client in 1st iter is the prior
+    if iter == 0:
+        ts = {k: {client.name: client.t[k]} for k, _ in ts.items()}
+        zs = {client.name: client.z}
+
+    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
+    out = model.propagate(x)  # out : [S x N x Dout]
+
+    # Compute KL divergence.
+    kl = 0.0
+    for layer_name, layer_cache in _cache.items():  # stored KL in cache already
+        kl += layer_cache["kl"]
+
+    # Compute the expected log-likelihood.
+    # exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
+    exp_ll = model.compute_ell(out, y)
+    error = model.compute_error(out, y)
+
+    # Mini-batching estimator of ELBO; (N / batch_size)
+    # elbo = ((N / len(x)) * exp_ll) - kl / len(x)
+    elbo = exp_ll - kl / N
+
+    # Takes mean wrt q (inference samples)
+    return key, elbo.mean(), exp_ll.mean(), kl.mean(), error
 
 
 def get_vs_state(vs):

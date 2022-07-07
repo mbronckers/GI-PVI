@@ -92,10 +92,10 @@ class PVIConfig(Config):
 
     # Note: number of test points is also equal to N
     N: int = 40  # Num total training data pts, not the number of data pts per client.
-    M: int = 40  # Number of inducing points per client
+    M: int = 20  # Number of inducing points per client
     # batch_size: int = 30
 
-    num_clients: int = 1
+    num_clients: int = 2
     server_type: Server = SequentialServer
 
     prior: Prior = Prior.NealPrior

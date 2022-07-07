@@ -9,7 +9,7 @@ from typing import Callable
 
 from matplotlib import pyplot as plt
 
-from gi.utils.optimization import construct_optimizer
+from experiments.utils.optimization import construct_optimizer
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -40,7 +40,7 @@ from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif
 from utils.log import eval_logging
 from utils.metrics import rmse
-from gi.utils.optimization import add_ts, add_zs, get_vs_state, load_vs, rebuild
+from experiments.utils.optimization import add_ts, add_zs, get_vs_state, load_vs, rebuild
 
 
 def estimate_elbo(
