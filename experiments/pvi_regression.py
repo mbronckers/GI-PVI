@@ -30,8 +30,6 @@ import torch.nn as nn
 
 from gi.server import SequentialServer, SynchronousServer
 
-from gi.utils.plotting import line_plot, plot_confidence, plot_predictions, scatter_plot
-from gi.distributions import NormalPseudoObservation
 from gi.client import Client
 
 from slugify import slugify
@@ -39,11 +37,11 @@ from varz import Vars, namespace
 from wbml import experiment, out, plot
 
 from config.config import Color, PVIConfig
-from dgp import DGP, generate_data, split_data, split_data_clients
-from priors import build_prior, parse_prior_arg
+from dgp import DGP, generate_data, split_data_clients
+from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import construct_optimizer, collect_vp
+from utils.optimization import construct_optimizer, collect_vp, estimate_local_vfe
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
@@ -56,7 +54,7 @@ def main(args, config, logger):
 
     # Setup regression dataset.
     N = args.N  # num training points
-    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.dgp, N, xmin=-4.0, xmax=4.0)
+    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
     logger.info(f"Scale: {scale}")
 
     # Build prior
@@ -322,7 +320,7 @@ if __name__ == "__main__":
         help="training batch size",
         default=config.batch_size,
     )
-    parser.add_argument("--dgp", "-d", type=int, help="dgp/dataset type", default=config.dgp)
+    parser.add_argument("--data", "-d", type=int, help="dgp/dataset type", default=config.dgp)
     parser.add_argument(
         "--load",
         "-l",

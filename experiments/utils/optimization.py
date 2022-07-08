@@ -167,6 +167,8 @@ def estimate_local_vfe(
 
     # Mini-batching estimator of ELBO; (N / batch_size)
     # elbo = ((N / len(x)) * exp_ll) - kl / len(x)
+
+    # ELBO per data point
     elbo = exp_ll - kl / N
 
     # Takes mean wrt q (inference samples)

@@ -87,7 +87,7 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 1  # server iterations
+    iters: int = 10  # server iterations
     epochs: int = 2000  # client-local epochs
 
     # Note: number of test points is also equal to N
@@ -96,7 +96,7 @@ class PVIConfig(Config):
     # batch_size: int = 30
 
     num_clients: int = 2
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
@@ -118,6 +118,11 @@ class PVIConfig(Config):
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [1 / self.num_clients for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
+
+
+@dataclass
+class ClassificationConfig(PVIConfig):
+    name: str = "classification"
 
 
 class Color:
