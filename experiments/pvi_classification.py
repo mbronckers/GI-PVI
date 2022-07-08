@@ -23,71 +23,23 @@ import gi
 import lab as B
 import lab.torch
 import numpy as np
-import pandas as pd
-import seaborn as sns
 import torch
 import torch.nn as nn
 
 from gi.server import SequentialServer, SynchronousServer
 
-from gi.utils.plotting import line_plot, plot_confidence, plot_predictions, scatter_plot
-from gi.distributions import NormalPseudoObservation
 from gi.client import Client
 
 from slugify import slugify
-from varz import Vars, namespace
-from wbml import experiment, out, plot
+from wbml import experiment, out
 
-from config.config import Color, PVIConfig
-from dgp import DGP, generate_data, split_data, split_data_clients
-from priors import build_prior, parse_prior_arg
+from config.config import Color, PVIConfig, ClassificationConfig
+from dgp import DGP, generate_data, generate_mnist, split_data_clients
+from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
-from experiments.utils.optimization import construct_optimizer, collect_vp, cavity_distributions
+from utils.optimization import construct_optimizer, collect_vp, estimate_local_vfe
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
-
-
-def estimate_local_vfe(
-    key: B.RandomState,
-    model: gi.GIBNN,
-    likelihood: Callable,
-    client: gi.client.Client,
-    x,
-    y,
-    ps: dict[str, gi.NaturalNormal],
-    ts: dict[str, dict[str, gi.NormalPseudoObservation]],
-    zs: dict[str, B.Numeric],
-    S: B.Int,
-    N: B.Int,
-    iter: B.Int,
-):
-    # Compute cavity distributions
-    zs_cav, ts_cav = cavity_distributions(client, ts, zs, iter)
-
-    # Communicated posterior communicated to client in 1st iter is the prior
-    if iter == 0:
-        ts = {k: {client.name: client.t[k]} for k, _ in ts.items()}
-        zs = {client.name: client.z}
-
-    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
-    out = model.propagate(x)  # out : [S x N x Dout]
-
-    # Compute KL divergence.
-    kl = 0.0
-    for layer_name, layer_cache in _cache.items():  # stored KL in cache already
-        kl += layer_cache["kl"]
-
-    # Compute the expected log-likelihood.
-    exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
-
-    error = (y - out.mean(0)).detach().clone()  # error of mean prediction
-    rmse = B.sqrt(B.mean(error**2))
-
-    # Mini-batching estimator of ELBO; (N / batch_size)
-    elbo = ((N / len(x)) * exp_ll) - kl / len(x)
-
-    # Takes mean wrt q (inference samples)
-    return key, elbo.mean(), exp_ll.mean(), kl.mean(), rmse
 
 
 def main(args, config, logger):
@@ -97,28 +49,28 @@ def main(args, config, logger):
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
 
-    # Setup regression dataset.
+    # Setup dataset.
     N = args.N  # num training points
+    train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
+    x_tr, y_tr, x_te, y_te = train_data['x'], train_data['y'], test_data['x'], test_data['y']
+    # x_tr = B.to_active_device(x_tr)
+    # y_tr = B.to_active_device(y_tr)
+    # x_te = B.to_active_device(x_te)
+    # y_te = B.to_active_device(y_te)
 
     # Define model
-    model = gi.GIBNN(nn.functional.relu, args.bias, config.kl)
+    model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
 
     # Build prior
     M = args.M  # number of inducing points
     dims = config.dims
+    assert dims[0] == x_tr.shape[1] and dims[-1] == B.max(y_tr)+1
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
 
     # Deal with client split
     if args.num_clients != len(config.client_splits):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
-
-    # Likelihood variance is fixed in PVI.
-    if config.deterministic:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
-    else:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # (args.ll_var)
-    logger.info(f"Likelihood variance: {likelihood.var}")
 
     # Build clients
     clients: dict[str, Client] = {}
@@ -137,9 +89,6 @@ def main(args, config, logger):
             _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
             key = _client.key
             clients[f"client{i}"] = _client
-
-    # Plot initial inducing points
-    plot_all_inducing_pts(clients, config.plot_dir)
 
     # Optimizer parameters
     S = args.training_samples  # number of training inference samples
@@ -178,15 +127,16 @@ def main(args, config, logger):
 
             # Run client-local optimization
             epochs = args.epochs
-            batch_size = min(len(curr_client.x), min(args.batch_size, N))
+            client_data_size = curr_client.x.shape[0]
+            batch_size = min(client_data_size, min(args.batch_size, N))
             for epoch in range(epochs):
 
                 # Construct epoch-th minibatch {x, y} training data
-                inds = (B.range(batch_size) + batch_size * epoch) % len(curr_client.x)
-                x_mb = B.take(curr_client.x, inds)
-                y_mb = B.take(curr_client.y, inds)
+                inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
+                x_mb = B.to_active_device(B.take(curr_client.x, inds))
+                y_mb = B.to_active_device(B.take(curr_client.y, inds))
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, likelihood, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -207,10 +157,10 @@ def main(args, config, logger):
 
     # Save var state
     _global_vs_state_dict = {}
-    for _name, _c in clients.items():
+    for _, _c in clients.items():
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
-    torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
+    torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
@@ -220,7 +170,7 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    config = PVIConfig()
+    config = ClassificationConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
@@ -252,7 +202,6 @@ if __name__ == "__main__":
         default=config.nz_init,
     )
     parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)
-    parser.add_argument("--ll_var", type=float, help="likelihood var", default=config.ll_var)
     parser.add_argument(
         "--batch_size",
         "-b",
@@ -260,7 +209,7 @@ if __name__ == "__main__":
         help="training batch size",
         default=config.batch_size,
     )
-    parser.add_argument("--dgp", "-d", type=int, help="dgp/dataset type", default=config.dgp)
+    parser.add_argument("--data", "-d", type=int, help="dgp/dataset type", default=config.dgp)
     parser.add_argument(
         "--load",
         "-l",

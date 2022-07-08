@@ -33,15 +33,14 @@
             ]
         },
         {
-            "name": "(All) PVI Regression - Debug",
+            "name": "PVI Classification - Debug",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/experiments/pvi_regression.py",
+            "program": "${workspaceFolder}/experiments/pvi_classification.py",
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": true,
             "args": [
-                "--inference_samples=10",
-                "--name=pvi_debug"
+                "--name=classification_debug"
             ]
         },
         {

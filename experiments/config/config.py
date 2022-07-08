@@ -125,6 +125,26 @@ class ClassificationConfig(PVIConfig):
     name: str = "classification"
 
 
+    data: DGP = DGP.mnist
+    dims = [(28*28), 50, 50, 10]
+
+    linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
+
+    # Communication settings
+    iters: int = 1  # server iterations
+    epochs: int = 10  # client-local epochs
+
+    # Note: number of test points is also equal to N
+    M: int = 100  # Number of inducing points per client
+    batch_size: int = 100
+
+    num_clients: int = 1
+    server_type: Server = SynchronousServer
+
+    prior: Prior = Prior.NealPrior
+    kl: KL = KL.Analytical
+
+
 class Color:
     PURPLE = "\033[95m"
     CYAN = "\033[96m"

@@ -1,13 +1,9 @@
 from __future__ import annotations
-from copy import copy, deepcopy
-from locale import currency
 
 import os
 import shutil
 import sys
 from datetime import datetime
-from typing import Callable, Optional
-
 from matplotlib import pyplot as plt
 
 file_dir = os.path.dirname(__file__)

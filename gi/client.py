@@ -38,7 +38,7 @@ class Client:
 
         # Build inducing points
         key, z, yz = self.build_z(key, M, x, y, random=random_z)
-        self.z: B.Numeric = z
+        self._z: B.Numeric = z
 
         # Build approximate likelihood factors
         self.key, t = self.build_ts(key, M, yz, *dims, nz_inits=nz_inits, linspace_yz=linspace_yz)
@@ -53,6 +53,10 @@ class Client:
 
         self.vs.requires_grad(True, *self.vs.names)
         self.update_nz()
+
+    @property
+    def z(self):
+        return B.to_active_device(self._z)
 
     @property
     def vs(self):

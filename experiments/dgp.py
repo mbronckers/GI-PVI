@@ -16,7 +16,8 @@ logger = logging.getLogger()
 class DGP(IntEnum):
     ober_regression = 1
     sinusoid = 2
-
+    mnist = 3
+    cifar = 4
 
 def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
     if dgp == DGP.ober_regression:
@@ -40,11 +41,17 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         return key, x_all, y_all, x_tr, y_tr, x_te, y_te, scale
 
     elif dgp == DGP.sinusoid:
-        return dgp2(key, size, xmin, xmax)
+        # return dgp2(key, size, xmin, xmax)
+        logger.warning(f"DGP2 is not fixed yet. Defaulting to DGP 1...")
+    elif dgp == DGP.mnist:
+        train_data, test_data = generate_mnist(data_dir="data")
+        return key, train_data['x'], train_data['y'], test_data['x'], test_data['y']
+    elif dgp == DGP.cifar:
+        logger.warning(f"CIFAR10 is not supported yet. Defaulting to DGP 1...")
     else:
-        logger.warning(f"DGP type not recognized, defaulting to DGP 1")
-        return dgp1(key, size, xmin, xmax)
-
+        logger.warning(f"DGP type not recognized. Defaulting to DGP 1...")
+    
+    return dgp1(key, size, xmin, xmax)
 
 def dgp1(key, size, xmin=-4.0, xmax=4.0):
     """Toy (test) regression dataset from paper"""
@@ -74,6 +81,48 @@ def dgp2(key, size, xmin=-4.0, xmax=4.0):
 
     return key, x[:, None], y[:, None]
 
+def generate_cifar(augment: bool):
+    from torchvision import transforms, datasets
+    import torch as t
+
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    augment = transforms.Compose(
+        [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ]
+    )
+
+    if augment:
+        transform_train = transforms.Compose([augment, transform])
+    else:
+        transform_train = transform
+
+
+    train_dataset = datasets.CIFAR10("data", train=True, download=True, transform=transform_train)
+    num_classes = max(train_dataset.targets) + 1
+    test_dataset = datasets.CIFAR10("data", train=False, transform=transform)
+
+def generate_mnist(data_dir):
+    from torchvision import transforms, datasets
+    import torch as t
+    transform_train = transforms.Compose([transforms.ToTensor()])
+    transform_test = transforms.Compose([transforms.ToTensor()])
+
+    train_set = datasets.MNIST(root=data_dir, train=True, download=True, transform=transform_train)
+    test_set = datasets.MNIST(root=data_dir, train=False, download=True, transform=transform_test)
+
+    train_data = {
+        "x": ((train_set.data - 0) / 255).reshape(-1, 28 * 28),
+        "y": train_set.targets,
+    }
+
+    test_data = {
+        "x": ((test_set.data - 0) / 255).reshape(-1, 28 * 28),
+        "y": test_set.targets,
+    }
+
+    return train_data, test_data
 
 def split_data(x, y, lb_mid=-2.0, ub_mid=2.0):
     """Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""
