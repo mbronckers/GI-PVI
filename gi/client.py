@@ -126,6 +126,8 @@ class Client:
 
             else:
                 _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
+                if yz.dtype != B.default_dtype:
+                    yz = yz.to(B.default_dtype)
                 t = NormalPseudoObservation(yz, _nz)  # final layer
 
             ts[f"layer{i}"] = t

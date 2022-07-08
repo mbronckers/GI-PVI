@@ -19,6 +19,7 @@ class DGP(IntEnum):
     mnist = 3
     cifar = 4
 
+
 def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
     if dgp == DGP.ober_regression:
         """Build train data with test data in between the train space
@@ -45,13 +46,14 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         logger.warning(f"DGP2 is not fixed yet. Defaulting to DGP 1...")
     elif dgp == DGP.mnist:
         train_data, test_data = generate_mnist(data_dir="data")
-        return key, train_data['x'], train_data['y'], test_data['x'], test_data['y']
+        return key, train_data["x"], train_data["y"], test_data["x"], test_data["y"]
     elif dgp == DGP.cifar:
         logger.warning(f"CIFAR10 is not supported yet. Defaulting to DGP 1...")
     else:
         logger.warning(f"DGP type not recognized. Defaulting to DGP 1...")
-    
+
     return dgp1(key, size, xmin, xmax)
+
 
 def dgp1(key, size, xmin=-4.0, xmax=4.0):
     """Toy (test) regression dataset from paper"""
@@ -81,6 +83,7 @@ def dgp2(key, size, xmin=-4.0, xmax=4.0):
 
     return key, x[:, None], y[:, None]
 
+
 def generate_cifar(augment: bool):
     from torchvision import transforms, datasets
     import torch as t
@@ -98,14 +101,15 @@ def generate_cifar(augment: bool):
     else:
         transform_train = transform
 
-
     train_dataset = datasets.CIFAR10("data", train=True, download=True, transform=transform_train)
     num_classes = max(train_dataset.targets) + 1
     test_dataset = datasets.CIFAR10("data", train=False, transform=transform)
 
+
 def generate_mnist(data_dir):
     from torchvision import transforms, datasets
     import torch as t
+
     transform_train = transforms.Compose([transforms.ToTensor()])
     transform_test = transforms.Compose([transforms.ToTensor()])
 
@@ -114,15 +118,16 @@ def generate_mnist(data_dir):
 
     train_data = {
         "x": ((train_set.data - 0) / 255).reshape(-1, 28 * 28),
-        "y": train_set.targets,
+        "y": train_set.targets[..., None],
     }
 
     test_data = {
         "x": ((test_set.data - 0) / 255).reshape(-1, 28 * 28),
-        "y": test_set.targets,
+        "y": test_set.targets[..., None],
     }
 
     return train_data, test_data
+
 
 def split_data(x, y, lb_mid=-2.0, ub_mid=2.0):
     """Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""

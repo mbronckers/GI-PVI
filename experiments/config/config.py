@@ -124,9 +124,8 @@ class PVIConfig(Config):
 class ClassificationConfig(PVIConfig):
     name: str = "classification"
 
-
     data: DGP = DGP.mnist
-    dims = [(28*28), 50, 50, 10]
+    dims = [(28 * 28), 50, 50, 10]
 
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
@@ -135,14 +134,16 @@ class ClassificationConfig(PVIConfig):
     epochs: int = 10  # client-local epochs
 
     # Note: number of test points is also equal to N
-    M: int = 100  # Number of inducing points per client
-    batch_size: int = 100
+    N: int = 60000
+    M: int = 28  # Number of inducing points per client
+    batch_size: int = 28
 
     num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
+    log_step: int = 1
 
 
 class Color:

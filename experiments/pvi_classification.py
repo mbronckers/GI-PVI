@@ -52,7 +52,7 @@ def main(args, config, logger):
     # Setup dataset.
     N = args.N  # num training points
     train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
-    x_tr, y_tr, x_te, y_te = train_data['x'], train_data['y'], test_data['x'], test_data['y']
+    x_tr, y_tr, x_te, y_te = train_data["x"], train_data["y"], test_data["x"], test_data["y"]
     # x_tr = B.to_active_device(x_tr)
     # y_tr = B.to_active_device(y_tr)
     # x_te = B.to_active_device(x_te)
@@ -64,7 +64,7 @@ def main(args, config, logger):
     # Build prior
     M = args.M  # number of inducing points
     dims = config.dims
-    assert dims[0] == x_tr.shape[1] and dims[-1] == B.max(y_tr)+1
+    assert dims[0] == x_tr.shape[1] and dims[-1] == B.max(y_tr) + 1
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
 
     # Deal with client split
