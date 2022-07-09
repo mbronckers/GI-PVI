@@ -156,11 +156,12 @@ class GIBNN_Classification(GIBNN):
         super().__init__(nonlinearity, bias, kl)
 
     def compute_ell(self, out, y):
-        return torch.distributions.Categorical(logits=out.mean(0)).log_prob(y).mean()
+        _y = B.tile(y, out.shape[0], 1, 1)[..., 0]  # reshape y into [S x Dout]
+        return torch.distributions.Categorical(logits=out).log_prob(_y).mean(-1)
 
     def compute_error(self, out, y):
         # out: [S x N x Dout]; y [N x Dout]
         output = out.log_softmax(-1).logsumexp(0) - B.log(out.shape[0])
         pred = output.argmax(dim=-1, keepdim=True)
         accuracy = pred.eq(y.view_as(pred)).float().mean()
-        return accuracy
+        return 1 - accuracy

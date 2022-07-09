@@ -87,7 +87,7 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 10  # server iterations
+    iters: int = 1  # server iterations
     epochs: int = 2000  # client-local epochs
 
     # Note: number of test points is also equal to N
@@ -131,12 +131,13 @@ class ClassificationConfig(PVIConfig):
 
     # Communication settings
     iters: int = 1  # server iterations
-    epochs: int = 10  # client-local epochs
+    epochs: int = 1000  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 60000
     M: int = 28  # Number of inducing points per client
-    batch_size: int = 28
+    S: int = 2
+    batch_size: int = 100
 
     num_clients: int = 1
     server_type: Server = SynchronousServer
@@ -144,6 +145,11 @@ class ClassificationConfig(PVIConfig):
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
     log_step: int = 1
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.name = "pvi_class"
+        # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
 class Color:

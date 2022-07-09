@@ -50,13 +50,9 @@ def main(args, config, logger):
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup dataset.
-    N = args.N  # num training points
     train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
     x_tr, y_tr, x_te, y_te = train_data["x"], train_data["y"], test_data["x"], test_data["y"]
-    # x_tr = B.to_active_device(x_tr)
-    # y_tr = B.to_active_device(y_tr)
-    # x_te = B.to_active_device(x_te)
-    # y_te = B.to_active_device(y_te)
+    N = len(x_tr)
 
     # Define model
     model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
@@ -148,8 +144,8 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Only plot every <log_step> epoch
-                    if args.plot and ((epoch + 1) % log_step == 0):
-                        plot_client_vp(config, curr_client, i, epoch)
+                    # if args.plot and ((epoch + 1) % log_step == 0):
+                    # plot_client_vp(config, curr_client, i, epoch)
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"

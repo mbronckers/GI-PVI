@@ -161,7 +161,6 @@ def estimate_local_vfe(
         kl += layer_cache["kl"]
 
     # Compute the expected log-likelihood.
-    # exp_ll = likelihood(out).log_prob(y).sum(-1).mean(-1)  # takes mean wrt batch points
     exp_ll = model.compute_ell(out, y)
     error = model.compute_error(out, y)
 
