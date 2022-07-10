@@ -72,7 +72,7 @@ class GIBNN(BaseBNN):
         zs_p: dict,
         S: B.Int,
     ):
-        """_summary_
+        """Samples weights from the posterior distribution q.
 
         Args:
             key (B.RandomState): _description_
@@ -156,12 +156,30 @@ class GIBNN_Classification(GIBNN):
         super().__init__(nonlinearity, bias, kl)
 
     def compute_ell(self, out, y):
-        _y = B.tile(y, out.shape[0], 1, 1)[..., 0]  # reshape y into [S x Dout]
+        _y = B.tile(B.to_active_device(y), out.shape[0], 1, 1)[..., 0]  # reshape y into [S x Dout]
         return torch.distributions.Categorical(logits=out).log_prob(_y).mean(-1)
+
+        # _qy = torch.distributions.Categorical(logits=out)
+        # _mix = torch.distributions.Categorical(logits=torch.ones(size=_qy.batch_shape).to(out))
+        # qy = torch.distributions.MixtureSameFamily(_mix, _qy)
+        # qy.log_prob(B.to_active_device(y.argmax(-1)[..., None])).cpu().mean(-1)
 
     def compute_error(self, out, y):
         # out: [S x N x Dout]; y [N x Dout]
+
+        # Ober repo:
         output = out.log_softmax(-1).logsumexp(0) - B.log(out.shape[0])
-        pred = output.argmax(dim=-1, keepdim=True)
-        accuracy = pred.eq(y.view_as(pred)).float().mean()
+        pred = output.argmax(dim=-1).cpu()
+        # pred = torch.squeeze(torch.nn.functional.one_hot(pred, num_classes=y.shape[1]))
+        accuracy = pred.eq(torch.argmax(y, dim=1).view_as(pred)).float().mean()
+
+        # PVI repo:
+        # _qy = torch.distributions.Categorical(logits=out)
+        # _mix = torch.distributions.Categorical(logits=torch.ones(size=_qy.batch_shape).to(out))
+        # qy = torch.distributions.MixtureSameFamily(_mix, _qy)
+        # pred = qy.component_distribution.probs.mean(0).cpu()
+        # accuracy = (pred.argmax(dim=-1) == torch.argmax(y, dim=1)).float().mean()
+
+        del y
+        del pred
         return 1 - accuracy

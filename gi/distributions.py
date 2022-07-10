@@ -109,19 +109,19 @@ class NaturalNormalFactor:
         """
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
 
-    @property
-    def mean(self):
-        """column vector: Mean."""
-        if self._mean is None:
-            self._mean = B.cholsolve(B.chol(self.prec), self.lam)
-        return self._mean
+    # @property
+    # def mean(self):
+    #     """column vector: Mean."""
+    #     if self._mean is None:
+    #         self._mean = B.cholsolve(B.chol(self.prec), self.lam)
+    #     return self._mean
 
-    @property
-    def var(self):
-        """matrix: Variance."""
-        if self._var is None:
-            self._var = B.pd_inv(self.prec)
-        return self._var
+    # @property
+    # def var(self):
+    #     """matrix: Variance."""
+    #     if self._var is None:
+    #         self._var = B.pd_inv(self.prec)
+    #     return self._var
 
     def __mul__(self, other: "NaturalNormalFactor"):
         return NaturalNormalFactor(self.lam + other.lam, self.prec + other.prec)
@@ -197,12 +197,12 @@ class NaturalNormal:
         """
         ratio = B.triangular_solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
         diff = self.mean - other.mean  # mu1 - mu0
-        _kl = 0.5 * (
-            B.sum(B.sum(ratio**2, -1), -1)
-            - B.logdet(B.mm(ratio, ratio, tr_a=True))  # ratio^T @ ratio
-            + B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)  # (diff)^T @ prec @ diff
-            - B.cast(self.dtype, self.dim)  # subtract dimension |K| scalar
-        )
+        dT_prec_d = B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)
+        logdet = B.logdet(B.mm(ratio, ratio, tr_a=True))
+        sum_r = B.sum(ratio**2, -1)
+
+        del diff, ratio
+        _kl = 0.5 * (B.sum(sum_r, -1) - logdet + dT_prec_d - B.cast(self.dtype, self.dim))  # ratio^T @ ratio  # (diff)^T @ prec @ diff  # subtract dimension |K| scalar
         return _kl
 
     def logpdf(self, x):
@@ -228,6 +228,7 @@ class NaturalNormal:
         # sample = self.mean + B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
         sample = self.mean + dW
 
+        del dW
         if not structured(sample):
             sample = B.dense(sample)  # transform Tensor to Dense matrix
 
@@ -270,11 +271,11 @@ class NormalPseudoObservation:
         :returns: N(w; lam_w, prec_w)
         """
         # (S, 1, M, Din)
-        _z = B.expand_dims(z, 1)
+        _z = B.to_active_device(B.expand_dims(z, 1))
 
         # (1, Dout, M, 1).
         _yz = B.expand_dims(B.transpose(self.yz, (-1, -2)))
-        _yz = B.expand_dims(_yz, -1)
+        _yz = B.to_active_device(B.expand_dims(_yz, -1))
 
         # (Dout, M, M).
         prec_yz = B.diag_construct(self.nz)  # the precision of the "inducing-points likelihood"
@@ -289,6 +290,7 @@ class NormalPseudoObservation:
         # lambda \\propto prec*mean, mean_w = (prec^-1) * XLY => lambda = XLY
         lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))  # @ _z * _nz @ _yz = XLY
 
+        del _prec_yz, _z, _yz
         return NaturalNormal(lam_w, prec_w)
 
     def __repr__(self) -> str:

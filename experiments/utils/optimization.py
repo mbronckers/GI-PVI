@@ -99,8 +99,8 @@ def cavity_distributions(client: Client, ts: dict[str, dict[str, gi.NormalPseudo
     return zs_cav, ts_cav
 
 
-def collect_vp(clients: dict[str, Client], curr_client: Optional[Client] = None):
-    """Collects the variational parameters of all clients in detached (frozen) form, except for the provided current client.
+def collect_vp(clients: dict[str, Client]):
+    """Collects the variational parameters of all clients in detached (frozen) form
 
     Args:
         clients (dict[str, Client]): dictionary of clients
@@ -112,22 +112,38 @@ def collect_vp(clients: dict[str, Client], curr_client: Optional[Client] = None)
     tmp_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
     tmp_zs: dict[str, B.Numeric] = {}
 
-    if curr_client != None:
-        tmp_zs = {curr_client.name: curr_client.z}
+    for client_name, client in clients.items():
+        tmp_zs[client_name] = client.z.detach().clone()
 
-        for layer_name, layer_t in curr_client.t.items():
+        for layer_name, client_layer_t in client.t.items():
             if layer_name not in tmp_ts:
                 tmp_ts[layer_name] = {}
-            tmp_ts[layer_name][curr_client.name] = layer_t
+            tmp_ts[layer_name][client_name] = copy(client_layer_t)
+    return tmp_ts, tmp_zs
 
-    for client_name, client in clients.items():
-        if curr_client == None or client_name != curr_client.name:
-            tmp_zs[client_name] = client.z.detach().clone()
 
-            for layer_name, client_layer_t in client.t.items():
-                if layer_name not in tmp_ts:
-                    tmp_ts[layer_name] = {}
+def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
+    """Collects the variational parameters of all clients in detached (frozen) form, except for the provided current client."""
+
+    tmp_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
+    tmp_zs: dict[str, B.Numeric] = {}
+
+    # Copy frozen ts except for cur_client
+    for layer_name, layer_t in frozen_ts.items():
+        if layer_name not in tmp_ts:
+            tmp_ts[layer_name] = {}
+
+        for client_name, client_layer_t in layer_t.items():
+            if client_name == curr_client.name:
+                tmp_ts[layer_name][curr_client.name] = curr_client.t[layer_name]
+            else:
                 tmp_ts[layer_name][client_name] = copy(client_layer_t)
+    # Copy frozen zs except for cur_client
+    tmp_zs = {curr_client.name: curr_client.z}
+    for client_name, client_z in frozen_zs.items():
+        if client_name != curr_client.name:
+            tmp_zs[client_name] = client_z.detach().clone()
+
     return tmp_ts, tmp_zs
 
 

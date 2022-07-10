@@ -38,7 +38,7 @@ class Client:
 
         # Build inducing points
         key, z, yz = self.build_z(key, M, x, y, random=random_z)
-        self._z: B.Numeric = z
+        self.z: B.Numeric = z
 
         # Build approximate likelihood factors
         self.key, t = self.build_ts(key, M, yz, *dims, nz_inits=nz_inits, linspace_yz=linspace_yz)
@@ -47,16 +47,18 @@ class Client:
         # Add optimizable client variables to vs
         self._vs: Vars = Vars(B.default_dtype)
         self.vs.unbounded(self.z, name=f"zs.{self.name}_z")
+
         for layer_name, _t in self.t.items():
             self.vs.unbounded(_t.yz, name=f"ts.{self.name}_{layer_name}_yz")
             self.vs.positive(_t.nz, name=f"ts.{self.name}_{layer_name}_nz")
 
         self.vs.requires_grad(True, *self.vs.names)
-        self.update_nz()
 
-    @property
-    def z(self):
-        return B.to_active_device(self._z)
+        # Classification related issue
+        # self.z = self.vs[f"zs.{self.name}_z"]
+        # self.t["layer2"].yz = self.vs[f"ts.{self.name}_layer2_yz"]
+
+        self.update_nz()
 
     @property
     def vs(self):
@@ -111,9 +113,8 @@ class Client:
         num_layers = len(dims) - 1
         assert len(nz_inits) == num_layers
         for i, nz_init in enumerate(nz_inits):
+            _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
             if i < num_layers - 1:
-                _nz = B.ones(dims[i + 1], M) * nz_inits[i]  # [Dout x M]
-
                 # Initialization to M linspace vectors: [M x Dout]
                 if linspace_yz:
                     _yz, _ = torch.meshgrid(B.linspace(-1, 1, dims[i + 1]), B.ones(M))
@@ -125,9 +126,9 @@ class Client:
                     t = NormalPseudoObservation(_yz, _nz)
 
             else:
-                _nz = B.ones(dims[i + 1], M) * nz_init  # [Dout x M]
                 if yz.dtype != B.default_dtype:
                     yz = yz.to(B.default_dtype)
+
                 t = NormalPseudoObservation(yz, _nz)  # final layer
 
             ts[f"layer{i}"] = t

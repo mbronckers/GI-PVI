@@ -1,4 +1,5 @@
 from __future__ import annotations
+from copy import copy
 
 import os
 import shutil
@@ -37,7 +38,7 @@ from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import construct_optimizer, collect_vp, estimate_local_vfe
+from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
@@ -116,7 +117,7 @@ def main(args, config, logger):
         logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - optimizing {curr_clients}")
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, frozen_zs = collect_vp(clients, None)
+        frozen_ts, frozen_zs = collect_vp(clients)
 
         num_clients = len(curr_clients)
         for idx, curr_client in enumerate(curr_clients):
@@ -127,7 +128,7 @@ def main(args, config, logger):
             logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
             # Construct the posterior communicated to client.
-            tmp_ts, tmp_zs = collect_vp(clients, curr_client)  # All detached except current client.
+            tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization
             epochs = args.epochs
@@ -176,7 +177,7 @@ def main(args, config, logger):
 
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
-        ts, zs = collect_vp(clients, None)
+        ts, zs = collect_vp(clients)
 
         # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
