@@ -51,6 +51,8 @@ class MFVI(BaseBNN):
 
                 q *= layer_client_q
 
+            # constrain q to have positive precision
+
             key, _ = self._sample_posterior(key, q, p, layer_name)
 
         return key, self.cache

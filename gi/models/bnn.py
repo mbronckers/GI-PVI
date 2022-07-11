@@ -41,10 +41,12 @@ class BaseBNN:
             return None
 
         if len(x.shape) == 2:
-            x = B.tile(x, self.S, 1, 1)
+            x = B.tile(B.to_active_device(x), self.S, 1, 1)
             if self.bias:
                 _bias = B.ones(*x.shape[:-1], 1)
                 x = B.concat(x, _bias, axis=-1)
+        else:
+            x = B.to_active_device(x)
 
         for i, (layer_name, layer_dict) in enumerate(self._cache.items()):
             x = B.mm(x, layer_dict["w"], tr_b=True)

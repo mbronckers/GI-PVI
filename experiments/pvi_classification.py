@@ -38,7 +38,7 @@ from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import construct_optimizer, collect_vp, estimate_local_vfe
+from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
@@ -53,6 +53,8 @@ def main(args, config, logger):
     train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
     x_tr, y_tr, x_te, y_te = train_data["x"], train_data["y"], test_data["x"], test_data["y"]
     N = len(x_tr)
+    y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
+    y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
 
     # Define model
     model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
@@ -60,7 +62,8 @@ def main(args, config, logger):
     # Build prior
     M = args.M  # number of inducing points
     dims = config.dims
-    assert dims[0] == x_tr.shape[1] and dims[-1] == B.max(y_tr) + 1
+    assert dims[0] == x_tr.shape[1]
+    # and dims[-1] == B.max(y_tr) + 1
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
 
     # Deal with client split
@@ -108,7 +111,7 @@ def main(args, config, logger):
         logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - optimizing {curr_clients}")
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, frozen_zs = collect_vp(clients, None)
+        frozen_ts, frozen_zs = collect_vp(clients)
 
         num_clients = len(curr_clients)
         for idx, curr_client in enumerate(curr_clients):
@@ -119,7 +122,7 @@ def main(args, config, logger):
             logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
             # Construct the posterior communicated to client.
-            tmp_ts, tmp_zs = collect_vp(clients, curr_client)  # All detached except current client.
+            tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization
             epochs = args.epochs
@@ -129,11 +132,11 @@ def main(args, config, logger):
 
                 # Construct epoch-th minibatch {x, y} training data
                 inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
-                x_mb = B.to_active_device(B.take(curr_client.x, inds))
-                y_mb = B.to_active_device(B.take(curr_client.y, inds))
+                x_mb = B.take(curr_client.x, inds)
+                y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
-                loss = -local_vfe
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size, iter=i)
+                loss = -(client_data_size * local_vfe)
                 loss.backward()
                 opt.step()
                 curr_client.update_nz()

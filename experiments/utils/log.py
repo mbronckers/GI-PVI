@@ -68,6 +68,8 @@ def eval_logging(
     _plot_dir: str = None,
     ylim: Optional[Tuple[float, float]] = None,
     xlim: Optional[Tuple[float, float]] = None,
+    save_metrics: bool = False,
+    plot_samples: bool = True,
 ):
     """Logs the model inference results and saves plots
 
@@ -87,9 +89,8 @@ def eval_logging(
     _S = y_pred.shape[0]  # number of inference samples
 
     # Log test error and variance
-    logger.info(f"{Color.WHITE} {data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}{Color.END}")
+    logger.info(f"{Color.WHITE}{data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}{Color.END}")
 
-    # Save model predictions
     _results_eval = pd.DataFrame(
         {
             "x_eval": x.squeeze().detach().cpu(),
@@ -103,7 +104,9 @@ def eval_logging(
     for num_sample in range(_S):
         _results_eval[f"preds_{num_sample}"] = y_pred[num_sample].squeeze().detach().cpu()
 
-    _results_eval.to_csv(os.path.join(_results_dir, f"model/{_fname}.csv"), index=False)
+    # Save model predictions
+    if save_metrics:
+        _results_eval.to_csv(os.path.join(_results_dir, f"model/{_fname}.csv"), index=False)
 
     # Plot model predictions:
 
@@ -126,8 +129,9 @@ def eval_logging(
     plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
 
     # Plot all sampled functions
-    ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)", ylim=ylim, xlim=xlim)
+    if plot_samples:
+        ax = plot_predictions(None, x, y_pred, "Model predictions", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)", ylim=ylim, xlim=xlim)
 
-    _sampled_funcs_dir = os.path.join(_plot_dir, "sampled_funcs")
-    Path(_sampled_funcs_dir).mkdir(parents=True, exist_ok=True)
-    plt.savefig(os.path.join(_sampled_funcs_dir, f"{_fname}_samples.png"), pad_inches=0.2, bbox_inches="tight")
+        _sampled_funcs_dir = os.path.join(_plot_dir, "sampled_funcs")
+        Path(_sampled_funcs_dir).mkdir(parents=True, exist_ok=True)
+        plt.savefig(os.path.join(_sampled_funcs_dir, f"{_fname}_samples.png"), pad_inches=0.2, bbox_inches="tight")

@@ -1,4 +1,5 @@
-from typing import Callable
+from copy import copy
+from typing import Callable, Optional
 import lab as B
 import torch
 import logging
@@ -68,9 +69,8 @@ class GIBNN(BaseBNN):
         ps: dict,
         ts: dict,
         zs: dict,
-        ts_p: dict,
-        zs_p: dict,
         S: B.Int,
+        cavity_client: Optional[str] = None,
     ):
         """Samples weights from the posterior distribution q.
 
@@ -80,8 +80,7 @@ class GIBNN(BaseBNN):
             ts (dict): pseudo-likelihoods. dict<k='layer x', v=dict<k='client x', v=t>>
             zs (dict): client-local inducing intputs. dict<k=client_name, v=inducing inputs>
             S (B.Int): number of samples to draw (and thus propagate)
-            ts_p (dict, optional): pseudo-likelihoods used to define the prior.
-            zs_p (dict, optional): client-local inducing inputs used to define the prior.
+            cavity_client (str): If provided, client to exclude for cavity distribution.
 
             M inducing points,
             D input space dimensionality
@@ -91,37 +90,31 @@ class GIBNN(BaseBNN):
 
         # Shape inducing inputs for propagation; separate dict to modify
         _zs = self.process_z(zs, S)
-        if zs_p:
-            _zs_p = self.process_z(zs_p, S)
 
         # Construct posterior and prior, sample, propagate.
         for i, (layer_name, p) in enumerate(ps.items()):
 
             # Init posterior to prior
             q = p
-            p_ = p
 
             # Compute new posterior by multiplying client factors
             for client_name, t in ts[layer_name].items():
                 q *= t(_zs[client_name])  # propagate prev layer's inducing outputs
 
-            # Compute prior distribution by multiplying factors
-            if ts_p:
-                for client_name, t in ts_p[layer_name].items():
-                    p_ *= t(_zs_p[client_name])
+            # Compute cavity prior if provided, otherwise use prior
+            if cavity_client:
+                p_ = copy(q) / copy(ts[layer_name][cavity_client](_zs[cavity_client]))  # cavity prior
+            else:
+                p_ = p
 
-            # Sample q, compute KL, and store drawn weights.
-            key, w = self._sample_posterior(key, q, p, layer_name)
+            # Sample q, compute KL wrt (cavity) prior, and store drawn weights.
+            key, w = self._sample_posterior(key, q, p_, layer_name)
 
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             if i < len(ps.keys()) - 1:
                 self.propagate_z(_zs, w, nonlinearity=True)
-                if zs_p:
-                    self.propagate_z(_zs_p, w, nonlinearity=True)
             else:
                 self.propagate_z(_zs, w, nonlinearity=False)
-                if zs_p:
-                    self.propagate_z(_zs_p, w, nonlinearity=False)
 
         return key, self._cache
 

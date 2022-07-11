@@ -87,13 +87,13 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 1  # server iterations
+    iters: int = 4  # server iterations
     epochs: int = 2000  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 20  # Number of inducing points per client
-    # batch_size: int = 30
+    batch_size: int = 20
 
     num_clients: int = 2
     server_type: Server = SynchronousServer
@@ -109,7 +109,7 @@ class PVIConfig(Config):
             self.name = "sync_pvi"
         else:
             self.name = "pvi"
-        self.name += f"_{self.num_clients}c_{self.iters}i_{self.epochs}e_{self.N}N_{self.M}M_{str(self.kl)}_KL"
+        self.name += f"_{self.num_clients}c_{self.iters}i_{self.epochs}e_{self.N}N_{self.M}M_{str(self.kl)}"
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
@@ -135,16 +135,17 @@ class ClassificationConfig(PVIConfig):
 
     # Note: number of test points is also equal to N
     N: int = 60000
-    M: int = 28  # Number of inducing points per client
-    S: int = 2
-    batch_size: int = 100
+    M: int = 50  # Number of inducing points per client
+    S: int = 3
+    batch_size: int = 10
 
     num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
-    log_step: int = 1
+    log_step: int = 10
+    lr_global: float = 0.05
 
     def __post_init__(self):
         super().__post_init__()

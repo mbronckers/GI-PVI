@@ -119,6 +119,28 @@ def main(args, config, logger):
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
 
+        # Log global/server model.
+        with torch.no_grad():
+            # Resample <_S> inference weights
+            key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+            # Run eval on entire dataset
+            y_pred = model.propagate(x)
+            eval_logging(
+                x,
+                y,
+                x_tr,
+                y_tr,
+                y_pred,
+                rmse(y, y_pred),
+                y_pred.var(0),
+                f"SERVER - global model - iter {i} - train/test set",
+                config.results_dir,
+                f"server_all_preds_iter_{i}",
+                config.server_dir,
+                plot_samples=False,
+            )
+
         num_clients = len(curr_clients)
         for idx, curr_client in enumerate(curr_clients):
 
@@ -127,8 +149,13 @@ def main(args, config, logger):
 
             logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
-            # Construct the posterior communicated to client.
-            tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
+            # Communicated posterior communicated to client in 1st iter is the prior
+            if iter == 0:
+                tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
+                tmp_zs = {client.name: client.z}
+            else:
+                # Construct the posterior communicated to client.
+                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization
             epochs = args.epochs
@@ -159,6 +186,30 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
+    # Log global/server model.
+    with torch.no_grad():
+        frozen_ts, frozen_zs = collect_vp(clients)
+        # Resample <_S> inference weights
+        # key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, ts_p=None, zs_p=None, S=args.inference_samples)
+        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+        # Run eval on entire dataset
+        y_pred = model.propagate(x)
+        eval_logging(
+            x,
+            y,
+            x_tr,
+            y_tr,
+            y_pred,
+            rmse(y, y_pred),
+            y_pred.var(0),
+            f"SERVER - global model - post training - train/test set",
+            config.results_dir,
+            f"server_all_preds_post_training",
+            config.server_dir,
+            plot_samples=False,
+        )
+
     # Save var state
     _global_vs_state_dict = {}
     for _name, _c in clients.items():
@@ -180,7 +231,8 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         ts, zs = collect_vp(clients)
 
         # Resample <_S> inference weights
-        key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
+        # key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
+        key, _ = model.sample_posterior(key, ps, ts, zs, S=args.inference_samples, cavity_client=None)
 
         # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
@@ -348,7 +400,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create experiment directories
-    config.name += args.name
+    config.name += f"_{args.name}"
     _start = datetime.utcnow()
     _time = _start.strftime("%m-%d-%H.%M.%S")
     _results_dir_name = "results"
@@ -358,10 +410,12 @@ if __name__ == "__main__":
     _metrics_dir = os.path.join(_results_dir, "metrics")
     _model_dir = os.path.join(_results_dir, "model")
     _training_plot_dir = os.path.join(_plot_dir, "training")
+    _server_dir = os.path.join(_plot_dir, "server")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
     Path(_training_plot_dir).mkdir(parents=True, exist_ok=True)
     Path(_model_dir).mkdir(parents=True, exist_ok=True)
     Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
+    Path(_server_dir).mkdir(parents=True, exist_ok=True)
 
     if args.no_plot:
         config.plot = False
@@ -374,6 +428,7 @@ if __name__ == "__main__":
     config.metrics_dir = _metrics_dir
     config.model_dir = _model_dir
     config.training_plot_dir = _training_plot_dir
+    config.server_dir = _server_dir
 
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):

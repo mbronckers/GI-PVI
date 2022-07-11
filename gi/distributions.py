@@ -169,7 +169,11 @@ class NaturalNormal:
     @classmethod
     def from_factor(cls, factor: NaturalNormalFactor):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
-        return cls(lam=factor.lam, prec=factor.prec)
+        MIN_PREC = 1e-3
+        if factor.prec < 0:
+            return cls(lam=factor.lam, prec=MIN_PREC)
+        else:
+            return cls(lam=factor.lam, prec=factor.prec)
 
     @property
     def mean(self):
@@ -242,6 +246,9 @@ class NaturalNormal:
 
     def __rtruediv__(self, other: "NaturalNormal"):
         return NaturalNormal(other.lam - self.lam, other.prec - self.prec)
+
+    def __copy__(self):
+        return NaturalNormal(deepcopy(self.lam.detach().clone()), deepcopy(B.dense(self.prec).detach().clone()))
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"

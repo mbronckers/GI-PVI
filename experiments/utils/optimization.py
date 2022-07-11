@@ -128,6 +128,12 @@ def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
     tmp_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
     tmp_zs: dict[str, B.Numeric] = {}
 
+    # Copy frozen zs except for cur_client
+    tmp_zs = {curr_client.name: curr_client.z}
+    for client_name, client_z in frozen_zs.items():
+        if client_name != curr_client.name:
+            tmp_zs[client_name] = client_z.detach().clone()
+
     # Copy frozen ts except for cur_client
     for layer_name, layer_t in frozen_ts.items():
         if layer_name not in tmp_ts:
@@ -135,14 +141,9 @@ def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
 
         for client_name, client_layer_t in layer_t.items():
             if client_name == curr_client.name:
-                tmp_ts[layer_name][curr_client.name] = curr_client.t[layer_name]
+                tmp_ts[layer_name][curr_client.name] = curr_client.t[layer_name]  # client-layer-t is detached, need to take curr_client.t
             else:
                 tmp_ts[layer_name][client_name] = copy(client_layer_t)
-    # Copy frozen zs except for cur_client
-    tmp_zs = {curr_client.name: curr_client.z}
-    for client_name, client_z in frozen_zs.items():
-        if client_name != curr_client.name:
-            tmp_zs[client_name] = client_z.detach().clone()
 
     return tmp_ts, tmp_zs
 
@@ -158,17 +159,9 @@ def estimate_local_vfe(
     zs: dict[str, B.Numeric],
     S: B.Int,
     N: B.Int,
-    iter: B.Int,
 ):
     # Compute cavity distributions
-    zs_cav, ts_cav = cavity_distributions(client, ts, zs, iter)
-
-    # Communicated posterior communicated to client in 1st iter is the prior
-    if iter == 0:
-        ts = {k: {client.name: client.t[k]} for k, _ in ts.items()}
-        zs = {client.name: client.z}
-
-    key, _cache = model.sample_posterior(key, ps, ts, zs, ts_p=ts_cav, zs_p=zs_cav, S=S)
+    key, _cache = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
     out = model.propagate(x)  # out : [S x N x Dout]
 
     # Compute KL divergence.
