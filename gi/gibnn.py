@@ -28,6 +28,8 @@ class GIBNN(BaseBNN):
         for client_name, client_z in zs.items():
             assert len(client_z.shape) == 2  # [M, Din]
 
+            client_z = B.to_active_device(client_z)
+
             # Add bias vector: [M x Din] to [M x Din+bias]
             if self.bias:
                 _bias = B.ones(*client_z.shape[:-1], 1)
@@ -53,7 +55,7 @@ class GIBNN(BaseBNN):
             client_z = B.mm(client_z, w, tr_b=True)  # [S x M x Dout]
 
             if nonlinearity:  # non-final layer
-                client_z = self.nonlinearity(client_z)
+                client_z = B.to_active_device(self.nonlinearity(client_z))
 
                 # Add bias vector to any intermediate outputs
                 if self.bias:
@@ -96,16 +98,15 @@ class GIBNN(BaseBNN):
 
             # Init posterior to prior
             q = p
+            p_ = p
 
             # Compute new posterior by multiplying client factors
             for client_name, t in ts[layer_name].items():
                 q *= t(_zs[client_name])  # propagate prev layer's inducing outputs
 
-            # Compute cavity prior if provided, otherwise use prior
-            if cavity_client:
-                p_ = copy(q) / copy(ts[layer_name][cavity_client](_zs[cavity_client]))  # cavity prior
-            else:
-                p_ = p
+                if cavity_client and client_name != cavity_client:
+                    p_ *= t(_zs[client_name])
+
 
             # Sample q, compute KL wrt (cavity) prior, and store drawn weights.
             key, w = self._sample_posterior(key, q, p_, layer_name)

@@ -87,10 +87,10 @@ def main(args, config, logger):
         # We use a separate key here to create consistent keys with deterministic (i.e. not calling split_data) runs of PVI.
         # otherwise, replace _tmp_key with key
         _tmp_key = B.create_random_state(B.default_dtype, seed=1)
-        for i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)):
-            _client = gi.Client(key, f"client{i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
+        for client_i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)):
+            _client = gi.Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
             key = _client.key
-            clients[f"client{i}"] = _client
+            clients[f"client{client_i}"] = _client
 
     # Plot initial inducing points
     plot_all_inducing_pts(clients, config.plot_dir)
@@ -109,12 +109,12 @@ def main(args, config, logger):
         iters = args.iters
 
     # Perform PVI.
-    for i in range(iters):
+    for iter in range(iters):
 
         # Get next client(s).
         curr_clients = next(server)
 
-        logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - optimizing {curr_clients}")
+        logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - optimizing {curr_clients}")
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
@@ -134,9 +134,9 @@ def main(args, config, logger):
                 y_pred,
                 rmse(y, y_pred),
                 y_pred.var(0),
-                f"SERVER - global model - iter {i} - train/test set",
+                f"SERVER - global model - iter {iter} - train/test set",
                 config.results_dir,
-                f"server_all_preds_iter_{i}",
+                f"server_all_preds_iter_{iter}",
                 config.server_dir,
                 plot_samples=False,
             )
@@ -147,27 +147,28 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
-            logger.info(f"SERVER - {server.name} - iter [{i+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
+            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
             # Communicated posterior communicated to client in 1st iter is the prior
             if iter == 0:
                 tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
-                tmp_zs = {client.name: client.z}
+                tmp_zs = {curr_client.name: curr_client.z}
             else:
                 # Construct the posterior communicated to client.
                 tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization
             epochs = args.epochs
+            client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
             for epoch in range(epochs):
 
                 # Construct epoch-th minibatch {x, y} training data
-                inds = (B.range(batch_size) + batch_size * epoch) % len(curr_client.x)
+                inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N, iter=i)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -176,21 +177,20 @@ def main(args, config, logger):
 
                 if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Only plot every <log_step> epoch
                     if args.plot and ((epoch + 1) % log_step == 0):
-                        plot_client_vp(config, curr_client, i, epoch)
+                        plot_client_vp(config, curr_client, iter, epoch)
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {i+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
     # Log global/server model.
     with torch.no_grad():
         frozen_ts, frozen_zs = collect_vp(clients)
         # Resample <_S> inference weights
-        # key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, ts_p=None, zs_p=None, S=args.inference_samples)
         key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
 
         # Run eval on entire dataset
@@ -212,13 +212,13 @@ def main(args, config, logger):
 
     # Save var state
     _global_vs_state_dict = {}
-    for _name, _c in clients.items():
+    for _, _c in clients.items():
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
 
     if args.plot:
-        for c_name, client in clients.items():
+        for c_name in clients.keys():
             make_gif(config.plot_dir, c_name)
 
     model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients)
