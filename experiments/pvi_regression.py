@@ -44,7 +44,7 @@ from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 def main(args, config, logger):
     # Lab variable initialization
-    B.default_dtype = torch.float64
+    B.default_dtype = torch.float32
     B.epsilon = 0.0
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
