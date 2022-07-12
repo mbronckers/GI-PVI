@@ -140,14 +140,14 @@ class ClassificationConfig(PVIConfig):
 
     # Communication settings
     iters: int = 1  # server iterations
-    epochs: int = 50  # client-local epochs
+    epochs: int = 200  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 60000
-    M: int = 500  # Number of inducing points per client
+    M: int = 100  # Number of inducing points per client
     S: int = 1
-    I: int = 10
-    batch_size: int = 500
+    I: int = 100
+    batch_size: int = 128
     optimizer: str = "Adam"
 
     num_clients: int = 1
@@ -159,7 +159,7 @@ class ClassificationConfig(PVIConfig):
 
     # Learning rates
     separate_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.10
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01

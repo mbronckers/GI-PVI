@@ -28,7 +28,7 @@ import torch.nn as nn
 
 from gi.server import SequentialServer, SynchronousServer
 
-from gi.client import Client
+from gi.client import GI_Client
 
 from slugify import slugify
 from wbml import experiment, out
@@ -38,20 +38,30 @@ from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
+from utils.optimization import (
+    collect_frozen_vp,
+    construct_optimizer,
+    collect_vp,
+    estimate_local_vfe,
+)
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
 def main(args, config, logger):
     # Lab variable initialization
-    B.default_dtype = torch.float64
+    B.default_dtype = torch.float32
     B.epsilon = 0.0
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup dataset.
     train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
-    x_tr, y_tr, x_te, y_te = train_data["x"], train_data["y"], test_data["x"], test_data["y"]
+    x_tr, y_tr, x_te, y_te = (
+        train_data["x"],
+        train_data["y"],
+        test_data["x"],
+        test_data["y"],
+    )
     N = len(x_tr)
     y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
     y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
@@ -72,12 +82,22 @@ def main(args, config, logger):
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
     # Build clients
-    clients: dict[str, Client] = {}
+    clients: dict[str, GI_Client] = {}
 
     if config.deterministic and args.num_clients > 1:
         raise ValueError("Deterministic mode is not supported with multiple clients.")
     if config.deterministic and args.num_clients == 1:
-        _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
+        _client = gi.GI_Client(
+            key,
+            f"client0",
+            x_tr,
+            y_tr,
+            M,
+            *dims,
+            random_z=args.random_z,
+            nz_inits=config.nz_inits,
+            linspace_yz=config.linspace_yz,
+        )
         key = _client.key
         clients[f"client0"] = _client
     else:
@@ -86,7 +106,17 @@ def main(args, config, logger):
         _tmp_key = B.create_random_state(B.default_dtype, seed=1)
         _tmp_key, splits = split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)
         for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-            _client = gi.Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
+            _client = GI_Client(
+                key,
+                f"client{client_i}",
+                client_x_tr,
+                client_y_tr,
+                M,
+                *dims,
+                random_z=args.random_z,
+                nz_inits=config.nz_inits,
+                linspace_yz=config.linspace_yz,
+            )
             key = _client.key
             clients[f"client{client_i}"] = _client
 
@@ -141,8 +171,19 @@ def main(args, config, logger):
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size)
-                loss = -(client_data_size * local_vfe)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(
+                    key,
+                    model,
+                    curr_client,
+                    x_mb,
+                    y_mb,
+                    ps,
+                    tmp_ts,
+                    tmp_zs,
+                    S,
+                    N=client_data_size,
+                )
+                loss = -local_vfe
                 loss.backward()
                 opt.step()
                 curr_client.update_nz()
@@ -179,13 +220,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
-    parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.iters)
+    parser.add_argument(
+        "--iters",
+        "-i",
+        type=int,
+        help="server iters (running over all clients <iters> times)",
+        default=config.iters,
+    )
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
-    parser.add_argument("--det", action="store_true", help="Deterministic training data split and ll variance", default=config.deterministic)
+    parser.add_argument(
+        "--det",
+        action="store_true",
+        help="Deterministic training data split and ll variance",
+        default=config.deterministic,
+    )
     parser.add_argument(
         "--training_samples",
         "-S",

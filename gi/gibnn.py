@@ -102,10 +102,11 @@ class GIBNN(BaseBNN):
 
             # Compute new posterior by multiplying client factors
             for client_name, t in ts[layer_name].items():
-                q *= t(_zs[client_name])  # propagate prev layer's inducing outputs
+                _t = t(_zs[client_name])
+                q *= _t  # propagate prev layer's inducing outputs
 
                 if cavity_client and client_name != cavity_client:
-                    p_ *= t(_zs[client_name])
+                    p_ *= _t
 
             # Sample q, compute KL wrt (cavity) prior, and store drawn weights.
             key, w = self._sample_posterior(key, q, p_, layer_name)
@@ -153,9 +154,9 @@ class GIBNN_Classification(GIBNN):
         super().__init__(nonlinearity, bias, kl)
 
     def compute_ell(self, out, y):
-        _y = B.tile(B.to_active_device(y), out.shape[0], 1, 1)[..., 0]  # reshape y into [S x Dout]
-        return torch.distributions.Categorical(logits=out).log_prob(_y).mean(-1)
-
+        _y = B.tile(B.to_active_device(y), out.shape[0], 1, 1)  # reshape y into [S x N x Dout]
+        assert _y.shape == out.shape, "These need to be the same shape."
+        return torch.distributions.Categorical(logits=out).log_prob(torch.argmax(_y, dim=-1)).mean(-1)
         # _qy = torch.distributions.Categorical(logits=out)
         # _mix = torch.distributions.Categorical(logits=torch.ones(size=_qy.batch_shape).to(out))
         # qy = torch.distributions.MixtureSameFamily(_mix, _qy)

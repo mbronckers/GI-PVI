@@ -69,7 +69,6 @@ class GI_Client(Client):
         self.t: dict[str, NormalPseudoObservation] = t
 
         # Add optimizable client variables to vs
-        # self._vs: Vars = Vars(B.default_dtype)
         self.vs.unbounded(self.z, name=f"zs.{self.name}_z")
 
         for layer_name, _t in self.t.items():
@@ -107,7 +106,7 @@ class GI_Client(Client):
             yz = y.clone()
         elif M < len(x):
             # Select random subset of size M of training points x
-            key, perm = B.randperm(key, B.default_dtype, len(x))
+            key, perm = B.randperm(key, torch.float64, len(x))
             idx = perm[:M]
             z, yz = x[idx].clone(), y[idx].clone()
         else:
@@ -168,7 +167,7 @@ class GI_Client(Client):
     def get_final_yz(self):
         return self.t[list(self.t.keys())[-1]].yz  # final layer yz
 
+
 class MFVI_Client(Client):
     def __init__(self, name: Optional[str], x, y):
         super().__init__(name, x, y)
-
