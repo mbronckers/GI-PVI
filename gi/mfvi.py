@@ -56,3 +56,19 @@ class MFVI(BaseBNN):
             key, _ = self._sample_posterior(key, q, p, layer_name)
 
         return key, self.cache
+
+class MFVI_Regression(MFVI):
+    def __init__(self, nonlinearity, bias: bool, kl: KL) -> None:
+        super().__init__(nonlinearity, bias, kl)
+
+    def compute_ell(self, out, y):
+        if y.device != out.device:
+            y = y.to(out.device)
+        return self.likelihood(out).log_prob(y).sum(-1).mean(-1)
+
+    def compute_error(self, out, y):
+        if y.device != out.device:
+            y = y.to(out.device)
+        error = (y - out.mean(0)).detach().clone()  # error of mean prediction
+        rmse = B.sqrt(B.mean(error**2))
+        return rmse

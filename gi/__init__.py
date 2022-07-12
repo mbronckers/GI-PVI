@@ -6,3 +6,4 @@ from .distributions import *
 from .gibnn import *
 from .likelihoods import *
 from .server import *
+from .mfvi import *

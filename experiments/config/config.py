@@ -90,12 +90,21 @@ class PVIConfig(Config):
     iters: int = 4  # server iterations
     epochs: int = 2000  # client-local epochs
 
-    # Note: number of test points is also equal to N
-    N: int = 40  # Num total training data pts, not the number of data pts per client.
-    M: int = 20  # Number of inducing points per client
-    batch_size: int = 20
+    I: int = 100  # Number of inference samples
+    S: int = 10
+    plot: bool = True
 
-    num_clients: int = 2
+    # dgp: DGP = DGP.uci_protein
+    # dims = [9, 50, 50, 1]
+    # N: int = 36584  # Num total training data pts, not the number of data pts per client.
+    # M: int = 100  # Number of inducing points per client
+    # batch_size: int = 100
+
+    N: int = 80  # Num total training data pts, not the number of data pts per client.
+    M: int = 40  # Number of inducing points per client
+    batch_size: int = 80
+
+    num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
@@ -125,32 +134,42 @@ class ClassificationConfig(PVIConfig):
     name: str = "classification"
 
     data: DGP = DGP.mnist
-    dims = [(28 * 28), 50, 50, 10]
+    dims = [(28 * 28), 100, 100, 10]
 
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
     iters: int = 1  # server iterations
-    epochs: int = 1000  # client-local epochs
+    epochs: int = 50  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 60000
-    M: int = 50  # Number of inducing points per client
-    S: int = 3
-    batch_size: int = 10
+    M: int = 500  # Number of inducing points per client
+    S: int = 1
+    I: int = 10
+    batch_size: int = 500
+    optimizer: str = "Adam"
 
     num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
-    log_step: int = 10
+    log_step: int = 1
+
+    # Learning rates
+    separate_lr: bool = False  # True => use seperate learning rates
     lr_global: float = 0.05
+    lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
+    lr_client_z: float = 0.01
+    lr_yz: float = 0.01
 
     def __post_init__(self):
         super().__post_init__()
         self.name = "pvi_class"
-        # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+        # Precisions of the inducing points per layer
+        self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
+        self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
 class Color:

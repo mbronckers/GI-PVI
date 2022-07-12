@@ -107,7 +107,6 @@ class GIBNN(BaseBNN):
                 if cavity_client and client_name != cavity_client:
                     p_ *= t(_zs[client_name])
 
-
             # Sample q, compute KL wrt (cavity) prior, and store drawn weights.
             key, w = self._sample_posterior(key, q, p_, layer_name)
 
@@ -137,9 +136,13 @@ class GIBNN_Regression(GIBNN):
         self.likelihood = likelihood
 
     def compute_ell(self, out, y):
+        if y.device != out.device:
+            y = y.to(out.device)
         return self.likelihood(out).log_prob(y).sum(-1).mean(-1)
 
     def compute_error(self, out, y):
+        if y.device != out.device:
+            y = y.to(out.device)
         error = (y - out.mean(0)).detach().clone()  # error of mean prediction
         rmse = B.sqrt(B.mean(error**2))
         return rmse

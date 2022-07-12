@@ -27,7 +27,7 @@ import torch.nn as nn
 
 from gi.server import SequentialServer, SynchronousServer
 
-from gi.client import Client
+from gi.client import GI_Client
 
 from slugify import slugify
 from varz import Vars, namespace
@@ -75,25 +75,27 @@ def main(args, config, logger):
     model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
 
     # Build clients
-    clients: dict[str, Client] = {}
+    clients: dict[str, GI_Client] = {}
 
     if config.deterministic and args.num_clients > 1:
         raise ValueError("Deterministic mode is not supported with multiple clients.")
     if config.deterministic and args.num_clients == 1:
-        _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
+        _client = GI_Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
         key = _client.key
         clients[f"client0"] = _client
     else:
         # We use a separate key here to create consistent keys with deterministic (i.e. not calling split_data) runs of PVI.
         # otherwise, replace _tmp_key with key
         _tmp_key = B.create_random_state(B.default_dtype, seed=1)
-        for client_i, (client_x_tr, client_y_tr) in enumerate(split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)):
-            _client = gi.Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
+        _tmp_key, splits = split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)
+        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+            _client = GI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
             key = _client.key
             clients[f"client{client_i}"] = _client
 
     # Plot initial inducing points
-    plot_all_inducing_pts(clients, config.plot_dir)
+    if args.data == DGP.ober_regression:
+        plot_all_inducing_pts(clients, config.plot_dir)
 
     # Optimizer parameters
     S = args.training_samples  # number of training inference samples

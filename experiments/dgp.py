@@ -6,7 +6,7 @@ import torch
 
 from enum import IntEnum
 import logging
-
+import os
 # import matplotlib.pyplot as plt
 # from wbml import plot
 
@@ -18,6 +18,7 @@ class DGP(IntEnum):
     sinusoid = 2
     mnist = 3
     cifar = 4
+    uci_protein = 5
 
 
 def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
@@ -44,11 +45,28 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
     elif dgp == DGP.sinusoid:
         # return dgp2(key, size, xmin, xmax)
         logger.warning(f"DGP2 is not fixed yet. Defaulting to DGP 1...")
+    
+    elif dgp == DGP.uci_protein:
+        file_dir = os.path.dirname(__file__)
+        dir_path = f"{file_dir}/data/uci"
+        X, y = uci_protein(dir_path)
+        scale = B.std(y)
+        X = torch.from_numpy(X).clone()
+        y = torch.from_numpy(y).clone()
+
+        key, splits = split_data_clients(key, X, y, [0.8, 0.2])
+        x_tr, y_tr = splits[0]
+        x_te, y_te = splits[1]
+        
+        return key, X, y, x_tr, y_tr, x_te, y_te, scale
+
     elif dgp == DGP.mnist:
         train_data, test_data = generate_mnist(data_dir="data")
         return key, train_data["x"], train_data["y"], test_data["x"], test_data["y"]
+    
     elif dgp == DGP.cifar:
         logger.warning(f"CIFAR10 is not supported yet. Defaulting to DGP 1...")
+    
     else:
         logger.warning(f"DGP type not recognized. Defaulting to DGP 1...")
 
@@ -68,6 +86,15 @@ def dgp1(key, size, xmin=-4.0, xmax=4.0):
 
     return key, x, y
 
+def uci_protein(dir_path):
+    from data.preprocess_data import download_datasets, process_dataset, datasets, protein_config
+    download_datasets(root_dir=dir_path, datasets={'protein': datasets['protein']})
+    process_dataset(os.path.join(dir_path, "protein"), protein_config)
+    data_dir = lambda x: os.path.join(dir_path, "protein", x)
+
+    X, y = np.load(data_dir("x.npy")), np.load(data_dir("y.npy"))
+
+    return X, y
 
 def dgp2(key, size, xmin=-4.0, xmax=4.0):
 
@@ -154,7 +181,7 @@ def split_data_clients(key, x, y, splits):
 
     indices = B.to_numpy(indices)
 
-    return [(x[indices[offset - length : offset]], y[indices[offset - length : offset]]) for offset, length in zip(accumulate(splits), splits)]
+    return key, [(x[indices[offset - length : offset]], y[indices[offset - length : offset]]) for offset, length in zip(accumulate(splits), splits)]
 
 
 if __name__ == "__main__":

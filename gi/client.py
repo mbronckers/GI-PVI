@@ -15,6 +15,32 @@ from gi.likelihoods import NormalLikelihood
 
 
 class Client:
+    def __init__(self, name: Optional[str], x, y):
+        self.name = name if name else None
+        self.x = x
+        self.y = y
+
+        # Add optimizable client variables to vs
+        self._vs: Vars = Vars(B.default_dtype)
+
+        self.vs.requires_grad(True, *self.vs.names)
+
+    @property
+    def vs(self):
+        return self._vs
+
+    def get_params(self, names: Optional[Union[str, list]] = None) -> list:
+        """Gets the appropriate client's variables from the client-local variable manager"""
+        if names != None:
+            return self.vs.get_latent_vars(names)
+        else:
+            return self.vs.get_latent_vars()
+
+    def __repr__(self) -> str:
+        return f"{self.name}"
+
+
+class GI_Client(Client):
     """
     Client class that contains: client-local data, the parameters of its factor, and container to store the optimizable parameters
 
@@ -32,9 +58,7 @@ class Client:
     """
 
     def __init__(self, key: B.RandomState, name: Optional[str], x, y, M, *dims, random_z, nz_inits, linspace_yz):
-        self.name = name if name else None
-        self.x = x
-        self.y = y
+        super().__init__(name, x, y)
 
         # Build inducing points
         key, z, yz = self.build_z(key, M, x, y, random=random_z)
@@ -45,7 +69,7 @@ class Client:
         self.t: dict[str, NormalPseudoObservation] = t
 
         # Add optimizable client variables to vs
-        self._vs: Vars = Vars(B.default_dtype)
+        # self._vs: Vars = Vars(B.default_dtype)
         self.vs.unbounded(self.z, name=f"zs.{self.name}_z")
 
         for layer_name, _t in self.t.items():
@@ -55,14 +79,10 @@ class Client:
         self.vs.requires_grad(True, *self.vs.names)
 
         # Classification related issue
-        # self.z = self.vs[f"zs.{self.name}_z"]
-        # self.t["layer2"].yz = self.vs[f"ts.{self.name}_layer2_yz"]
+        self.z = self.vs[f"zs.{self.name}_z"]
+        self.t["layer2"].yz = self.vs[f"ts.{self.name}_layer2_yz"]
 
         self.update_nz()
-
-    @property
-    def vs(self):
-        return self._vs
 
     def build_z(self, key: B.RandomState, M: B.Int, x, y, random: bool = False):
         """
@@ -89,9 +109,9 @@ class Client:
             # Select random subset of size M of training points x
             key, perm = B.randperm(key, B.default_dtype, len(x))
             idx = perm[:M]
-            z, yz = x[idx], y[idx]
+            z, yz = x[idx].clone(), y[idx].clone()
         else:
-            z, yz = x, y
+            z, yz = x.clone(), y.clone()
             key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:])  # Generate z_, yz_
             key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
             z = B.concat(z, z_)
@@ -135,13 +155,6 @@ class Client:
 
         return key, ts
 
-    def get_params(self, names: Optional[Union[str, list]] = None) -> list:
-        """Gets the appropriate client's variables from the client-local variable manager"""
-        if names != None:
-            return self.vs.get_latent_vars(names)
-        else:
-            return self.vs.get_latent_vars()
-
     def update_nz(self):
         """Update likelihood factors' precision based on the current state of vs
 
@@ -155,5 +168,7 @@ class Client:
     def get_final_yz(self):
         return self.t[list(self.t.keys())[-1]].yz  # final layer yz
 
-    def __repr__(self) -> str:
-        return f"{self.name}"
+class MFVI_Client(Client):
+    def __init__(self, name: Optional[str], x, y):
+        super().__init__(name, x, y)
+
