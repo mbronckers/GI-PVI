@@ -149,7 +149,7 @@ class GIBNN_Regression(GIBNN):
         return rmse
 
     def performance_metrics(self, loader):
-        if B.ActiveDevice.active_name.__contains__("cuda"):
+        if B.ActiveDevice.active_name and B.ActiveDevice.active_name.__contains__("cuda"):
             loader.pin_memory = True
 
         rmses = 0.0
