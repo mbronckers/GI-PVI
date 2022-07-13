@@ -35,6 +35,7 @@ class Config:
     nz_init: float = B.exp(-4)  # precision
     ll_var: float = 1e-2  # likelihood variance
     fix_ll: bool = True  # fix ll variance
+    random_z: bool = False  # random inducing point initialization
 
     # Learning rates
     separate_lr: bool = False  # True => use seperate learning rates
@@ -48,14 +49,13 @@ class Config:
     dgp: DGP = DGP.ober_regression
     optimizer: str = "Adam"
 
-    random_z: bool = False
+    in_features: int = 1
+    out_features: int = 1
+    dims = [in_features, 50, 50, out_features]
     bias: bool = True
 
-    dims = [1, 50, 50, 1]
-
     load: str = None
-
-    log_step: int = 20
+    log_step: int = 50
 
     start = None
     start_time = None
@@ -76,7 +76,7 @@ class Config:
 
 ################################################################
 
-# The default config settings follow Ober et al.'s toy regression experiment details
+# The default config settings above follows Ober et al.'s toy regression experiment details
 
 
 @dataclass
@@ -88,23 +88,26 @@ class PVIConfig(Config):
 
     # Communication settings
     iters: int = 1  # server iterations
-    epochs: int = 2000  # client-local epochs
+    epochs: int = 1000  # client-local epochs
 
+    # Inference samples.
     I: int = 100  # Number of testing inference samples
     S: int = 10
     plot: bool = True
 
+    # UCI Protein config
     # dgp: DGP = DGP.uci_protein
-    # dims = [9, 50, 50, 1]
+    # in_features: int = 9
+    # out_features: int = 1
     # N: int = 36584  # Num total training data pts, not the number of data pts per client.
     # M: int = 100  # Number of inducing points per client
     # batch_size: int = 100
 
-    N: int = 80  # Num total training data pts, not the number of data pts per client.
-    M: int = 40  # Number of inducing points per client
-    batch_size: int = 80
+    N: int = 40  # Num total training data pts, not the number of data pts per client.
+    M: int = 20  # Number of inducing points per client
+    batch_size: int = 20
 
-    num_clients: int = 2
+    num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior

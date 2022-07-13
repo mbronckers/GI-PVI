@@ -65,18 +65,14 @@ def main(args, config, logger):
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
     # Likelihood variance is fixed in PVI.
-    if config.deterministic:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
-    else:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # (args.ll_var)
+    likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via args/config.ll_var
     logger.info(f"Likelihood variance: {likelihood.var}")
 
-    # Define model
+    # Define model and clients.
     model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
-
-    # Build clients
     clients: dict[str, GI_Client] = {}
 
+    # Build clients.
     if config.deterministic and args.num_clients > 1:
         raise ValueError("Deterministic mode is not supported with multiple clients.")
     if config.deterministic and args.num_clients == 1:
@@ -128,8 +124,14 @@ def main(args, config, logger):
 
             metrics = model.performance_metrics(test_loader)
             logger.info(
-                "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test accuracy: {:13.3%}{}".format(
-                    server.name, iter + 1, iters, Color.BLUE, Color.END, metrics["mll"], metrics["error"]
+                "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test error (RMSE): {:13.3f}{}".format(
+                    server.name,
+                    iter + 1,
+                    iters,
+                    Color.BLUE,
+                    metrics["mll"],
+                    metrics["error"],
+                    Color.END,
                 )
             )
 
@@ -158,21 +160,21 @@ def main(args, config, logger):
 
             logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
-            # Communicated posterior communicated to client in 1st iter is the prior
+            # Compute global (frozen) posterior to communicate to clients.
             if iter == 0:
+                # In 1st iter, only prior is communicated to clients.
                 tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
                 tmp_zs = {curr_client.name: curr_client.z}
             else:
-                # Construct the posterior communicated to client.
                 tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
-            # Run client-local optimization
+            # Run client-local optimization.
             epochs = args.epochs
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
             for epoch in range(epochs):
 
-                # Construct epoch-th minibatch {x, y} training data
+                # Construct epoch-th minibatch {x, y} training data.
                 inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
@@ -184,6 +186,7 @@ def main(args, config, logger):
                 curr_client.update_nz()
                 opt.zero_grad()
 
+                # Log results.
                 if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
                     logger.info(
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -199,9 +202,19 @@ def main(args, config, logger):
     # Log global/server model.
     with torch.no_grad():
         frozen_ts, frozen_zs = collect_vp(clients)
-        # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
-
+        metrics = model.performance_metrics(test_loader)
+        logger.info(
+            "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test error (RMSE): {:13.3f}{}".format(
+                server.name,
+                iter + 1,
+                iters,
+                Color.BLUE,
+                metrics["mll"],
+                metrics["error"],
+                Color.END,
+            )
+        )
         # Run eval on entire dataset
         y_pred = model.propagate(x)
         eval_logging(
@@ -238,12 +251,7 @@ def main(args, config, logger):
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
         ts, zs = collect_vp(clients)
-
-        # Resample <_S> inference weights
-        # key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
         key, _ = model.sample_posterior(key, ps, ts, zs, S=args.inference_samples, cavity_client=None)
-
-        # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
 
         # Log and plot results
@@ -324,7 +332,6 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         mean_ys = y_pred.mean(0)
         std_ys = y_pred.std(0)
         ax = plt.gca()
-        # plt.yticks(np.arange(B.min(ys), B.max(ys)+1, 1.0))
         plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
         plt.plot(x_domain, mean_ys)
         plt.scatter(x_tr, y_tr, c="r")

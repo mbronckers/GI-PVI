@@ -66,39 +66,6 @@ def rebuild(vs, likelihood):
     return likelihood
 
 
-def cavity_distributions(client: Client, ts: dict[str, dict[str, gi.NormalPseudoObservation]], zs: dict[str, B.Numeric], iter: B.Int):
-    """Compute cavity distribution: all except <client>'s approximate likelihoods (and inducing locations)
-    Args:
-        client (Client): current client being optimized
-        ts (dict[str, dict[str, gi.NormalPseudoObservation]]): all clients' approximate likelihoods
-        zs (dict[str, B.Numeric]): all clients' inducing locations
-        iter (B.Int): server iteration number
-
-    Returns:
-        (dict, dict): zs_cav, ts_cav
-    """
-
-    if iter == 0 or (len(zs.keys()) == 1):  #
-        # If first iteration or only one client, the cavity distributions are equal to the prior
-        return None, None
-
-    # Create inducing point collections
-    zs_cav: dict[str, B.Numeric] = {}
-    for client_name, _client_z in zs.items():
-        if client_name != client.name:
-            zs_cav[client_name] = _client_z.detach().clone()
-
-    # Create cavity distributions. Construct from scratch to avoid linked copies.
-    ts_cav: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
-    for layer_name, _t in ts.items():
-        ts_cav[layer_name] = {}
-        for client_name, client_t in _t.items():
-            if client_name != client.name:
-                ts_cav[layer_name][client_name] = copy(client_t)
-
-    return zs_cav, ts_cav
-
-
 def collect_vp(clients: dict[str, Client]):
     """Collects the variational parameters of all clients in detached (frozen) form
 
@@ -112,6 +79,7 @@ def collect_vp(clients: dict[str, Client]):
     tmp_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
     tmp_zs: dict[str, B.Numeric] = {}
 
+    # Construct from scratch to avoid linked copies.
     for client_name, client in clients.items():
         tmp_zs[client_name] = client.z.detach().clone()
 

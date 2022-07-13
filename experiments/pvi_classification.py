@@ -54,7 +54,6 @@ def main(args, config, logger):
 
     # Setup dataset. One-hot encode the labels.
     train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
-
     x_tr, y_tr, x_te, y_te = (
         train_data["x"],
         train_data["y"],
@@ -137,6 +136,7 @@ def main(args, config, logger):
 
         # Get next client(s).
         curr_clients = next(server)
+        num_clients = len(curr_clients)
 
         logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - optimizing {curr_clients}")
 
@@ -148,7 +148,6 @@ def main(args, config, logger):
         metrics = model.performance_metrics(test_loader)
         logger.info("SERVER - {} - iter [{:2}/{:2}] - test mll: {:13.3f} - test accuracy: {:13.3%}".format(server.name, iter + 1, iters, metrics["mll"], metrics["acc"]))
 
-        num_clients = len(curr_clients)
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
