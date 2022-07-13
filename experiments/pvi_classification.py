@@ -65,8 +65,9 @@ def main(args, config, logger):
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = len(x_tr)
 
-    # Define model
+    # Define model and clients.
     model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
+    clients: dict[str, GI_Client] = {}
 
     # Build prior
     M = args.M  # number of inducing points
@@ -79,9 +80,7 @@ def main(args, config, logger):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
-    # Build clients
-    clients: dict[str, GI_Client] = {}
-
+    # Build clients.
     if config.deterministic and args.num_clients > 1:
         raise ValueError("Deterministic mode is not supported with multiple clients.")
     if config.deterministic and args.num_clients == 1:

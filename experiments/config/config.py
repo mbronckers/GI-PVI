@@ -83,7 +83,7 @@ class Config:
 class PVIConfig(Config):
     log_step: int = 50
 
-    deterministic: bool = False  # deterministic client training data and likelihood variance (3/scale)
+    deterministic: bool = False  # deterministic client training
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings

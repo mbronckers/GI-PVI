@@ -42,7 +42,7 @@ from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
 def main(args, config, logger):
-    # Lab variable initialization
+    # Lab variable initialization.
     B.default_dtype = torch.float32
     B.epsilon = 0.0
     key = B.create_random_state(B.default_dtype, seed=args.seed)
@@ -54,12 +54,12 @@ def main(args, config, logger):
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     logger.info(f"Scale: {scale}")
 
-    # Build prior
+    # Build prior.
     M = args.M  # number of inducing points
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
 
-    # Deal with client split
+    # Deal with client split.
     if args.num_clients != len(config.client_splits):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
@@ -89,11 +89,11 @@ def main(args, config, logger):
             key = _client.key
             clients[f"client{client_i}"] = _client
 
-    # Plot initial inducing points
+    # Plot initial inducing points.
     if args.data == DGP.ober_regression:
         plot_all_inducing_pts(clients, config.plot_dir)
 
-    # Optimizer parameters
+    # Optimizer parameters.
     S = args.training_samples  # number of training inference samples
     epochs = args.epochs
     log_step = config.log_step
@@ -166,7 +166,8 @@ def main(args, config, logger):
                 tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
                 tmp_zs = {curr_client.name: curr_client.z}
             else:
-                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
+                # All detached except current client.
+                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)
 
             # Run client-local optimization.
             epochs = args.epochs
