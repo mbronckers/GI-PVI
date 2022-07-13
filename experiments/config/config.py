@@ -87,10 +87,10 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 4  # server iterations
+    iters: int = 1  # server iterations
     epochs: int = 2000  # client-local epochs
 
-    I: int = 100  # Number of inference samples
+    I: int = 100  # Number of testing inference samples
     S: int = 10
     plot: bool = True
 
@@ -104,7 +104,7 @@ class PVIConfig(Config):
     M: int = 40  # Number of inducing points per client
     batch_size: int = 80
 
-    num_clients: int = 1
+    num_clients: int = 2
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
@@ -139,16 +139,15 @@ class ClassificationConfig(PVIConfig):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 1  # server iterations
-    epochs: int = 200  # client-local epochs
+    iters: int = 2  # server iterations
+    epochs: int = 100  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 60000
     M: int = 100  # Number of inducing points per client
     S: int = 1
-    I: int = 100
-    batch_size: int = 128
-    optimizer: str = "Adam"
+    I: int = 5
+    batch_size: int = 1024
 
     num_clients: int = 1
     server_type: Server = SynchronousServer
@@ -159,7 +158,7 @@ class ClassificationConfig(PVIConfig):
 
     # Learning rates
     separate_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.10
+    lr_global: float = 0.05
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01

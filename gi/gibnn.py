@@ -148,6 +148,23 @@ class GIBNN_Regression(GIBNN):
         rmse = B.sqrt(B.mean(error**2))
         return rmse
 
+    def performance_metrics(self, loader):
+        if B.ActiveDevice.active_name.__contains__("cuda"):
+            loader.pin_memory = True
+
+        rmses = 0.0
+        mlls = 0.0
+        for batch_idx, (x_mb, y_mb) in enumerate(loader):
+            y_pred = self(x_mb)
+            mll = self.compute_ell(y_pred, y_mb)  # [S]
+
+            rmses += self.compute_error(y_pred, y_mb)
+            mlls = ((mlls * batch_idx) + mll.mean()) / (batch_idx + 1)
+
+        N = loader.dataset.tensors[1].shape[0]
+        rmse = rmses / N
+        return {"error": rmse, "mll": mlls}
+
 
 class GIBNN_Classification(GIBNN):
     def __init__(self, nonlinearity, bias: bool, kl: KL):
@@ -157,27 +174,31 @@ class GIBNN_Classification(GIBNN):
         _y = B.tile(B.to_active_device(y), out.shape[0], 1, 1)  # reshape y into [S x N x Dout]
         assert _y.shape == out.shape, "These need to be the same shape."
         return torch.distributions.Categorical(logits=out).log_prob(torch.argmax(_y, dim=-1)).mean(-1)
-        # _qy = torch.distributions.Categorical(logits=out)
-        # _mix = torch.distributions.Categorical(logits=torch.ones(size=_qy.batch_shape).to(out))
-        # qy = torch.distributions.MixtureSameFamily(_mix, _qy)
-        # qy.log_prob(B.to_active_device(y.argmax(-1)[..., None])).cpu().mean(-1)
 
     def compute_error(self, out, y):
         # out: [S x N x Dout]; y [N x Dout]
 
-        # Ober repo:
         output = out.log_softmax(-1).logsumexp(0) - B.log(out.shape[0])
         pred = output.argmax(dim=-1).cpu()
-        # pred = torch.squeeze(torch.nn.functional.one_hot(pred, num_classes=y.shape[1]))
         accuracy = pred.eq(torch.argmax(y, dim=1).view_as(pred)).float().mean()
-
-        # PVI repo:
-        # _qy = torch.distributions.Categorical(logits=out)
-        # _mix = torch.distributions.Categorical(logits=torch.ones(size=_qy.batch_shape).to(out))
-        # qy = torch.distributions.MixtureSameFamily(_mix, _qy)
-        # pred = qy.component_distribution.probs.mean(0).cpu()
-        # accuracy = (pred.argmax(dim=-1) == torch.argmax(y, dim=1)).float().mean()
 
         del y
         del pred
         return 1 - accuracy
+
+    def performance_metrics(self, loader):
+        if B.ActiveDevice.active_name.__contains__("cuda"):
+            loader.pin_memory = True
+        correct = 0
+        mlls = 0.0
+        for batch_idx, (x_mb, y_mb) in enumerate(loader):
+            y_pred = self(x_mb)  # one-hot encoded
+            mll = self.compute_ell(y_pred, y_mb)  # [S]
+            error = self.compute_error(y_pred, y_mb)
+            correct += int((1 - error) * y_mb.shape[0])
+
+            mlls = ((mlls * batch_idx) + mll.mean()) / (batch_idx + 1)
+
+        N = loader.dataset.tensors[1].shape[0]
+        acc = correct / N
+        return {"acc": acc, "mll": mlls}

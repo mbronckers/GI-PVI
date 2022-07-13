@@ -36,15 +36,13 @@ from wbml import experiment, out
 from config.config import Color, PVIConfig, ClassificationConfig
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
-from utils.gif import make_gif
-from utils.metrics import rmse
+from torch.utils.data import DataLoader, TensorDataset
 from utils.optimization import (
     collect_frozen_vp,
     construct_optimizer,
     collect_vp,
     estimate_local_vfe,
 )
-from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
 def main(args, config, logger):
@@ -54,17 +52,19 @@ def main(args, config, logger):
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
 
-    # Setup dataset.
+    # Setup dataset. One-hot encode the labels.
     train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
+
     x_tr, y_tr, x_te, y_te = (
         train_data["x"],
         train_data["y"],
         test_data["x"],
         test_data["y"],
     )
-    N = len(x_tr)
     y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
     y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
+    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
+    N = len(x_tr)
 
     # Define model
     model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
@@ -73,7 +73,6 @@ def main(args, config, logger):
     M = args.M  # number of inducing points
     dims = config.dims
     assert dims[0] == x_tr.shape[1]
-    # and dims[-1] == B.max(y_tr) + 1
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
 
     # Deal with client split
@@ -144,6 +143,11 @@ def main(args, config, logger):
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
 
+        # Log performance.
+        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, config.I)
+        metrics = model.performance_metrics(test_loader)
+        logger.info("SERVER - {} - iter [{:2}/{:2}] - test mll: {:13.3f} - test accuracy: {:13.3%}".format(server.name, iter + 1, iters, metrics["mll"], metrics["acc"]))
+
         num_clients = len(curr_clients)
         for idx, curr_client in enumerate(curr_clients):
 
@@ -201,12 +205,21 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-    # Save var state
+    # Save the state of optimizable variables
     _global_vs_state_dict = {}
     for _, _c in clients.items():
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
+
+    # Log performance.
+    key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, config.I)
+    metrics = model.performance_metrics(test_loader)
+    logger.info(
+        "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test accuracy: {:13.3%}{}".format(
+            server.name, iter + 1, iters, Color.BLUE, Color.END, metrics["mll"], metrics["acc"]
+        )
+    )
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 

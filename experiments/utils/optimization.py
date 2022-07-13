@@ -47,7 +47,6 @@ def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs
         params = curr_client.get_params()
 
     opt = getattr(torch.optim, config.optimizer)(params, **config.optimizer_params)
-    # opt = torch.optim.Adam(params, **config.optimizer_params)
 
     return opt
 

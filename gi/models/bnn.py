@@ -62,6 +62,15 @@ class BaseBNN:
     def __call__(self, x):
         return self.propagate(x)
 
+    def get_total_kl(self):
+        if self.cache == None:
+            return None
+        kl_qp = 0.0
+        for layer, layer_dict in self.cache.items():
+            kl_qp += layer_dict["kl"]
+
+        return kl_qp
+
     @property
     def S(self):
         """Returns cached number of weight samples"""

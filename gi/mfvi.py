@@ -57,6 +57,7 @@ class MFVI(BaseBNN):
 
         return key, self.cache
 
+
 class MFVI_Regression(MFVI):
     def __init__(self, nonlinearity, bias: bool, kl: KL) -> None:
         super().__init__(nonlinearity, bias, kl)
