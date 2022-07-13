@@ -20,10 +20,9 @@ import gi
 import lab as B
 import lab.torch
 import numpy as np
-import pandas as pd
-import seaborn as sns
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
 from gi.server import SequentialServer, SynchronousServer
 
@@ -52,6 +51,7 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
+    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     logger.info(f"Scale: {scale}")
 
     # Build prior
@@ -121,10 +121,17 @@ def main(args, config, logger):
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
 
-        # Log global/server model.
+        # Log performance of global server model.
         with torch.no_grad():
             # Resample <_S> inference weights
             key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+            metrics = model.performance_metrics(test_loader)
+            logger.info(
+                "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test accuracy: {:13.3%}{}".format(
+                    server.name, iter + 1, iters, Color.BLUE, Color.END, metrics["mll"], metrics["error"]
+                )
+            )
 
             # Run eval on entire dataset
             y_pred = model.propagate(x)
