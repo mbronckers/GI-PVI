@@ -210,11 +210,7 @@ class NaturalNormal:
         return _kl
 
     def logpdf(self, x):
-        # Ours
         return Normal.from_naturalnormal(self).logpdf(x)
-
-        # Torch
-        return torch.distributions.normal.Normal(loc=B.dense(self.mean), scale=B.dense(self.var)).log_prob(x)
 
     def sample(self, key: B.RandomState, num: B.Int = 1):
         """

@@ -33,7 +33,8 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import Color, PVIConfig
+from config.config import PVIConfig
+from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif

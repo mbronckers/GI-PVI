@@ -174,11 +174,11 @@ def split_data(x, y, lb_mid=-2.0, ub_mid=2.0):
 def split_data_clients(key, x, y, splits):
     """Split data based on list of splits provided"""
     # Cannot verify that dataset is Sized
-    if len(x) != len(y) or not (sum(splits) == len(x) or sum(splits) == 1):
+    if len(x) != len(y) or not (sum(splits) == len(x) or abs(sum(splits) - 1) < 1e-6):
         raise ValueError("Mismatch: len(x) != len(y) or sum of input lengths does not equal the length of the input dataset!")
 
     # If fractions provided, multiply to get lengths/counts
-    if sum(splits) == 1.0:
+    if abs(sum(splits) - 1.0) < 1e-6:
         splits = [int(len(x) * split) for split in splits]
 
     key, indices = B.randperm(key, B.default_dtype, sum(splits))

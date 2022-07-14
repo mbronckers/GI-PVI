@@ -17,7 +17,8 @@ _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
 sys.path.insert(0, os.path.abspath(_root_dir))
 
 import gi
-from config.config import Color, Config
+from config.config import Config
+from utils.colors import Color
 from gi.utils.plotting import line_plot, plot_confidence, plot_predictions, scatter_plot
 from wbml import experiment, out, plot
 
@@ -87,7 +88,7 @@ def eval_logging(
         _plot (bool): save plot figure
     """
     _S = y_pred.shape[0]  # number of inference samples
-    
+
     # Log test error and variance
     logger.info(f"{Color.WHITE}{data_name} error (RMSE): {round(error.item(), 3):3}, var: {round(y_pred.var().item(), 3):3}{Color.END}")
 
@@ -124,7 +125,18 @@ def eval_logging(
     if x.shape[-1] == 1:
         # Plot eval data, training data, and model predictions (in that order)
         _ax = scatter_plot(
-            None, x, y, x_tr, y_tr, f"{data_name.capitalize()} data", "Training data", "x", "y", f"Model predictions on {data_name.lower()} data ({_S} samples)", ylim=ylim, xlim=xlim
+            None,
+            x,
+            y,
+            x_tr,
+            y_tr,
+            f"{data_name.capitalize()} data",
+            "Training data",
+            "x",
+            "y",
+            f"Model predictions on {data_name.lower()} data ({_S} samples)",
+            ylim=ylim,
+            xlim=xlim,
         )
         scatterplot = plot.patch(sns.scatterplot)
         scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])

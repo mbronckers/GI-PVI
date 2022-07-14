@@ -33,7 +33,8 @@ from gi.client import GI_Client
 from slugify import slugify
 from wbml import experiment, out
 
-from config.config import Color, PVIConfig, ClassificationConfig
+from config.config import PVIConfig, ClassificationConfig
+from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from torch.utils.data import DataLoader, TensorDataset
@@ -62,6 +63,7 @@ def main(args, config, logger):
     )
     y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
     y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
+    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = len(x_tr)
 
@@ -123,32 +125,30 @@ def main(args, config, logger):
     log_step = config.log_step
 
     # Construct server.
-    server = config.server_type(clients)
-    if isinstance(server, SequentialServer):
-        # Loop over all clients <iters> times.
-        iters = args.iters * config.num_clients
-    else:
-        iters = args.iters
+    server = config.server_type(clients, model, args.iters)
+    server.train_loader = train_loader
+    server.test_loader = test_loader
 
     # Perform PVI.
+    iters = server.max_iters
     for iter in range(iters):
+        server.curr_iter = iter
+
+        # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
+        frozen_ts, frozen_zs = collect_vp(clients)
+
+        # Log performance of global server model.
+        with torch.no_grad():
+            # Resample <S> inference weights
+            key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+            server.evaluate_performance()
 
         # Get next client(s).
         curr_clients = next(server)
         num_clients = len(curr_clients)
 
-        logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - optimizing {curr_clients}")
-
-        # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, frozen_zs = collect_vp(clients)
-
-        # Log performance.
-        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, config.I)
-        metrics = model.performance_metrics(test_loader)
-        logger.info("SERVER - {} - iter [{:2}/{:2}] - test mll: {:13.3f} - test accuracy: {:13.3%}".format(server.name, iter + 1, iters, metrics["mll"], metrics["acc"]))
-
-        # TODO: save metrics to file.
-
+        # Run client-local optimization.
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
@@ -199,9 +199,6 @@ def main(args, config, logger):
                     logger.info(
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
-                    # Only plot every <log_step> epoch
-                    # if args.plot and ((epoch + 1) % log_step == 0):
-                    # plot_client_vp(config, curr_client, i, epoch)
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -214,14 +211,13 @@ def main(args, config, logger):
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
 
-    # Log performance.
-    key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, config.I)
-    metrics = model.performance_metrics(test_loader)
-    logger.info(
-        "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test accuracy: {:13.3%}{}".format(
-            server.name, iter + 1, iters, Color.BLUE, Color.END, metrics["mll"], metrics["acc"]
-        )
-    )
+    # Log global/server model post training
+    server.curr_iter += 1
+    with torch.no_grad():
+        frozen_ts, frozen_zs = collect_vp(clients)
+        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+        server.evaluate_performance()
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 

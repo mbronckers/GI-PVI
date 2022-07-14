@@ -34,7 +34,8 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import Color, Config
+from config.config import Config
+from utils.colors import Color
 from dgp import DGP, generate_data, split_data, split_data_clients
 from priors import build_prior, parse_prior_arg
 from utils.gif import make_gif

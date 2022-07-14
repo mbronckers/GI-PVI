@@ -135,6 +135,7 @@ class GIBNN_Regression(GIBNN):
     def __init__(self, nonlinearity, bias: bool, kl: KL, likelihood: Callable):
         super().__init__(nonlinearity, bias, kl)
         self.likelihood = likelihood
+        self.error_metric = "error"
 
     def compute_ell(self, out, y):
         if y.device != out.device:
@@ -149,7 +150,7 @@ class GIBNN_Regression(GIBNN):
         return rmse
 
     def performance_metrics(self, loader):
-        if B.ActiveDevice.active_name and B.ActiveDevice.active_name.__contains__("cuda"):
+        if B.ActiveDevice.active_name and B.ActiveDevice.active_name.__contains__("cuda") and (not loader.dataset[0][0].device.type == "cuda"):
             loader.pin_memory = True
 
         rmses = 0.0
@@ -163,12 +164,13 @@ class GIBNN_Regression(GIBNN):
 
         N = loader.dataset.tensors[1].shape[0]
         rmse = rmses / N
-        return {"error": rmse, "mll": mlls}
+        return {"mll": mlls, self.error_metric: rmse}
 
 
 class GIBNN_Classification(GIBNN):
     def __init__(self, nonlinearity, bias: bool, kl: KL):
         super().__init__(nonlinearity, bias, kl)
+        self.error_metric = "acc"
 
     def compute_ell(self, out, y):
         _y = B.tile(B.to_active_device(y), out.shape[0], 1, 1)  # reshape y into [S x N x Dout]
@@ -187,7 +189,7 @@ class GIBNN_Classification(GIBNN):
         return 1 - accuracy
 
     def performance_metrics(self, loader):
-        if B.ActiveDevice.active_name.__contains__("cuda"):
+        if B.ActiveDevice.active_name and B.ActiveDevice.active_name.__contains__("cuda") and (not loader.dataset[0][0].device.type == "cuda"):
             loader.pin_memory = True
         correct = 0
         mlls = 0.0
@@ -195,10 +197,10 @@ class GIBNN_Classification(GIBNN):
             y_pred = self(x_mb)  # one-hot encoded
             mll = self.compute_ell(y_pred, y_mb)  # [S]
             error = self.compute_error(y_pred, y_mb)
-            correct += int((1 - error) * y_mb.shape[0])
+            correct += (1 - error) * y_mb.shape[0]
 
             mlls = ((mlls * batch_idx) + mll.mean()) / (batch_idx + 1)
 
         N = loader.dataset.tensors[1].shape[0]
         acc = correct / N
-        return {"acc": acc, "mll": mlls}
+        return {"mll": mlls, self.error_metric: acc}

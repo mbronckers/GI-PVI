@@ -8,5 +8,8 @@
     "editor.formatOnPaste": false,
     "editor.formatOnSave": true,
     "python.formatting.provider": "black",
-    "editor.foldingImportsByDefault": true
+    "editor.foldingImportsByDefault": true,
+    "python.analysis.extraPaths": [
+        "./experiments"
+    ]
 }

@@ -6,6 +6,7 @@ import shutil
 import sys
 from datetime import datetime
 from matplotlib import pyplot as plt
+import pandas as pd
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -24,7 +25,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from gi.server import SequentialServer, SynchronousServer
+# from gi.server import SequentialServer, SynchronousServer
 
 from gi.client import GI_Client
 
@@ -32,7 +33,8 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import Color, PVIConfig
+from config.config import PVIConfig
+from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif
@@ -51,7 +53,8 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
-    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
+    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
     logger.info(f"Scale: {scale}")
 
     # Build prior.
@@ -99,41 +102,24 @@ def main(args, config, logger):
     log_step = config.log_step
 
     # Construct server.
-    server = config.server_type(clients)
-    if isinstance(server, SequentialServer):
-        # Loop over all clients <iters> times.
-        iters = args.iters * config.num_clients
-    else:
-        iters = args.iters
+    server = config.server_type(clients, model, args.iters)
+    server.train_loader = train_loader
+    server.test_loader = test_loader
 
     # Perform PVI.
+    iters = server.max_iters
     for iter in range(iters):
+        server.curr_iter = iter
 
-        # Get next client(s).
-        curr_clients = next(server)
-
-        logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - optimizing {curr_clients}")
-
-        # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
+        # Construct frozen zs, ts of all clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
 
         # Log performance of global server model.
         with torch.no_grad():
-            # Resample <_S> inference weights
+            # Resample <S> inference weights
             key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
 
-            metrics = model.performance_metrics(test_loader)
-            logger.info(
-                "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test error (RMSE): {:13.3f}{}".format(
-                    server.name,
-                    iter + 1,
-                    iters,
-                    Color.BLUE,
-                    metrics["mll"],
-                    metrics["error"],
-                    Color.END,
-                )
-            )
+            server.evaluate_performance()
 
             # Run eval on entire dataset
             y_pred = model.propagate(x)
@@ -152,7 +138,11 @@ def main(args, config, logger):
                 plot_samples=False,
             )
 
+        # Get next client(s).
+        curr_clients = next(server)
         num_clients = len(curr_clients)
+
+        # Run client-local optimization.
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
@@ -200,22 +190,14 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-    # Log global/server model.
+    # Log global/server model post training
+    server.curr_iter += 1
     with torch.no_grad():
         frozen_ts, frozen_zs = collect_vp(clients)
         key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
-        metrics = model.performance_metrics(test_loader)
-        logger.info(
-            "SERVER - {} - iter [{:2}/{:2}] - {}test mll: {:13.3f} - test error (RMSE): {:13.3f}{}".format(
-                server.name,
-                iter + 1,
-                iters,
-                Color.BLUE,
-                metrics["mll"],
-                metrics["error"],
-                Color.END,
-            )
-        )
+
+        server.evaluate_performance()
+
         # Run eval on entire dataset
         y_pred = model.propagate(x)
         eval_logging(
@@ -239,6 +221,10 @@ def main(args, config, logger):
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
+
+    # Save model metrics.
+    metrics = pd.DataFrame(server.log)
+    metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
 
     if args.plot:
         for c_name in clients.keys():
@@ -448,15 +434,15 @@ if __name__ == "__main__":
     config.server_dir = _server_dir
 
     # Save script
-    if os.path.exists(os.path.abspath(sys.argv[0])):
-        shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(
-            os.path.join(_root_dir, "experiments/config/config.py"),
-            _wd.file("config.py"),
-        )
+    # if os.path.exists(os.path.abspath(sys.argv[0])):
+    #     shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
+    #     shutil.copy(
+    #         os.path.join(_root_dir, "experiments/config/config.py"),
+    #         _wd.file("config.py"),
+    #     )
 
-    else:
-        out("Could not save calling script.")
+    # else:
+    #     out("Could not save calling script.")
 
     #### Logging ####
     logging.config.fileConfig(

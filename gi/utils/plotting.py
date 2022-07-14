@@ -12,6 +12,7 @@ from torch import Tensor
 from wbml import plot
 
 colors = sns.color_palette("bright")
+sns.set_style("whitegrid")
 sns.set_palette(colors)
 # matplotlib.rcParams["figure.dpi"] = 500  # for high quality, retina plots
 # matplotlib.use("Agg")
