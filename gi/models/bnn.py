@@ -65,8 +65,9 @@ class BaseBNN:
     def get_total_kl(self):
         if self.cache == None:
             return None
+
         kl_qp = 0.0
-        for layer, layer_dict in self.cache.items():
+        for layer_dict in self.cache.values():
             kl_qp += layer_dict["kl"]
 
         return kl_qp

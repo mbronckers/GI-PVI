@@ -142,8 +142,8 @@ class ClassificationConfig(PVIConfig):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 2  # server iterations
-    epochs: int = 100  # client-local epochs
+    iters: int = 3  # server iterations
+    epochs: int = 200  # client-local epochs
 
     # Note: number of test points is also equal to N
     N: int = 60000
@@ -152,7 +152,7 @@ class ClassificationConfig(PVIConfig):
     I: int = 5
     batch_size: int = 1024
 
-    num_clients: int = 1
+    num_clients: int = 3
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior

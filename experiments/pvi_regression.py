@@ -434,15 +434,15 @@ if __name__ == "__main__":
     config.server_dir = _server_dir
 
     # Save script
-    # if os.path.exists(os.path.abspath(sys.argv[0])):
-    #     shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-    #     shutil.copy(
-    #         os.path.join(_root_dir, "experiments/config/config.py"),
-    #         _wd.file("config.py"),
-    #     )
+    if os.path.exists(os.path.abspath(sys.argv[0])):
+        shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
+        shutil.copy(
+            os.path.join(_root_dir, "experiments/config/config.py"),
+            _wd.file("config.py"),
+        )
 
-    # else:
-    #     out("Could not save calling script.")
+    else:
+        out("Could not save calling script.")
 
     #### Logging ####
     logging.config.fileConfig(

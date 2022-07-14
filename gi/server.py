@@ -40,6 +40,7 @@ class Server:
             self.log[k].append(v)
 
     def evaluate_performance(self):
+        """Runs evaluation of the global (shared) model on training and test data."""
         with torch.no_grad():
 
             # Get performance metrics.
@@ -47,14 +48,16 @@ class Server:
             test_metrics = self.model.performance_metrics(self.test_loader)
             error_key = self.model.error_metric
             logger.info(
-                "SERVER - {} - iter [{:2}/{:2}] - {}train mll: {:8.3f}, train error: {:8.3f}, test mll: {:8.3f}, test error: {:8.3f}{}".format(
+                "SERVER - {} - iter [{:2}/{:2}] - {}train mll: {:8.3f}, train {}: {:8.3f}, test mll: {:8.3f}, test {}: {:8.3f}{}".format(
                     self.name,
-                    self.curr_iter + 1,
+                    self.curr_iter,
                     self.max_iters,
                     Color.BLUE,
                     train_metrics["mll"],
+                    error_key,
                     train_metrics[error_key],
                     test_metrics["mll"],
+                    error_key,
                     test_metrics[error_key],
                     Color.END,
                 )

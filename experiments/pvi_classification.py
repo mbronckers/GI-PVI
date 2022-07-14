@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Callable, Optional
 
 from matplotlib import pyplot as plt
+import pandas as pd
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -204,13 +205,6 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-    # Save the state of optimizable variables
-    _global_vs_state_dict = {}
-    for _, _c in clients.items():
-        _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
-        _global_vs_state_dict.update(_vs_state_dict)
-    torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
-
     # Log global/server model post training
     server.curr_iter += 1
     with torch.no_grad():
@@ -218,6 +212,17 @@ def main(args, config, logger):
         key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
 
         server.evaluate_performance()
+
+    # Save the state of optimizable variables
+    _global_vs_state_dict = {}
+    for _, _c in clients.items():
+        _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
+        _global_vs_state_dict.update(_vs_state_dict)
+    torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
+
+    # Save model metrics.
+    metrics = pd.DataFrame(server.log)
+    metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 

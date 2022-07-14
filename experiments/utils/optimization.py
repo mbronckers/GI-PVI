@@ -133,9 +133,7 @@ def estimate_local_vfe(
     out = model.propagate(x)  # out : [S x N x Dout]
 
     # Compute KL divergence.
-    kl = 0.0
-    for layer_name, layer_cache in _cache.items():  # stored KL in cache already
-        kl += layer_cache["kl"]
+    kl = model.get_total_kl()
 
     # Compute the expected log-likelihood.
     exp_ll = model.compute_ell(out, y)
