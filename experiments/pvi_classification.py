@@ -147,6 +147,8 @@ def main(args, config, logger):
         metrics = model.performance_metrics(test_loader)
         logger.info("SERVER - {} - iter [{:2}/{:2}] - test mll: {:13.3f} - test accuracy: {:13.3%}".format(server.name, iter + 1, iters, metrics["mll"], metrics["acc"]))
 
+        # TODO: save metrics to file.
+
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
@@ -167,6 +169,8 @@ def main(args, config, logger):
             client_data_size = curr_client.x.shape[0]
             batch_size = min(client_data_size, min(args.batch_size, N))
             for epoch in range(epochs):
+
+                # TODO: construct train loader
 
                 # Construct epoch-th minibatch {x, y} training data
                 inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
