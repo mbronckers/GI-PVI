@@ -23,7 +23,7 @@ class Config:
     plot: bool = True
     deterministic: bool = False
 
-    epochs: int = 1000
+    client_local_iterations: int = 1000
 
     N: int = 40  # Number of training data pts
     M: int = 40  # Number of inducing points
@@ -87,12 +87,9 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 5  # server iterations
-    epochs: int = 500  # client-local epochs
+    global_iters: int = 5  # server iterations
+    local_iterations: int = 500  # client-local iterations
 
-    # Inference samples.
-    I: int = 100  # Number of testing inference samples
-    S: int = 10
     plot: bool = True
 
     # UCI Protein config
@@ -121,7 +118,7 @@ class PVIConfig(Config):
             self.name = "sync_pvi"
         else:
             self.name = "pvi"
-        self.name += f"_{self.num_clients}c_{self.iters}i_{self.epochs}e_{self.N}N_{self.M}M_{str(self.kl)}"
+        self.name += f"_{self.num_clients}c_{self.iters}i_{self.global_iters}e_{self.N}N_{self.M}M_{str(self.kl)}"
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
@@ -142,8 +139,8 @@ class ClassificationConfig(PVIConfig):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    iters: int = 3  # server iterations
-    epochs: int = 200  # client-local epochs
+    global_iters: int = 3  # shared/global server iterations
+    client_local_iterations: int = 200  # client-local optimization data updates
 
     # Note: number of test points is also equal to N
     N: int = 60000
@@ -168,7 +165,15 @@ class ClassificationConfig(PVIConfig):
 
     def __post_init__(self):
         super().__post_init__()
-        self.name = "pvi_class"
+        # Directory name
+        if self.server_type == SequentialServer:
+            self.name = "seq_pvi"
+        elif self.server_type == SynchronousServer:
+            self.name = "sync_pvi"
+        else:
+            self.name = "pvi"
+
+        self.name += "_class"
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
         self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1

@@ -73,3 +73,20 @@ class MFVI_Regression(MFVI):
         error = (y - out.mean(0)).detach().clone()  # error of mean prediction
         rmse = B.sqrt(B.mean(error**2))
         return rmse
+
+    def performance_metrics(self, loader):
+        if B.ActiveDevice.active_name and B.ActiveDevice.active_name.__contains__("cuda") and (not loader.dataset[0][0].device.type == "cuda"):
+            loader.pin_memory = True
+
+        rmses = 0.0
+        mlls = 0.0
+        for batch_idx, (x_mb, y_mb) in enumerate(loader):
+            y_pred = self(x_mb)
+            mll = self.compute_ell(y_pred, y_mb)  # [S]
+
+            rmses += self.compute_error(y_pred, y_mb)
+            mlls = ((mlls * batch_idx) + mll.mean()) / (batch_idx + 1)
+
+        N = loader.dataset.tensors[1].shape[0]
+        rmse = rmses / N
+        return {"mll": mlls, self.error_metric: rmse}

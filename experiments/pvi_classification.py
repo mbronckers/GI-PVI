@@ -131,9 +131,9 @@ def main(args, config, logger):
     server.test_loader = test_loader
 
     # Perform PVI.
-    iters = server.max_iters
+    iters = server.max_global_iters
     for iter in range(iters):
-        server.curr_iter = iter
+        server.curr_global_iter = iter
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
@@ -235,12 +235,12 @@ if __name__ == "__main__":
     config = ClassificationConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
+    parser.add_argument("--client_iters", "-e", type=int, help="client-local optimization steps", default=config.client_local_iterations)
     parser.add_argument(
         "--iters",
         "-i",
         type=int,
-        help="server iters (running over all clients <iters> times)",
+        help="Number of global server iters (running over all clients <iters> times)",
         default=config.iters,
     )
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)

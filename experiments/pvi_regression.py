@@ -25,8 +25,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-# from gi.server import SequentialServer, SynchronousServer
-
 from gi.client import GI_Client
 
 from slugify import slugify
@@ -98,7 +96,7 @@ def main(args, config, logger):
 
     # Optimizer parameters.
     S = args.training_samples  # number of training inference samples
-    epochs = args.epochs
+    client_iters = args.client_iters  # number of client iterations
     log_step = config.log_step
 
     # Construct server.
@@ -107,7 +105,7 @@ def main(args, config, logger):
     server.test_loader = test_loader
 
     # Perform PVI.
-    iters = server.max_iters
+    iters = server.max_global_iters
     for iter in range(iters):
         server.curr_iter = iter
 
@@ -160,13 +158,13 @@ def main(args, config, logger):
                 tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)
 
             # Run client-local optimization.
-            epochs = args.epochs
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
-            for epoch in range(epochs):
+            max_local_iters = args.client_local_iters
+            for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.
-                inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
+                inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
@@ -178,16 +176,16 @@ def main(args, config, logger):
                 opt.zero_grad()
 
                 # Log results.
-                if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
+                if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Only plot every <log_step> epoch
                     if args.plot and ((epoch + 1) % log_step == 0):
                         plot_client_vp(config, curr_client, iter, epoch)
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
     # Log global/server model post training
@@ -335,8 +333,8 @@ if __name__ == "__main__":
     config = PVIConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
-    parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.iters)
+    parser.add_argument("--client_iters", "-e", type=int, help="client epochs", default=config.local_iters)
+    parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")

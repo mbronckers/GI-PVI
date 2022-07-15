@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Optional, Union
 
 import torch
-from gi.distributions import NormalPseudoObservation
+from gi.distributions import NaturalNormalFactor, NormalPseudoObservation
 import lab as B
 import lab.torch
 from varz import Vars
@@ -22,8 +22,6 @@ class Client:
 
         # Add optimizable client variables to vs
         self._vs: Vars = Vars(B.default_dtype)
-
-        self.vs.requires_grad(True, *self.vs.names)
 
     @property
     def vs(self):
@@ -172,3 +170,6 @@ class GI_Client(Client):
 class MFVI_Client(Client):
     def __init__(self, name: Optional[str], x, y):
         super().__init__(name, x, y)
+
+        # Layer posteriors
+        self.qs: dict[str, NaturalNormalFactor] = {}

@@ -6,6 +6,7 @@ import shutil
 import sys
 from datetime import datetime
 from matplotlib import pyplot as plt
+import pandas as pd
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -20,12 +21,9 @@ import gi
 import lab as B
 import lab.torch
 import numpy as np
-import pandas as pd
-import seaborn as sns
 import torch
 import torch.nn as nn
-
-from gi.server import SequentialServer, SynchronousServer
+from torch.utils.data import DataLoader, TensorDataset
 
 from gi.client import MFVI_Client
 
@@ -44,8 +42,8 @@ from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 
 
 def main(args, config, logger):
-    # Lab variable initialization
-    B.default_dtype = torch.float64
+    # Lab variable initialization.
+    B.default_dtype = torch.float32
     B.epsilon = 0.0
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
@@ -53,79 +51,64 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
+    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
+    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
     logger.info(f"Scale: {scale}")
 
-    # Build prior
+    # Build prior.
     M = args.M  # number of inducing points
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=args.bias)
 
-    # Deal with client split
+    # Deal with client split.
     if args.num_clients != len(config.client_splits):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
     # Likelihood variance is fixed in PVI.
-    if config.deterministic:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
-    else:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # (args.ll_var)
+    likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via args/config.ll_var
     logger.info(f"Likelihood variance: {likelihood.var}")
 
-    # Define model
-    model = gi.MFVI_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
-
-    # Build clients
+    # Define model and clients.
+    model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
     clients: dict[str, MFVI_Client] = {}
 
-    if config.deterministic and args.num_clients > 1:
-        raise ValueError("Deterministic mode is not supported with multiple clients.")
-    if config.deterministic and args.num_clients == 1:
-        _client = gi.Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
-        key = _client.key
-        clients[f"client0"] = _client
-    else:
-        # We use a separate key here to create consistent keys with deterministic (i.e. not calling split_data) runs of PVI.
-        # otherwise, replace _tmp_key with key
-        _tmp_key = B.create_random_state(B.default_dtype, seed=1)
-        _tmp_key, splits = split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)
-        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-            _client = gi.Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
-            key = _client.key
-            clients[f"client{client_i}"] = _client
+    # Build clients.
+    key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
+    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+        _client = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
 
-    # Plot initial inducing points
+        key = _client.key
+        clients[f"client{client_i}"] = _client
+
+    # Plot initial inducing points.
     if args.data == DGP.ober_regression:
         plot_all_inducing_pts(clients, config.plot_dir)
 
-    # Optimizer parameters
+    # Optimizer parameters.
     S = args.training_samples  # number of training inference samples
     epochs = args.epochs
     log_step = config.log_step
 
     # Construct server.
-    server = config.server_type(clients)
-    if isinstance(server, SequentialServer):
-        # Loop over all clients <iters> times.
-        iters = args.iters * config.num_clients
-    else:
-        iters = args.iters
+    server = config.server_type(clients, model, args.iters)
+    server.train_loader = train_loader
+    server.test_loader = test_loader
 
     # Perform PVI.
+    iters = server.max_iters
     for iter in range(iters):
+        server.curr_iter = iter
 
-        # Get next client(s).
-        curr_clients = next(server)
-
-        logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - optimizing {curr_clients}")
-
-        # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
+        # Construct frozen zs, ts of all clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
 
-        # Log global/server model.
+        # Log performance of global server model.
         with torch.no_grad():
-            # Resample <_S> inference weights
+            # Resample <S> inference weights
             key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+            server.evaluate_performance()
 
             # Run eval on entire dataset
             y_pred = model.propagate(x)
@@ -144,7 +127,11 @@ def main(args, config, logger):
                 plot_samples=False,
             )
 
+        # Get next client(s).
+        curr_clients = next(server)
         num_clients = len(curr_clients)
+
+        # Run client-local optimization.
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
@@ -152,21 +139,22 @@ def main(args, config, logger):
 
             logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
 
-            # Communicated posterior communicated to client in 1st iter is the prior
+            # Compute global (frozen) posterior to communicate to clients.
             if iter == 0:
+                # In 1st iter, only prior is communicated to clients.
                 tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
                 tmp_zs = {curr_client.name: curr_client.z}
             else:
-                # Construct the posterior communicated to client.
-                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
+                # All detached except current client.
+                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)
 
-            # Run client-local optimization
+            # Run client-local optimization.
             epochs = args.epochs
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
             for epoch in range(epochs):
 
-                # Construct epoch-th minibatch {x, y} training data
+                # Construct epoch-th minibatch {x, y} training data.
                 inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
@@ -178,6 +166,7 @@ def main(args, config, logger):
                 curr_client.update_nz()
                 opt.zero_grad()
 
+                # Log results.
                 if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
                     logger.info(
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -190,11 +179,13 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-    # Log global/server model.
+    # Log global/server model post training
+    server.curr_iter += 1
     with torch.no_grad():
         frozen_ts, frozen_zs = collect_vp(clients)
-        # Resample <_S> inference weights
         key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+
+        server.evaluate_performance()
 
         # Run eval on entire dataset
         y_pred = model.propagate(x)
@@ -220,6 +211,10 @@ def main(args, config, logger):
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
 
+    # Save model metrics.
+    metrics = pd.DataFrame(server.log)
+    metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+
     if args.plot:
         for c_name in clients.keys():
             make_gif(config.plot_dir, c_name)
@@ -232,12 +227,7 @@ def main(args, config, logger):
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
         ts, zs = collect_vp(clients)
-
-        # Resample <_S> inference weights
-        # key, _ = model.sample_posterior(key, ps, ts, zs, ts_p=None, zs_p=None, S=args.inference_samples)
         key, _ = model.sample_posterior(key, ps, ts, zs, S=args.inference_samples, cavity_client=None)
-
-        # Get <_S> predictions, calculate average RMSE, variance
         y_pred = model.propagate(x_te)
 
         # Log and plot results
@@ -318,7 +308,6 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         mean_ys = y_pred.mean(0)
         std_ys = y_pred.std(0)
         ax = plt.gca()
-        # plt.yticks(np.arange(B.min(ys), B.max(ys)+1, 1.0))
         plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
         plt.plot(x_domain, mean_ys)
         plt.scatter(x_tr, y_tr, c="r")
