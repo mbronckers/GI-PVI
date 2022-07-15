@@ -29,8 +29,8 @@ class Server:
 
         self.log = defaultdict(list)
 
-        self.max_global_iters = None
-        self.curr_global_iter = 0
+        self.max_iters = None
+        self.curr_iter = 0
 
     def __iter__(self):
         return self
@@ -51,7 +51,7 @@ class Server:
                 "SERVER - {} - iter [{:2}/{:2}] - {}train mll: {:8.3f}, train {}: {:8.3f}, test mll: {:8.3f}, test {}: {:8.3f}{}".format(
                     self.name,
                     self.curr_iter,
-                    self.max_global_iters,
+                    self.max_iters,
                     Color.BLUE,
                     train_metrics["mll"],
                     error_key,
@@ -67,7 +67,7 @@ class Server:
             train_metrics = {"train_" + k: v for k, v in train_metrics.items()}
             test_metrics = {"test_" + k: v for k, v in test_metrics.items()}
             metrics = {**train_metrics, **test_metrics}
-            self.log["iteration"].append(self.curr_global_iter)
+            self.log["iteration"].append(self.curr_iter)
             for k, v in metrics.items():
                 self.log[k].append(v.item())
 
@@ -77,10 +77,10 @@ class SynchronousServer(Server):
         super().__init__(clients, model)
         self.name = "synchronous"
 
-        self.max_global_iters = iters
+        self.max_iters = iters
 
     def __next__(self):
-        logger.info(f"SERVER - {self.name} - iter [{self.curr_global_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
+        logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 
         return list(self.clients.values())
 
@@ -92,7 +92,7 @@ class SequentialServer(Server):
         self._idx = 0
 
         # Want to have equal number of posterior updates for same number of iterations.
-        self.max_global_iters = iters * len(self.clients)
+        self.max_iters = iters * len(self.clients)
 
     def current_client(self):
         return self.clients[list(self.clients.keys())[self._idx]]
@@ -101,6 +101,6 @@ class SequentialServer(Server):
         client = self.current_client()
         self._idx = (self._idx + 1) % len(self.clients)
 
-        logger.info(f"SERVER - {self.name} - iter [{self.curr_global_iter+1:2}/{self.max_global_iters}] - optimizing {self.clients}")
+        logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {self.clients}")
 
         return [client]

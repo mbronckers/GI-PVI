@@ -122,18 +122,17 @@ def main(args, config, logger):
 
     # Optimizer parameters
     S = args.training_samples  # number of training inference samples
-    epochs = args.epochs
     log_step = config.log_step
 
     # Construct server.
-    server = config.server_type(clients, model, args.iters)
+    server = config.server_type(clients, model, args.global_iters)
     server.train_loader = train_loader
     server.test_loader = test_loader
 
     # Perform PVI.
-    iters = server.max_global_iters
-    for iter in range(iters):
-        server.curr_global_iter = iter
+    max_global_iters = server.max_iters
+    for iter in range(max_global_iters):
+        server.curr_iter = iter
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
         frozen_ts, frozen_zs = collect_vp(clients)
@@ -155,7 +154,7 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
-            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
+            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{max_global_iters}] - client {idx+1}/{num_clients} - starting optimization of {curr_client.name}")
 
             # Communicated posterior communicated to client in 1st iter is the prior
             if iter == 0:
@@ -166,15 +165,13 @@ def main(args, config, logger):
                 tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization
-            epochs = args.epochs
             client_data_size = curr_client.x.shape[0]
             batch_size = min(client_data_size, min(args.batch_size, N))
-            for epoch in range(epochs):
-
-                # TODO: construct train loader
+            max_local_iters = args.local_iters
+            for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data
-                inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
+                inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
@@ -196,13 +193,13 @@ def main(args, config, logger):
                 curr_client.update_nz()
                 opt.zero_grad()
 
-                if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
+                if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
     # Log global/server model post training
@@ -235,25 +232,14 @@ if __name__ == "__main__":
     config = ClassificationConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--client_iters", "-e", type=int, help="client-local optimization steps", default=config.client_local_iterations)
-    parser.add_argument(
-        "--iters",
-        "-i",
-        type=int,
-        help="Number of global server iters (running over all clients <iters> times)",
-        default=config.iters,
-    )
+    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
+    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
-    parser.add_argument(
-        "--det",
-        action="store_true",
-        help="Deterministic training data split and ll variance",
-        default=config.deterministic,
-    )
+    parser.add_argument("--det", action="store_true", help="Deterministic training data split and ll variance", default=config.deterministic)
     parser.add_argument(
         "--training_samples",
         "-S",
@@ -275,6 +261,7 @@ if __name__ == "__main__":
         default=config.nz_init,
     )
     parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)
+    parser.add_argument("--ll_var", type=float, help="likelihood var", default=config.ll_var)
     parser.add_argument(
         "--batch_size",
         "-b",
@@ -285,7 +272,6 @@ if __name__ == "__main__":
     parser.add_argument("--data", "-d", type=int, help="dgp/dataset type", default=config.dgp)
     parser.add_argument(
         "--load",
-        "-l",
         type=str,
         help="model directory to load (e.g. experiment_name)",
         default=config.load,
@@ -313,7 +299,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create experiment directories
-    config.name += args.name
+    config.name += f"_{args.name}"
     _start = datetime.utcnow()
     _time = _start.strftime("%m-%d-%H.%M.%S")
     _results_dir_name = "results"
@@ -323,10 +309,12 @@ if __name__ == "__main__":
     _metrics_dir = os.path.join(_results_dir, "metrics")
     _model_dir = os.path.join(_results_dir, "model")
     _training_plot_dir = os.path.join(_plot_dir, "training")
+    _server_dir = os.path.join(_plot_dir, "server")
     Path(_plot_dir).mkdir(parents=True, exist_ok=True)
     Path(_training_plot_dir).mkdir(parents=True, exist_ok=True)
     Path(_model_dir).mkdir(parents=True, exist_ok=True)
     Path(_metrics_dir).mkdir(parents=True, exist_ok=True)
+    Path(_server_dir).mkdir(parents=True, exist_ok=True)
 
     if args.no_plot:
         config.plot = False
@@ -339,6 +327,7 @@ if __name__ == "__main__":
     config.metrics_dir = _metrics_dir
     config.model_dir = _model_dir
     config.training_plot_dir = _training_plot_dir
+    config.server_dir = _server_dir
 
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):

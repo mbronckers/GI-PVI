@@ -23,7 +23,7 @@ class Config:
     plot: bool = True
     deterministic: bool = False
 
-    client_local_iterations: int = 1000
+    local_iters: int = 1000
 
     N: int = 40  # Number of training data pts
     M: int = 40  # Number of inducing points
@@ -88,7 +88,7 @@ class PVIConfig(Config):
 
     # Communication settings
     global_iters: int = 5  # server iterations
-    local_iterations: int = 500  # client-local iterations
+    local_iters: int = 500  # client-local iterations
 
     plot: bool = True
 
@@ -118,7 +118,7 @@ class PVIConfig(Config):
             self.name = "sync_pvi"
         else:
             self.name = "pvi"
-        self.name += f"_{self.num_clients}c_{self.iters}i_{self.global_iters}e_{self.N}N_{self.M}M_{str(self.kl)}"
+        self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M_{str(self.kl)}"
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
@@ -140,7 +140,7 @@ class ClassificationConfig(PVIConfig):
 
     # Communication settings
     global_iters: int = 3  # shared/global server iterations
-    client_local_iterations: int = 200  # client-local optimization data updates
+    local_iters: int = 200  # client-local iterations
 
     # Note: number of test points is also equal to N
     N: int = 60000

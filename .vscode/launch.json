@@ -26,9 +26,8 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--inference_samples=10",
                 // "--no_plot",
-                "--e=100",
+                "-l=100",
                 "--name=pvi_debug"
             ]
         },

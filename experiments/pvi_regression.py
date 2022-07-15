@@ -96,17 +96,16 @@ def main(args, config, logger):
 
     # Optimizer parameters.
     S = args.training_samples  # number of training inference samples
-    client_iters = args.client_iters  # number of client iterations
     log_step = config.log_step
 
     # Construct server.
-    server = config.server_type(clients, model, args.iters)
+    server = config.server_type(clients, model, args.global_iters)
     server.train_loader = train_loader
     server.test_loader = test_loader
 
     # Perform PVI.
-    iters = server.max_global_iters
-    for iter in range(iters):
+    max_global_iters = server.max_iters
+    for iter in range(max_global_iters):
         server.curr_iter = iter
 
         # Construct frozen zs, ts of all clients. Automatically links back the previously updated clients' t & z.
@@ -146,7 +145,7 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
-            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
+            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{max_global_iters}] - client {idx+1}/{num_clients} - starting optimization of {curr_client.name}")
 
             # Compute global (frozen) posterior to communicate to clients.
             if iter == 0:
@@ -160,7 +159,7 @@ def main(args, config, logger):
             # Run client-local optimization.
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
-            max_local_iters = args.client_local_iters
+            max_local_iters = args.local_iters
             for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.
@@ -178,14 +177,14 @@ def main(args, config, logger):
                 # Log results.
                 if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Only plot every <log_step> epoch
-                    if args.plot and ((epoch + 1) % log_step == 0):
-                        plot_client_vp(config, curr_client, iter, epoch)
+                    if args.plot and ((client_iter + 1) % log_step == 0):
+                        plot_client_vp(config, curr_client, iter, client_iter)
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
     # Log global/server model post training
@@ -333,8 +332,8 @@ if __name__ == "__main__":
     config = PVIConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--client_iters", "-e", type=int, help="client epochs", default=config.local_iters)
-    parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
+    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
+    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
@@ -373,7 +372,6 @@ if __name__ == "__main__":
     parser.add_argument("--data", "-d", type=int, help="dgp/dataset type", default=config.dgp)
     parser.add_argument(
         "--load",
-        "-l",
         type=str,
         help="model directory to load (e.g. experiment_name)",
         default=config.load,
