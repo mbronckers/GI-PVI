@@ -145,8 +145,6 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
-            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{max_global_iters}] - client {idx+1}/{num_clients} - starting optimization of {curr_client.name}")
-
             # Compute global (frozen) posterior to communicate to clients.
             if iter == 0:
                 # In 1st iter, only prior is communicated to clients.

@@ -87,8 +87,8 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    global_iters: int = 5  # server iterations
-    local_iters: int = 500  # client-local iterations
+    global_iters: int = 1  # server iterations
+    local_iters: int = 2000  # client-local iterations
 
     plot: bool = True
 
@@ -100,11 +100,11 @@ class PVIConfig(Config):
     # M: int = 100  # Number of inducing points per client
     # batch_size: int = 100
 
-    N: int = 400  # Num total training data pts, not the number of data pts per client.
-    M: int = 20  # Number of inducing points per client
+    N: int = 40  # Num total training data pts, not the number of data pts per client.
+    M: int = 40  # Number of inducing points per client
     batch_size: int = 40
 
-    num_clients: int = 10
+    num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
@@ -139,8 +139,8 @@ class ClassificationConfig(PVIConfig):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    global_iters: int = 3  # shared/global server iterations
-    local_iters: int = 200  # client-local iterations
+    global_iters: int = 10  # shared/global server iterations
+    local_iters: int = 2000  # client-local iterations
 
     # Note: number of test points is also equal to N
     N: int = 60000
@@ -149,7 +149,7 @@ class ClassificationConfig(PVIConfig):
     I: int = 5
     batch_size: int = 1024
 
-    num_clients: int = 3
+    num_clients: int = 1
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior
