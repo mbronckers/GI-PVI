@@ -94,7 +94,7 @@ class SequentialServer(Server):
         # Want to have equal number of posterior updates for same number of iterations.
         self.max_iters = iters * len(self.clients)
 
-    def current_clients(self):
+    def current_client(self):
         return self.clients[list(self.clients.keys())[self._idx]]
 
     def __next__(self):
