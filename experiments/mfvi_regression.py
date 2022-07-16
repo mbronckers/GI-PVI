@@ -25,7 +25,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from gi.client import MFVI_Client
+from gi.client import GI_Client, MFVI_Client
 
 from slugify import slugify
 from varz import Vars, namespace
@@ -70,43 +70,37 @@ def main(args, config, logger):
     logger.info(f"Likelihood variance: {likelihood.var}")
 
     # Define model and clients.
-    model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
-    clients: dict[str, MFVI_Client] = {}
+    model: gi.MFVI_Regression = gi.MFVI_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
+    clients: dict[str, GI_Client] = {}
 
     # Build clients.
+
     key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
     for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-        _client = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
-
-        key = _client.key
+        _client = MFVI_Client(f"client{client_i}", client_x_tr, client_y_tr, *dims, prec_inits=config.nz_inits)
         clients[f"client{client_i}"] = _client
-
-    # Plot initial inducing points.
-    if args.data == DGP.ober_regression:
-        plot_all_inducing_pts(clients, config.plot_dir)
 
     # Optimizer parameters.
     S = args.training_samples  # number of training inference samples
-    epochs = args.epochs
     log_step = config.log_step
 
     # Construct server.
-    server = config.server_type(clients, model, args.iters)
+    server = config.server_type(clients, model, args.global_iters)
     server.train_loader = train_loader
     server.test_loader = test_loader
 
     # Perform PVI.
-    iters = server.max_iters
-    for iter in range(iters):
+    max_global_iters = server.max_iters
+    for iter in range(max_global_iters):
         server.curr_iter = iter
 
         # Construct frozen zs, ts of all clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, frozen_zs = collect_vp(clients)
+        frozen_ts, _ = collect_vp(clients)
 
         # Log performance of global server model.
         with torch.no_grad():
             # Resample <S> inference weights
-            key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+            key, _ = model.sample_posterior(key, ps, frozen_ts)
 
             server.evaluate_performance()
 
@@ -129,7 +123,6 @@ def main(args, config, logger):
 
         # Get next client(s).
         curr_clients = next(server)
-        num_clients = len(curr_clients)
 
         # Run client-local optimization.
         for idx, curr_client in enumerate(curr_clients):
@@ -137,53 +130,46 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
-            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{iters}] - {idx+1}/{num_clients} client - starting optimization of {curr_client.name}")
-
             # Compute global (frozen) posterior to communicate to clients.
             if iter == 0:
                 # In 1st iter, only prior is communicated to clients.
                 tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
-                tmp_zs = {curr_client.name: curr_client.z}
             else:
                 # All detached except current client.
-                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)
+                tmp_ts, _ = collect_frozen_vp(frozen_ts, None, curr_client)
 
             # Run client-local optimization.
-            epochs = args.epochs
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
-            for epoch in range(epochs):
+            max_local_iters = args.local_iters
+            for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.
-                inds = (B.range(batch_size) + batch_size * epoch) % client_data_size
+                inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, {}, S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
-                curr_client.update_nz()
                 opt.zero_grad()
 
                 # Log results.
-                if epoch == 0 or (epoch + 1) % log_step == 0 or (epoch + 1) == epochs:
+                if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
                     logger.info(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
-                    # Only plot every <log_step> epoch
-                    if args.plot and ((epoch + 1) % log_step == 0):
-                        plot_client_vp(config, curr_client, iter, epoch)
                 else:
                     logger.debug(
-                        f"CLIENT - {curr_client.name} - iter {iter+1:2}/{iters} - epoch [{epoch+1:4}/{epochs:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
+                        f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
     # Log global/server model post training
     server.curr_iter += 1
     with torch.no_grad():
-        frozen_ts, frozen_zs = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+        frozen_ts, _ = collect_vp(clients)
+        key, _ = model.sample_posterior(key, ps, frozen_ts)
 
         server.evaluate_performance()
 
@@ -227,7 +213,7 @@ def main(args, config, logger):
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
         ts, zs = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, ts, zs, S=args.inference_samples, cavity_client=None)
+        key, _ = model.sample_posterior(key, ps, ts)
         y_pred = model.propagate(x_te)
 
         # Log and plot results
@@ -324,8 +310,8 @@ if __name__ == "__main__":
     config = PVIConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--epochs", "-e", type=int, help="client epochs", default=config.epochs)
-    parser.add_argument("--iters", "-i", type=int, help="server iters (running over all clients <iters> times)", default=config.iters)
+    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
+    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
@@ -364,7 +350,6 @@ if __name__ == "__main__":
     parser.add_argument("--data", "-d", type=int, help="dgp/dataset type", default=config.dgp)
     parser.add_argument(
         "--load",
-        "-l",
         type=str,
         help="model directory to load (e.g. experiment_name)",
         default=config.load,

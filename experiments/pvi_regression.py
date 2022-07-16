@@ -137,7 +137,6 @@ def main(args, config, logger):
 
         # Get next client(s).
         curr_clients = next(server)
-        num_clients = len(curr_clients)
 
         # Run client-local optimization.
         for idx, curr_client in enumerate(curr_clients):

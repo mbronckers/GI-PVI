@@ -1,10 +1,11 @@
 from __future__ import annotations
+from typing import Callable
 import lab as B
 import torch
 import logging
 
 from experiments.kl import KL, compute_kl
-from gi.distributions import NaturalNormal, NaturalNormalFactor
+from gi.distributions import MeanFieldFactor, NaturalNormal
 from gi.models.bnn import BaseBNN
 
 
@@ -38,29 +39,35 @@ class MFVI(BaseBNN):
 
         return _x
 
-    def sample_posterior(self, key, qs: dict[str, dict[str, NaturalNormalFactor]], ps: dict[str, NaturalNormal]):
+    def sample_posterior(self, key, ps: dict[str, NaturalNormal], ts: dict[str, dict[str, MeanFieldFactor]], **kwargs):
 
         # Construct posterior, sample, and propagate
         for i, (layer_name, p) in enumerate(ps.items()):
             # Init posterior
-            q: NaturalNormal = p
+            q: MeanFieldFactor = p
 
-            # Build posterior. layer_client_q is NaturalNormal
+            # Build posterior. layer_client_q is MeanFieldFactor
             # should make NNFactor => no sampling function because the factor can have negative precision (i.e. not be a distribution)
-            for (client_name, layer_client_q) in qs[layer_name].items():
-
+            for layer_client_q in ts[layer_name].values():
                 q *= layer_client_q
 
             # constrain q to have positive precision
-
+            q = NaturalNormal.from_factor(q)
             key, _ = self._sample_posterior(key, q, p, layer_name)
 
         return key, self.cache
 
+    @property
+    def S(self):
+        """Returns cached number of weight samples"""
+        return self._cache["layer0"]["w"].shape[0]
+
 
 class MFVI_Regression(MFVI):
-    def __init__(self, nonlinearity, bias: bool, kl: KL) -> None:
+    def __init__(self, nonlinearity, bias: bool, kl: KL, likelihood: Callable) -> None:
         super().__init__(nonlinearity, bias, kl)
+        self.likelihood = likelihood
+        self.error_metric = "error"
 
     def compute_ell(self, out, y):
         if y.device != out.device:

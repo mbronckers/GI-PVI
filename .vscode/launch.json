@@ -32,6 +32,20 @@
             ]
         },
         {
+            "name": "MFVI PVI Regression - Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiments/mfvi_regression.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                // "--no_plot",
+                "-l=1000",
+                "-g=10",
+                "--name=mfvi_debug"
+            ]
+        }
+        {
             "name": "PVI Classification - Debug",
             "type": "python",
             "request": "launch",

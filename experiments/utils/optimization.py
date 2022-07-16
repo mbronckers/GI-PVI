@@ -17,7 +17,7 @@ import lab.torch
 import torch
 from varz import Vars, namespace
 from experiments.config.config import Config
-from gi.client import Client
+from gi.client import Client, GI_Client
 
 
 def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs: Optional[Vars] = None):
@@ -81,7 +81,8 @@ def collect_vp(clients: dict[str, Client]):
 
     # Construct from scratch to avoid linked copies.
     for client_name, client in clients.items():
-        tmp_zs[client_name] = client.z.detach().clone()
+        if type(client) == GI_Client:
+            tmp_zs[client_name] = client.z.detach().clone()
 
         for layer_name, client_layer_t in client.t.items():
             if layer_name not in tmp_ts:
@@ -97,10 +98,11 @@ def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
     tmp_zs: dict[str, B.Numeric] = {}
 
     # Copy frozen zs except for cur_client
-    tmp_zs = {curr_client.name: curr_client.z}
-    for client_name, client_z in frozen_zs.items():
-        if client_name != curr_client.name:
-            tmp_zs[client_name] = client_z.detach().clone()
+    if isinstance(curr_client, GI_Client):
+        tmp_zs = {curr_client.name: curr_client.z}
+        for client_name, client_z in frozen_zs.items():
+            if client_name != curr_client.name:
+                tmp_zs[client_name] = client_z.detach().clone()
 
     # Copy frozen ts except for cur_client
     for layer_name, layer_t in frozen_ts.items():
@@ -129,7 +131,13 @@ def estimate_local_vfe(
     N: B.Int,
 ):
     # Compute cavity distributions
-    key, _cache = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
+    if isinstance(model, gi.GIBNN):
+        key, _cache = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
+    elif isinstance(model, gi.MFVI):
+        key, _cache = model.sample_posterior(key, ps, ts)
+    else:
+        raise NotImplementedError
+
     out = model.propagate(x)  # out : [S x N x Dout]
 
     # Compute KL divergence.

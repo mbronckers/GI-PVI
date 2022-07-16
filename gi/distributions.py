@@ -74,19 +74,17 @@ class Normal:
         """int: Dimensionality."""
         return B.shape_matrix(self.var)[0]
 
-    def __eq__(self, __o: "Normal") -> bool:
-        return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
 
-
-class NaturalNormalFactor:
+class MeanFieldFactor:
     def __init__(self, lam, prec):
         """
-        NaturalNormalFactor (NNF) is not a proper distribution, so we cannot sample from it.
+        MeanFieldFactor (MFF) a NaturalNormalFactor with a diagonal precision.
+        It is not a proper distribution, so we cannot sample from it.
         :param lam: first natural parameter of Normal dist = precision x mean
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
         self.lam = lam
-        self.prec = convert(prec, AbstractMatrix)
+        self.prec = convert(prec, Diagonal)
 
         self._mean = None
         self._var = None
@@ -123,14 +121,14 @@ class NaturalNormalFactor:
     #         self._var = B.pd_inv(self.prec)
     #     return self._var
 
-    def __mul__(self, other: "NaturalNormalFactor"):
-        return NaturalNormalFactor(self.lam + other.lam, self.prec + other.prec)
+    def __mul__(self, other: "MeanFieldFactor"):
+        return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
 
-    def __truediv__(self, other: "NaturalNormalFactor"):
-        return NaturalNormalFactor(self.lam - other.lam, self.prec - other.prec)
+    def __truediv__(self, other: "MeanFieldFactor"):
+        return MeanFieldFactor(self.lam - other.lam, self.prec - other.prec)
 
-    def __rtruediv__(self, other: "NaturalNormalFactor"):
-        return NaturalNormalFactor(other.lam - self.lam, other.prec - self.prec)
+    def __rtruediv__(self, other: "MeanFieldFactor"):
+        return MeanFieldFactor(other.lam - self.lam, other.prec - self.prec)
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
@@ -167,13 +165,11 @@ class NaturalNormal:
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
 
     @classmethod
-    def from_factor(cls, factor: NaturalNormalFactor):
+    def from_factor(cls, factor: MeanFieldFactor):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
-        MIN_PREC = 1e-3
-        if factor.prec < 0:
-            return cls(lam=factor.lam, prec=MIN_PREC)
-        else:
-            return cls(lam=factor.lam, prec=factor.prec)
+        MIN_PREC = 1e-4
+        B.dense(factor.prec)[B.dense(factor.prec) < 0] = MIN_PREC
+        return cls(lam=factor.lam, prec=factor.prec)
 
     @property
     def mean(self):
