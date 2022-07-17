@@ -87,7 +87,7 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    global_iters: int = 1  # server iterations
+    global_iters: int = 2  # server iterations
     local_iters: int = 2000  # client-local iterations
 
     plot: bool = True
@@ -104,7 +104,7 @@ class PVIConfig(Config):
     M: int = 40  # Number of inducing points per client
     batch_size: int = 40
 
-    num_clients: int = 1
+    num_clients: int = 2
     server_type: Server = SynchronousServer
 
     prior: Prior = Prior.NealPrior

@@ -1,9 +1,12 @@
 from copy import deepcopy
+import logging
+from typing import Union
 import lab as B
 from plum import convert
 from matrix import AbstractMatrix, Diagonal, structured
 import torch
 
+logger = logging.getLogger()
 
 class Normal:
     def __init__(self, mean, var):
@@ -74,67 +77,6 @@ class Normal:
         """int: Dimensionality."""
         return B.shape_matrix(self.var)[0]
 
-    def __eq__(self, __o: "Normal") -> bool:
-        return (torch.all(torch.isclose(B.dense(self.mean), B.dense(__o.mean))) and torch.all(torch.isclose(B.dense(self.var), B.dense(__o.var)))).item()
-
-
-class NaturalNormalFactor:
-    def __init__(self, lam, prec):
-        """
-        NaturalNormalFactor (NNF) is not a proper distribution, so we cannot sample from it.
-        :param lam: first natural parameter of Normal dist = precision x mean
-        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
-        """
-        self.lam = lam
-        self.prec = convert(prec, AbstractMatrix)
-
-        self._mean = None
-        self._var = None
-
-    @property
-    def dtype(self):
-        """dtype: Data type of the precision."""
-        return B.dtype(self.prec)
-
-    @property
-    def dim(self):
-        """int: Dimensionality."""
-        return B.shape_matrix(self.prec)[0]
-
-    @classmethod
-    def from_normal(cls, dist):
-        """
-        Convert class:Normal into class:NaturalNormal
-        - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
-        """
-        return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
-
-    # @property
-    # def mean(self):
-    #     """column vector: Mean."""
-    #     if self._mean is None:
-    #         self._mean = B.cholsolve(B.chol(self.prec), self.lam)
-    #     return self._mean
-
-    # @property
-    # def var(self):
-    #     """matrix: Variance."""
-    #     if self._var is None:
-    #         self._var = B.pd_inv(self.prec)
-    #     return self._var
-
-    def __mul__(self, other: "NaturalNormalFactor"):
-        return NaturalNormalFactor(self.lam + other.lam, self.prec + other.prec)
-
-    def __truediv__(self, other: "NaturalNormalFactor"):
-        return NaturalNormalFactor(self.lam - other.lam, self.prec - other.prec)
-
-    def __rtruediv__(self, other: "NaturalNormalFactor"):
-        return NaturalNormalFactor(other.lam - self.lam, other.prec - self.prec)
-
-    def __repr__(self) -> str:
-        return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
-
 
 class NaturalNormal:
     def __init__(self, lam, prec):
@@ -165,15 +107,6 @@ class NaturalNormal:
         - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
         """
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
-
-    @classmethod
-    def from_factor(cls, factor: NaturalNormalFactor):
-        """Converts NaturalNormalFactor into NaturalNormal distribution"""
-        MIN_PREC = 1e-3
-        if factor.prec < 0:
-            return cls(lam=factor.lam, prec=MIN_PREC)
-        else:
-            return cls(lam=factor.lam, prec=factor.prec)
 
     @property
     def mean(self):
@@ -234,8 +167,13 @@ class NaturalNormal:
 
         return key, sample
 
-    def __mul__(self, other: "NaturalNormal"):
-        return NaturalNormal(self.lam + other.lam, self.prec + other.prec)
+    def __mul__(self, other):
+        if isinstance(other, NaturalNormal):
+            return NaturalNormal(self.lam + other.lam, self.prec + other.prec)
+        elif isinstance(other, MeanFieldFactor):
+            return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
+        else:
+            raise NotImplementedError
 
     def __truediv__(self, other: "NaturalNormal"):
         return NaturalNormal(self.lam - other.lam, self.prec - other.prec)
@@ -248,6 +186,82 @@ class NaturalNormal:
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
+
+
+class MeanFieldFactor:
+    def __init__(self, lam, prec):
+        """
+        MeanFieldFactor (MFF) a NaturalNormalFactor with a diagonal precision.
+        It is not a proper distribution, so we cannot sample from it. (It can have negative precision.)
+        :param lam: first natural parameter of Normal dist = precision x mean
+        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
+        """
+        self.lam = lam
+        self.prec = Diagonal(prec) if len(prec.shape) == 2 else prec
+        # self.prec = convert(prec, Diagonal)
+
+        self._mean = None
+        self._var = None
+
+        self._mean = None
+        self._var = None
+
+    @property
+    def dtype(self):
+        """dtype: Data type of the precision."""
+        return B.dtype(self.prec)
+
+    @property
+    def dim(self):
+        """int: Dimensionality."""
+        return B.shape_matrix(self.prec)[0]
+
+    @classmethod
+    def from_normal(cls, dist):
+        """
+        Convert class:Normal into class:NaturalNormal
+        - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
+        """
+        return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
+
+    def __call__(self, S):
+        return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(B.diag_construct(self.prec.diag), S, 1, 1, 1))
+
+
+    def __mul__(self, other: Union["MeanFieldFactor", "NaturalNormal"]):
+        return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
+
+    def __truediv__(self, other: "MeanFieldFactor"):
+        return MeanFieldFactor(self.lam - other.lam, self.prec - other.prec)
+
+    def __rtruediv__(self, other: "MeanFieldFactor"):
+        return MeanFieldFactor(other.lam - self.lam, other.prec - self.prec)
+
+    def __repr__(self) -> str:
+        return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
+
+
+class MeanField(NaturalNormal):
+    def __init__(self, lam, prec):
+        """
+        :param lam: first natural parameter of Normal dist = precision x mean
+        :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
+        """
+        self.lam = lam
+        self.prec = Diagonal(prec) if len(prec.shape) == 2 else prec
+
+        self._mean = None
+        self._var = None
+
+    @classmethod
+    def from_factor(cls, factor: MeanFieldFactor):
+        """Converts NaturalNormalFactor into NaturalNormal distribution"""
+        MIN_PREC = 1e-4
+        if B.any(factor.prec.mat < 0):
+            logger.debug(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
+            factor.prec.mat[factor.prec.mat < 0] = MIN_PREC
+        
+        return cls(lam=factor.lam, prec=factor.prec)
 
 
 class NormalPseudoObservation:

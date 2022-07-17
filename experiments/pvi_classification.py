@@ -146,15 +146,12 @@ def main(args, config, logger):
 
         # Get next client(s).
         curr_clients = next(server)
-        num_clients = len(curr_clients)
 
         # Run client-local optimization.
         for idx, curr_client in enumerate(curr_clients):
 
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
-
-            logger.info(f"SERVER - {server.name} - iter [{iter+1:2}/{max_global_iters}] - client {idx+1}/{num_clients} - starting optimization of {curr_client.name}")
 
             # Communicated posterior communicated to client in 1st iter is the prior
             if iter == 0:
