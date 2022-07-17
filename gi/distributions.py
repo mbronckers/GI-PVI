@@ -192,7 +192,7 @@ class MeanFieldFactor:
     def __init__(self, lam, prec):
         """
         MeanFieldFactor (MFF) a NaturalNormalFactor with a diagonal precision.
-        It is not a proper distribution, so we cannot sample from it.
+        It is not a proper distribution, so we cannot sample from it. (It can have negative precision.)
         :param lam: first natural parameter of Normal dist = precision x mean
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
@@ -225,7 +225,6 @@ class MeanFieldFactor:
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
 
     def __call__(self, S):
-        # return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(B.dense(self.prec), S, 1, 1, 1))
         return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(B.diag_construct(self.prec.diag), S, 1, 1, 1))
 
 
@@ -257,11 +256,9 @@ class MeanField(NaturalNormal):
     @classmethod
     def from_factor(cls, factor: MeanFieldFactor):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
-        MIN_PREC = 0
-        # _prec = B.dense(factor.prec)
-        # B.dense(_prec)[B.dense(_prec) < 0] = MIN_PREC
-        if any(factor.prec.mat < 0):
-            logger.warning(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
+        MIN_PREC = 1e-4
+        if B.any(factor.prec.mat < 0):
+            logger.debug(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
             factor.prec.mat[factor.prec.mat < 0] = MIN_PREC
         
         return cls(lam=factor.lam, prec=factor.prec)

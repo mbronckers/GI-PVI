@@ -47,11 +47,10 @@ class MFVI(BaseBNN):
             q: MeanFieldFactor = p
 
             # Build posterior. layer_client_q is MeanFieldFactor
-            # should make NNFactor => no sampling function because the factor can have negative precision (i.e. not be a distribution)
             for layer_client_q in ts[layer_name].values():
                 q *= layer_client_q(S=S)
 
-            # constrain q to have positive precision
+            # Constrain q to have positive precision.
             q = MeanField.from_factor(q)
             key, _ = self._sample_posterior(key, q, p, layer_name)
 

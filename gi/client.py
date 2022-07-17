@@ -179,7 +179,6 @@ class MFVI_Client(Client):
         for layer_name, factor in self.t.items():
             self.vs.unbounded(factor.lam, name=f"ts.{self.name}_{layer_name}_yz")
             self.vs.unbounded(factor.prec.diag, name=f"ts.{self.name}_{layer_name}_nz")
-            # factor.prec.diag = self.vs[f"ts.{self.name}_{layer_name}_nz"]
 
         self.vs.requires_grad(True, *self.vs.names)
 

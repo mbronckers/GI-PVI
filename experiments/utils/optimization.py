@@ -130,7 +130,7 @@ def estimate_local_vfe(
     S: B.Int,
     N: B.Int,
 ):
-    # Compute cavity distributions
+    # Sample from posterior.
     if isinstance(model, gi.GIBNN):
         key, _ = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
     elif isinstance(model, gi.MFVI):
