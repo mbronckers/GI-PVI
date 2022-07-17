@@ -87,7 +87,7 @@ class PVIConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Communication settings
-    global_iters: int = 1  # server iterations
+    global_iters: int = 3  # server iterations
     local_iters: int = 2000  # client-local iterations
 
     plot: bool = True

@@ -5,7 +5,7 @@ import torch
 import logging
 
 from experiments.kl import KL, compute_kl
-from gi.distributions import MeanFieldFactor, NaturalNormal
+from gi.distributions import MeanField, MeanFieldFactor, NaturalNormal
 from gi.models.bnn import BaseBNN
 
 
@@ -39,7 +39,7 @@ class MFVI(BaseBNN):
 
         return _x
 
-    def sample_posterior(self, key, ps: dict[str, NaturalNormal], ts: dict[str, dict[str, MeanFieldFactor]], **kwargs):
+    def sample_posterior(self, key, ps: dict[str, NaturalNormal], ts: dict[str, dict[str, MeanFieldFactor]], S, **kwargs):
 
         # Construct posterior, sample, and propagate
         for i, (layer_name, p) in enumerate(ps.items()):
@@ -49,10 +49,10 @@ class MFVI(BaseBNN):
             # Build posterior. layer_client_q is MeanFieldFactor
             # should make NNFactor => no sampling function because the factor can have negative precision (i.e. not be a distribution)
             for layer_client_q in ts[layer_name].values():
-                q *= layer_client_q
+                q *= layer_client_q(S=S)
 
             # constrain q to have positive precision
-            q = NaturalNormal.from_factor(q)
+            q = MeanField.from_factor(q)
             key, _ = self._sample_posterior(key, q, p, layer_name)
 
         return key, self.cache

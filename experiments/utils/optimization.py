@@ -120,7 +120,7 @@ def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
 
 def estimate_local_vfe(
     key: B.RandomState,
-    model: gi.GIBNN,
+    model: gi.BaseBNN,
     client: gi.client.Client,
     x,
     y,
@@ -132,9 +132,9 @@ def estimate_local_vfe(
 ):
     # Compute cavity distributions
     if isinstance(model, gi.GIBNN):
-        key, _cache = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
+        key, _ = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
     elif isinstance(model, gi.MFVI):
-        key, _cache = model.sample_posterior(key, ps, ts)
+        key, _ = model.sample_posterior(key, ps, ts, S=S)
     else:
         raise NotImplementedError
 

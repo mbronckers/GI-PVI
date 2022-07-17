@@ -65,6 +65,10 @@ def main(args, config, logger):
         raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
 
+    # Optimizer parameters.
+    S = args.training_samples  # number of training inference samples
+    log_step = config.log_step
+
     # Likelihood variance is fixed in PVI.
     likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via args/config.ll_var
     logger.info(f"Likelihood variance: {likelihood.var}")
@@ -77,12 +81,8 @@ def main(args, config, logger):
 
     key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
     for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-        _client = MFVI_Client(f"client{client_i}", client_x_tr, client_y_tr, *dims, prec_inits=config.nz_inits)
+        _client = MFVI_Client(f"client{client_i}", client_x_tr, client_y_tr, *dims, prec_inits=config.nz_inits, S=S)
         clients[f"client{client_i}"] = _client
-
-    # Optimizer parameters.
-    S = args.training_samples  # number of training inference samples
-    log_step = config.log_step
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -100,7 +100,7 @@ def main(args, config, logger):
         # Log performance of global server model.
         with torch.no_grad():
             # Resample <S> inference weights
-            key, _ = model.sample_posterior(key, ps, frozen_ts)
+            key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
 
             server.evaluate_performance()
 
@@ -149,7 +149,7 @@ def main(args, config, logger):
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, {}, S, N=client_data_size)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, {}, S=S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -169,7 +169,7 @@ def main(args, config, logger):
     server.curr_iter += 1
     with torch.no_grad():
         frozen_ts, _ = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, frozen_ts)
+        key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
 
         server.evaluate_performance()
 
@@ -213,7 +213,7 @@ def main(args, config, logger):
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
         ts, zs = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, ts)
+        key, _ = model.sample_posterior(key, ps, ts, S=args.inference_samples)
         y_pred = model.propagate(x_te)
 
         # Log and plot results

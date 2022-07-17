@@ -168,21 +168,22 @@ class GI_Client(Client):
 
 
 class MFVI_Client(Client):
-    def __init__(self, name: Optional[str], x, y, *dims: B.Int, prec_inits: list[float], bias: bool = True):
+    def __init__(self, name: Optional[str], x, y, *dims: B.Int, prec_inits: list[float], bias: bool = True, S):
         super().__init__(name, x, y)
 
         self.bias = bias
 
         # Layer posterior factors
-        self.t: dict[str, MeanFieldFactor] = self.build_t(*dims, prec_inits=prec_inits)
+        self.t: dict[str, MeanFieldFactor] = self.build_t(*dims, prec_inits=prec_inits, S=S)
 
         for layer_name, factor in self.t.items():
             self.vs.unbounded(factor.lam, name=f"ts.{self.name}_{layer_name}_yz")
-            self.vs.unbounded(B.dense(factor.prec), name=f"ts.{self.name}_{layer_name}_nz")
+            self.vs.unbounded(factor.prec.diag, name=f"ts.{self.name}_{layer_name}_nz")
+            # factor.prec.diag = self.vs[f"ts.{self.name}_{layer_name}_nz"]
 
         self.vs.requires_grad(True, *self.vs.names)
 
-    def build_t(self, *dims, prec_inits: list[float]):
+    def build_t(self, *dims, prec_inits: list[float], S):
         ts = {}
         num_layers = len(dims) - 1
         assert len(prec_inits) == num_layers
@@ -194,5 +195,6 @@ class MFVI_Client(Client):
             lam = B.zeros(B.default_dtype, dims[i + 1], Din, 1)  # [Dout x Din]
             _prec = B.eye(B.default_dtype, Din) * prec_init
             _prec = B.tile(_prec, dims[i + 1], 1, 1)  # [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
-            ts[f"layer{i}"] = MeanFieldFactor(lam, _prec)
+
+            ts[f"layer{i}"] = MeanFieldFactor(lam, B.diag_extract(_prec))
         return ts
