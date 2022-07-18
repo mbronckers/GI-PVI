@@ -92,14 +92,6 @@ class PVIConfig(Config):
 
     plot: bool = True
 
-    # UCI Protein config
-    # dgp: DGP = DGP.uci_protein
-    # in_features: int = 9
-    # out_features: int = 1
-    # N: int = 36584  # Num total training data pts, not the number of data pts per client.
-    # M: int = 100  # Number of inducing points per client
-    # batch_size: int = 100
-
     N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 20  # Number of inducing points per client
     batch_size: int = 40
@@ -116,13 +108,11 @@ class PVIConfig(Config):
             self.name = "seq_pvi"
         elif self.server_type == SynchronousServer:
             self.name = "sync_pvi"
-        else:
-            self.name = "pvi"
         self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M_{str(self.kl)}"
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
-        # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+        self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
@@ -130,13 +120,48 @@ class PVIConfig(Config):
 
 
 @dataclass
+class MFVIConfig(PVIConfig):
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Directory name
+        if self.server_type == SequentialServer:
+            self.name = "mfvi_seq_pvi"
+        elif self.server_type == SynchronousServer:
+            self.name = "mfvi_sync_pvi"
+        self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M_{str(self.kl)}"
+
+        # Weight variances per Ober et al.
+        self.nz_inits: list[float] = [1e-3 / self.dims[i] for i in range(len(self.dims) - 1)]
+
+
+@dataclass
+class UCI_Protein(PVIConfig):
+    # UCI Protein config
+    dgp: DGP = DGP.uci_protein
+    in_features: int = 9
+    out_features: int = 1
+    N: int = 36584  # Num total training data pts, not the number of data pts per client.
+    M: int = 100  # Number of inducing points per client
+    batch_size: int = 100
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.server_type == SequentialServer:
+            self.name = "seq_pvi"
+        elif self.server_type == SynchronousServer:
+            self.name = "sync_pvi"
+        self.name = "pvi_uci_protein"
+
+
+@dataclass
 class ClassificationConfig(PVIConfig):
     name: str = "classification"
 
     data: DGP = DGP.mnist
-    dims = [(28 * 28), 100, 100, 10]
-
-    linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
+    in_features: int = 28 * 28
+    out_features: int = 10
+    # dims = [(28 * 28), 100, 100, 10]
 
     # Communication settings
     global_iters: int = 10  # shared/global server iterations

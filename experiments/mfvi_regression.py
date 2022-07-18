@@ -31,7 +31,7 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import PVIConfig
+from config.config import MFVIConfig, PVIConfig
 from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
@@ -306,7 +306,7 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    config = PVIConfig()
+    config = MFVIConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
@@ -376,7 +376,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create experiment directories
-    config.name += f"_mfvi_{args.name}"
+    config.name += f"_{args.name}"
     _start = datetime.utcnow()
     _time = _start.strftime("%m-%d-%H.%M.%S")
     _results_dir_name = "results"
