@@ -11,8 +11,6 @@ import lab as B
 import lab.torch
 from varz import Vars
 
-from gi.likelihoods import NormalLikelihood
-
 
 class Client:
     def __init__(self, name: Optional[str], x, y):

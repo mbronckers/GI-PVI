@@ -78,7 +78,6 @@ def main(args, config, logger):
     clients: dict[str, GI_Client] = {}
 
     # Build clients.
-
     key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
     for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
         _client = MFVI_Client(f"client{client_i}", client_x_tr, client_y_tr, *dims, prec_inits=config.nz_inits, S=S)
@@ -212,7 +211,7 @@ def main(args, config, logger):
 
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
-        ts, zs = collect_vp(clients)
+        ts, _ = collect_vp(clients)
         key, _ = model.sample_posterior(key, ps, ts, S=args.inference_samples)
         y_pred = model.propagate(x_te)
 
@@ -377,7 +376,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create experiment directories
-    config.name += f"_{args.name}"
+    config.name += f"_mfvi_{args.name}"
     _start = datetime.utcnow()
     _time = _start.strftime("%m-%d-%H.%M.%S")
     _results_dir_name = "results"

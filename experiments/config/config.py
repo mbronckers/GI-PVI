@@ -104,8 +104,8 @@ class PVIConfig(Config):
     M: int = 40  # Number of inducing points per client
     batch_size: int = 40
 
-    num_clients: int = 2
-    server_type: Server = SynchronousServer
+    num_clients: int = 1
+    server_type: Server = SequentialServer
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
