@@ -31,7 +31,7 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import PVIConfig
+from config.config import PVIConfig, ProteinConfig
 from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
@@ -323,7 +323,7 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    config = PVIConfig()
+    config = ProteinConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)

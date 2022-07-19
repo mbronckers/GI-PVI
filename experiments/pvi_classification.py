@@ -72,20 +72,14 @@ def main(args, config, logger):
     model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
     clients: dict[str, GI_Client] = {}
 
-    # Build prior
+    # Build prior.
     M = args.M  # number of inducing points
     dims = config.dims
     assert dims[0] == x_tr.shape[1]
-    ps = build_prior(*dims, prior=args.prior, bias=args.bias)
-
-    # Deal with client split
-    if args.num_clients != len(config.client_splits):
-        raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
-    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
+    ps = build_prior(*dims, prior=args.prior, bias=config.bias)
 
     # Build clients.
-    if config.deterministic and args.num_clients > 1:
-        raise ValueError("Deterministic mode is not supported with multiple clients.")
+    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
     if config.deterministic and args.num_clients == 1:
         _client = gi.GI_Client(
             key,

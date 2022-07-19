@@ -118,7 +118,7 @@ class MFVIConfig(PVIConfig):
 
 
 @dataclass
-class UCI_Protein(PVIConfig):
+class ProteinConfig(PVIConfig):
     posterior_type: str = "pvi_protein"
 
     global_iters: int = 1  # server iterations

@@ -52,8 +52,8 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         dir_path = f"{file_dir}/data/uci"
         X, y = uci_protein(dir_path)
         scale = B.std(y)
-        X = torch.from_numpy(X).clone()
-        y = torch.from_numpy(y).clone()
+        X = torch.from_numpy(X).clone().to(B.default_dtype)
+        y = torch.from_numpy(y).clone().to(B.default_dtype)
 
         key, splits = split_data_clients(key, X, y, [0.8, 0.2])
         x_tr, y_tr = splits[0]

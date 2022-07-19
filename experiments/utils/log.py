@@ -12,6 +12,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 from pathlib import Path
 
+import torch
+
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
 sys.path.insert(0, os.path.abspath(_root_dir))
@@ -33,8 +35,20 @@ def plot_client_vp(config, curr_client, iter, epoch):
     _ax.set_title(f"Variational parameters - iter {iter}, epoch {epoch}")
     _ax.set_xlabel("x")
     _ax.set_ylabel("y")
-    scatterplot(curr_client.x, curr_client.y, label=f"Training data - {curr_client.name}", ax=_ax)
-    scatterplot(curr_client.z, curr_client.get_final_yz(), label=f"Initial inducing points - {curr_client.name}", ax=_ax)
+    if curr_client.x.shape[-1] == 1:
+        scatterplot(curr_client.x, curr_client.y, label=f"Training data - {curr_client.name}", ax=_ax)
+    else:
+        # Take PCA.
+        U, S, V = torch.pca_lowrank(curr_client.x)
+        proj_x = torch.matmul(curr_client.x, V[:, :1])
+        scatterplot(proj_x, curr_client.y, label=f"Training data - {curr_client.name} (PCA)", ax=_ax)
+    if curr_client.z.shape[-1] == 1:
+        scatterplot(curr_client.z, curr_client.get_final_yz(), label=f"Initial inducing points - {curr_client.name}", ax=_ax)
+    else:
+        # Take PCA.
+        U, S, V = torch.pca_lowrank(curr_client.z)
+        proj_z = torch.matmul(curr_client.z, V[:, :1])
+        scatterplot(proj_z, curr_client.get_final_yz(), label=f"Initial inducing points - {curr_client.name} (PCA)", ax=_ax)
 
     plot.tweak(_ax)
     plt.savefig(os.path.join(_client_plot_dir, f"{iter}_{epoch}.png"), pad_inches=0.2, bbox_inches="tight")

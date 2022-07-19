@@ -34,11 +34,17 @@ def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs
     """
     if config.sep_lr:
         lr = config.lr
-        params = [
-            {"params": curr_client.get_params("ts.*_nz"), "lr": config.lr_nz},
-            {"params": curr_client.get_params("zs.*_z"), "lr": config.lr_client_z},  # inducing
-            {"params": curr_client.get_params("ts.*_yz"), "lr": config.lr_yz},  # pseudo obs
-        ]
+        if isinstance(curr_client, GI_Client):
+            params = [
+                {"params": curr_client.get_params("ts.*_nz"), "lr": config.lr_nz},
+                {"params": curr_client.get_params("zs.*_z"), "lr": config.lr_client_z},  # inducing
+                {"params": curr_client.get_params("ts.*_yz"), "lr": config.lr_yz},  # pseudo obs
+            ]
+        else:
+            params = [
+                {"params": curr_client.get_params("ts.*_nz"), "lr": config.lr_nz},  # weight precisions
+                {"params": curr_client.get_params("ts.*_yz"), "lr": config.lr_yz},  # weight means
+            ]
 
         # If running global VI & optimizing ll variance
         if not pvi and not config.fix_ll:
