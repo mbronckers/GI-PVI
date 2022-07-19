@@ -32,8 +32,8 @@ def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs
     Returns:
         (torch.optim): Optimizer
     """
-    if args.sep_lr:
-        lr = args.lr
+    if config.sep_lr:
+        lr = config.lr
         params = [
             {"params": curr_client.get_params("ts.*_nz"), "lr": config.lr_nz},
             {"params": curr_client.get_params("zs.*_z"), "lr": config.lr_client_z},  # inducing
