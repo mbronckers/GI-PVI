@@ -121,6 +121,9 @@ class PVIConfig(Config):
 
 @dataclass
 class MFVIConfig(PVIConfig):
+
+    lr_global: float = 0.1
+
     def __post_init__(self):
         super().__post_init__()
 
@@ -161,7 +164,7 @@ class ClassificationConfig(PVIConfig):
     data: DGP = DGP.mnist
     in_features: int = 28 * 28
     out_features: int = 10
-    # dims = [(28 * 28), 100, 100, 10]
+    dims = [in_features, 100, 100, out_features]
 
     # Communication settings
     global_iters: int = 10  # shared/global server iterations
