@@ -8,6 +8,7 @@ import torch
 
 logger = logging.getLogger()
 
+
 class Normal:
     def __init__(self, mean, var):
         self.mean = mean
@@ -227,7 +228,6 @@ class MeanFieldFactor:
     def __call__(self, S):
         return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(B.diag_construct(self.prec.diag), S, 1, 1, 1))
 
-
     def __mul__(self, other: Union["MeanFieldFactor", "NaturalNormal"]):
         return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
 
@@ -260,7 +260,7 @@ class MeanField(NaturalNormal):
         if B.any(factor.prec.mat < 0):
             logger.debug(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
             factor.prec.mat[factor.prec.mat < 0] = MIN_PREC
-        
+
         return cls(lam=factor.lam, prec=factor.prec)
 
 

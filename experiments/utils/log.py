@@ -95,6 +95,7 @@ def eval_logging(
     if y_pred.device != y.device:
         y_pred = y_pred.to(y.device)
 
+    # Save only 1D tensors
     if x.shape[-1] == 1:
         _results_eval = pd.DataFrame(
             {

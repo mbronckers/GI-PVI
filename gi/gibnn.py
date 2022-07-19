@@ -162,8 +162,7 @@ class GIBNN_Regression(GIBNN):
             rmses += self.compute_error(y_pred, y_mb)
             mlls = ((mlls * batch_idx) + mll.mean()) / (batch_idx + 1)
 
-        N = loader.dataset.tensors[1].shape[0]
-        rmse = rmses / N
+        rmse = rmses / len(loader)
         return {"mll": mlls, self.error_metric: rmse}
 
 

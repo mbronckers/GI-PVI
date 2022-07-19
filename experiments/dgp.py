@@ -115,28 +115,6 @@ def dgp2(key, size, xmin=-4.0, xmax=4.0):
     return key, x[:, None], y[:, None]
 
 
-def generate_cifar(augment: bool):
-    from torchvision import transforms, datasets
-    import torch as t
-
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
-    augment = transforms.Compose(
-        [
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-        ]
-    )
-
-    if augment:
-        transform_train = transforms.Compose([augment, transform])
-    else:
-        transform_train = transform
-
-    train_dataset = datasets.CIFAR10("data", train=True, download=True, transform=transform_train)
-    num_classes = max(train_dataset.targets) + 1
-    test_dataset = datasets.CIFAR10("data", train=False, transform=transform)
-
-
 def generate_mnist(data_dir):
     from torchvision import transforms, datasets
     import torch as t
@@ -158,6 +136,28 @@ def generate_mnist(data_dir):
     }
 
     return train_data, test_data
+
+
+def generate_cifar(augment: bool):
+    from torchvision import transforms, datasets
+    import torch as t
+
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    augment = transforms.Compose(
+        [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ]
+    )
+
+    if augment:
+        transform_train = transforms.Compose([augment, transform])
+    else:
+        transform_train = transform
+
+    train_dataset = datasets.CIFAR10("data", train=True, download=True, transform=transform_train)
+    num_classes = max(train_dataset.targets) + 1
+    test_dataset = datasets.CIFAR10("data", train=False, transform=transform)
 
 
 def split_data(x, y, lb_mid=-2.0, ub_mid=2.0):
