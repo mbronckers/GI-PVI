@@ -58,24 +58,21 @@ def main(args, config, logger):
     # Build prior.
     M = args.M  # number of inducing points
     dims = config.dims
-    ps = build_prior(*dims, prior=args.prior, bias=args.bias)
-
-    # Deal with client split.
-    if args.num_clients != len(config.client_splits):
-        raise ValueError("Number of clients specified by --num-clients does not match number of client splits in config file.")
-    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
+    ps = build_prior(*dims, prior=args.prior, bias=config.bias)
 
     # Likelihood variance is fixed in PVI.
-    likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via args/config.ll_var
+    if config.fix_ll:
+        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via config.ll_var
+    else:
+        likelihood = gi.likelihoods.NormalLikelihood(config.ll_var)  # Specifyable via config.ll_var
     logger.info(f"Likelihood variance: {likelihood.var}")
 
     # Define model and clients.
-    model = gi.GIBNN_Regression(nn.functional.relu, args.bias, config.kl, likelihood)
+    model = gi.GIBNN_Regression(nn.functional.relu, config.bias, config.kl, likelihood)
     clients: dict[str, GI_Client] = {}
 
     # Build clients.
-    if config.deterministic and args.num_clients > 1:
-        raise ValueError("Deterministic mode is not supported with multiple clients.")
+    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
     if config.deterministic and args.num_clients == 1:
         _client = GI_Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
         key = _client.key
@@ -336,7 +333,6 @@ if __name__ == "__main__":
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
-    parser.add_argument("--det", action="store_true", help="Deterministic training data split and ll variance", default=config.deterministic)
     parser.add_argument(
         "--training_samples",
         "-S",
@@ -351,14 +347,6 @@ if __name__ == "__main__":
         help="number of inference weight samples",
         default=config.I,
     )
-    parser.add_argument(
-        "--nz_init",
-        type=float,
-        help="Initial value of client's likelihood precision",
-        default=config.nz_init,
-    )
-    parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)
-    parser.add_argument("--ll_var", type=float, help="likelihood var", default=config.ll_var)
     parser.add_argument(
         "--batch_size",
         "-b",
@@ -381,18 +369,6 @@ if __name__ == "__main__":
         default=config.random_z,
     )
     parser.add_argument("--prior", "-P", type=str, help="prior type", default=config.prior)
-    parser.add_argument("--bias", help="Use bias vectors in BNN", default=config.bias)
-    parser.add_argument(
-        "--sep_lr",
-        help="Use separate LRs for parameters (see config)",
-        default=config.separate_lr,
-    )
-    parser.add_argument(
-        "--num_clients",
-        "-nc",
-        help="Number of clients (implicit equal split)",
-        default=config.num_clients,
-    )
     args = parser.parse_args()
 
     # Create experiment directories
@@ -450,6 +426,7 @@ if __name__ == "__main__":
     logger.debug(f"Root: {_results_dir}")
     logger.debug(f"Time: {_time}")
     logger.debug(f"Seed: {args.seed}")
+    logger.info(f"{Color.WHITE}Config: {config}{Color.END}")
     logger.info(f"{Color.WHITE}Args: {args}{Color.END}")
 
     main(args, config, logger)
