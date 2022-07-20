@@ -83,7 +83,7 @@ def eval_logging(
     _plot_dir: str = None,
     ylim: Optional[Tuple[float, float]] = None,
     xlim: Optional[Tuple[float, float]] = None,
-    save_metrics: bool = False,
+    save_metrics: bool = True,
     plot_samples: bool = True,
 ):
     """Logs the model inference results and saves plots
@@ -138,23 +138,22 @@ def eval_logging(
 
     # Plot model predictions:
     if x.shape[-1] == 1:
-        # Plot eval data, training data, and model predictions (in that order)
-        _ax = scatter_plot(
-            None,
-            x,
-            y,
-            x_tr,
-            y_tr,
-            f"{data_name.capitalize()} data",
-            "Training data",
-            "x",
-            "y",
-            f"Model predictions on {data_name.lower()} data ({_S} samples)",
-            ylim=ylim,
-            xlim=xlim,
-        )
+        # Plot training data and model predictions (in that order)
         scatterplot = plot.patch(sns.scatterplot)
-        scatterplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])
+        fig, _ax = plt.subplots(1, 1, figsize=(10, 10))
+        scatterplot(y=y_tr, x=x_tr, label="Training data", ax=_ax)
+
+        if ylim:
+            _ax.set_ylim(ylim)
+        if xlim:
+            _ax.set_xlim(xlim)
+        _ax.set_xlabel("x")
+        _ax.set_ylabel("y")
+        _ax.set_title(f"Model predictions on {data_name.lower()} data ({_S} samples)")
+        _ax.legend(loc="upper right", prop={"size": 12})
+
+        lineplot = plot.patch(sns.lineplot)
+        lineplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])
 
         # Plot confidence bounds (1 and 2 std deviations)
         _preds_idx = [f"preds_{i}" for i in range(_S)]

@@ -33,7 +33,7 @@ def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs
         (torch.optim): Optimizer
     """
     if config.sep_lr:
-        lr = config.lr
+        lr = config.lr_global
         if isinstance(curr_client, GI_Client):
             params = [
                 {"params": curr_client.get_params("ts.*_nz"), "lr": config.lr_nz},

@@ -162,9 +162,9 @@ class NaturalNormal:
         # sample = self.mean + B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
         sample = self.mean + dW
 
-        del dW
+        del dW, noise
         if not structured(sample):
-            sample = B.dense(sample)  # transform Tensor to Dense matrix
+            sample = B.dense(sample)  # transform Dense to Transform matrix
 
         return key, sample
 
@@ -199,13 +199,6 @@ class MeanFieldFactor:
         """
         self.lam = lam
         self.prec = Diagonal(prec) if len(prec.shape) == 2 else prec
-        # self.prec = convert(prec, Diagonal)
-
-        self._mean = None
-        self._var = None
-
-        self._mean = None
-        self._var = None
 
     @property
     def dtype(self):
@@ -237,6 +230,9 @@ class MeanFieldFactor:
     def __rtruediv__(self, other: "MeanFieldFactor"):
         return MeanFieldFactor(other.lam - self.lam, other.prec - self.prec)
 
+    def __copy__(self):
+        return MeanFieldFactor(deepcopy(self.lam.detach().clone()), deepcopy(B.dense(self.prec.diag).detach().clone()))
+
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
 
@@ -257,7 +253,7 @@ class MeanField(NaturalNormal):
     def from_factor(cls, factor: MeanFieldFactor):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
         MIN_PREC = 1e-4
-        if B.any(factor.prec.mat < 0):
+        if B.any(factor.prec.mat < 0).item():
             logger.debug(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
             factor.prec.mat[factor.prec.mat < 0] = MIN_PREC
 

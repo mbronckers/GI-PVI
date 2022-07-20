@@ -84,7 +84,12 @@ class PVIConfig(Config):
     global_iters: int = 1  # server iterations
     local_iters: int = 2000  # client-local iterations
 
-    batch_size: int = 20
+    deterministic: bool = True  # deterministic client training
+    # linspace_yz: bool = True  # True => use linspace(-1, 1) for yz initialization
+
+    N: int = 40  # Num total training data pts, not the number of data pts per client.
+    M: int = 40
+    batch_size: int = 40
 
     dims = [1, 50, 50, 1]
 
@@ -110,11 +115,22 @@ class PVIConfig(Config):
 class MFVIConfig(PVIConfig):
     posterior_type: str = "mfvi"
 
+    sep_lr: bool = False  # True => use seperate learning rates
+    lr_global: float = 0.05
+    lr_nz: float = 0.05
+    lr_yz: float = 0.05
+
+    global_iters: int = 1
+    local_iters: int = 100
+
+    # Initialize weight layer mean from N(0,1)
+    random_mean_init: bool = False
+
     def __post_init__(self):
         super().__post_init__()
 
         # Weight variances per Ober et al.
-        self.nz_inits: list[float] = [1e-3 / self.dims[i] for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
 
 @dataclass

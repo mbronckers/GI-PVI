@@ -73,7 +73,7 @@ def main(args, config, logger):
 
     # Build clients.
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
-    if config.deterministic and args.num_clients == 1:
+    if config.deterministic and config.num_clients == 1:
         _client = GI_Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
         key = _client.key
         clients[f"client0"] = _client
@@ -263,59 +263,61 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             config.plot_dir,
         )
 
-        # Run eval on entire domain (linspace)
-        num_pts = 100
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain",
-            config.results_dir,
-            "eval_domain_preds",
-            config.plot_dir,
-        )
+        # Plot regression domain (-6, 6).
+        if type(config) == PVIConfig:
+            # Run eval on entire domain (linspace)
+            num_pts = 100
+            x_domain = B.linspace(-6, 6, num_pts)[..., None]
+            key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+            y_domain = x_domain**3.0 + 3 * eps
+            y_domain = y_domain / scale  # scale with train datasets
+            y_pred = model.propagate(x_domain)
+            eval_logging(
+                x_domain,
+                y_domain,
+                x_tr,
+                y_tr,
+                y_pred,
+                rmse(y_domain, y_pred),
+                y_pred.var(0),
+                "Entire domain",
+                config.results_dir,
+                "eval_domain_preds",
+                config.plot_dir,
+            )
 
-        # Run eval on entire domain (linspace)
-        num_pts = 1000
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain",
-            config.results_dir,
-            "eval_domain_preds_fix_ylim",
-            config.plot_dir,
-            ylim=(-4, 4),
-        )
+            # Run eval on entire domain (linspace)
+            num_pts = 1000
+            x_domain = B.linspace(-6, 6, num_pts)[..., None]
+            key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+            y_domain = x_domain**3.0 + 3 * eps
+            y_domain = y_domain / scale  # scale with train datasets
+            y_pred = model.propagate(x_domain)
+            eval_logging(
+                x_domain,
+                y_domain,
+                x_tr,
+                y_tr,
+                y_pred,
+                rmse(y_domain, y_pred),
+                y_pred.var(0),
+                "Entire domain",
+                config.results_dir,
+                "eval_domain_preds_fix_ylim",
+                config.plot_dir,
+                ylim=(-4, 4),
+            )
 
-        # Ober's plot
-        mean_ys = y_pred.mean(0)
-        std_ys = y_pred.std(0)
-        ax = plt.gca()
-        plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
-        plt.plot(x_domain, mean_ys)
-        plt.scatter(x_tr, y_tr, c="r")
-        ax.set_axisbelow(True)  # Show grid lines below other elements.
-        ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
-        plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
+            # Ober's plot
+            mean_ys = y_pred.mean(0)
+            std_ys = y_pred.std(0)
+            ax = plt.gca()
+            plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
+            # plt.plot(x_domain, mean_ys)
+            plt.scatter(x_tr, y_tr, c="r")
+            ax.set_axisbelow(True)  # Show grid lines below other elements.
+            ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
+            plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
 
 if __name__ == "__main__":
@@ -323,7 +325,8 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    config = ProteinConfig()
+    # config = ProteinConfig()
+    config = PVIConfig()
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)

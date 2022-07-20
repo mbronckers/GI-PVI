@@ -157,30 +157,33 @@ class GI_Client(Client):
         Args:
             vs: optimizable variable container
         """
-        for i, layer_name in enumerate(self.t.keys()):
-            _prec = self.vs[f"ts.{self.name}_{layer_name}_nz"]
-            self.t[layer_name].nz = _prec
+        for layer_name in self.t.keys():
+            self.t[layer_name].nz = self.vs[f"ts.{self.name}_{layer_name}_nz"]
 
     def get_final_yz(self):
         return self.t[list(self.t.keys())[-1]].yz  # final layer yz
 
 
 class MFVI_Client(Client):
-    def __init__(self, name: Optional[str], x, y, *dims: B.Int, prec_inits: list[float], bias: bool = True, S):
+    def __init__(self, key, name: Optional[str], x, y, *dims: B.Int, random_mean_init: bool = False, prec_inits: list[float], bias: bool = True, S):
         super().__init__(name, x, y)
 
         self.bias = bias
+        self.key = key
 
         # Layer posterior factors
-        self.t: dict[str, MeanFieldFactor] = self.build_t(*dims, prec_inits=prec_inits, S=S)
+        self.t: dict[str, MeanFieldFactor] = self.build_t(key, *dims, random_mean_init=random_mean_init, prec_inits=prec_inits, S=S)
 
         for layer_name, factor in self.t.items():
             self.vs.unbounded(factor.lam, name=f"ts.{self.name}_{layer_name}_yz")
-            self.vs.unbounded(factor.prec.diag, name=f"ts.{self.name}_{layer_name}_nz")
+            # self.vs.unbounded(factor.prec.diag, name=f"ts.{self.name}_{layer_name}_nz")
+            self.vs.positive(factor.prec.diag, name=f"ts.{self.name}_{layer_name}_nz")
 
         self.vs.requires_grad(True, *self.vs.names)
 
-    def build_t(self, *dims, prec_inits: list[float], S):
+        self.update_nz()
+
+    def build_t(self, key, *dims, random_mean_init, prec_inits: list[float], S):
         ts = {}
         num_layers = len(dims) - 1
         assert len(prec_inits) == num_layers
@@ -189,9 +192,21 @@ class MFVI_Client(Client):
                 Din = dims[i] + 1
             else:
                 Din = dims[i]
-            lam = B.zeros(B.default_dtype, dims[i + 1], Din, 1)  # [Dout x Din]
-            _prec = B.eye(B.default_dtype, Din) * prec_init
-            _prec = B.tile(_prec, dims[i + 1], 1, 1)  # [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
 
-            ts[f"layer{i}"] = MeanFieldFactor(lam, B.diag_extract(_prec))
+            if random_mean_init:
+                key, lam = B.randn(key, B.default_dtype, dims[i + 1], Din, 1)
+                self.key = key
+            else:
+                lam = B.zeros(B.default_dtype, dims[i + 1], Din, 1)  # [Dout x Din]
+
+            ts[f"layer{i}"] = MeanFieldFactor(lam, B.ones(B.default_dtype, dims[i + 1], Din) * prec_init)
         return ts
+
+    def update_nz(self):
+        """Update likelihood factors' precision based on the current state of vs
+
+        Args:
+            vs: optimizable variable container
+        """
+        for layer_name in self.t.keys():
+            self.t[layer_name].prec.diag = self.vs[f"ts.{self.name}_{layer_name}_nz"]

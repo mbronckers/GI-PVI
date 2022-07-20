@@ -55,6 +55,10 @@ def main(args, config, logger):
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
     logger.info(f"Scale: {scale}")
 
+    # Code to save/load data
+    # torch.save(x_tr, os.path.join(file_dir, "data/mfvi_x_tr.pt"))
+    # torch.save(y_tr, os.path.join(file_dir, "data/mfvi_y_tr.pt"))
+
     # Build prior.
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
@@ -76,9 +80,15 @@ def main(args, config, logger):
 
     # Build clients.
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
-    key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
-    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-        clients[f"client{client_i}"] = MFVI_Client(f"client{client_i}", client_x_tr, client_y_tr, *dims, prec_inits=config.nz_inits, S=S)
+    if config.deterministic and config.num_clients == 1:
+        clients[f"client0"] = MFVI_Client(key, f"client0", x_tr, y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
+        key = clients[f"client0"].key
+    else:
+        key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
+        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+            _c = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
+            clients[f"client{client_i}"] = _c
+            key = _c.key
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -94,28 +104,28 @@ def main(args, config, logger):
         frozen_ts, _ = collect_vp(clients)
 
         # Log performance of global server model.
-        with torch.no_grad():
-            # Resample <S> inference weights
-            key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
+        # with torch.no_grad():
+        #     # Resample <S> inference weights
+        #     key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
 
-            server.evaluate_performance()
+        #     server.evaluate_performance()
 
-            # Run eval on entire dataset
-            y_pred = model.propagate(x)
-            eval_logging(
-                x,
-                y,
-                x_tr,
-                y_tr,
-                y_pred,
-                rmse(y, y_pred),
-                y_pred.var(0),
-                f"SERVER - global model - iter {iter} - train/test set",
-                config.results_dir,
-                f"server_all_preds_iter_{iter}",
-                config.server_dir,
-                plot_samples=False,
-            )
+        #     # Run eval on entire dataset
+        #     y_pred = model.propagate(x)
+        #     eval_logging(
+        #         x,
+        #         y,
+        #         x_tr,
+        #         y_tr,
+        #         y_pred,
+        #         rmse(y, y_pred),
+        #         y_pred.var(0),
+        #         f"SERVER - global model - iter {iter} - train/test set",
+        #         config.results_dir,
+        #         f"server_all_preds_iter_{iter}",
+        #         config.server_dir,
+        #         plot_samples=False,
+        #     )
 
         # Get next client(s).
         curr_clients = next(server)
@@ -150,6 +160,7 @@ def main(args, config, logger):
                 loss.backward()
                 opt.step()
                 opt.zero_grad()
+                curr_client.update_nz()
 
                 # Log results.
                 if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
@@ -192,6 +203,8 @@ def main(args, config, logger):
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
+
+    # logger.info(f"Client final layer nz: {clients['client0'].t['layer2'].prec.diag}")
 
     # Save model metrics.
     metrics = pd.DataFrame(server.log)
@@ -243,59 +256,60 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             config.plot_dir,
         )
 
-        # Run eval on entire domain (linspace)
-        num_pts = 100
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain",
-            config.results_dir,
-            "eval_domain_preds",
-            config.plot_dir,
-        )
+        if type(config) == MFVIConfig:
+            # Run eval on entire domain (linspace)
+            num_pts = 100
+            x_domain = B.linspace(-6, 6, num_pts)[..., None]
+            key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+            y_domain = x_domain**3.0 + 3 * eps
+            y_domain = y_domain / scale  # scale with train datasets
+            y_pred = model.propagate(x_domain)
+            eval_logging(
+                x_domain,
+                y_domain,
+                x_tr,
+                y_tr,
+                y_pred,
+                rmse(y_domain, y_pred),
+                y_pred.var(0),
+                "Entire domain",
+                config.results_dir,
+                "eval_domain_preds",
+                config.plot_dir,
+            )
 
-        # Run eval on entire domain (linspace)
-        num_pts = 1000
-        x_domain = B.linspace(-6, 6, num_pts)[..., None]
-        key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
-        y_domain = x_domain**3.0 + 3 * eps
-        y_domain = y_domain / scale  # scale with train datasets
-        y_pred = model.propagate(x_domain)
-        eval_logging(
-            x_domain,
-            y_domain,
-            x_tr,
-            y_tr,
-            y_pred,
-            rmse(y_domain, y_pred),
-            y_pred.var(0),
-            "Entire domain",
-            config.results_dir,
-            "eval_domain_preds_fix_ylim",
-            config.plot_dir,
-            ylim=(-4, 4),
-        )
+            # Run eval on entire domain (linspace)
+            num_pts = 1000
+            x_domain = B.linspace(-6, 6, num_pts)[..., None]
+            key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+            y_domain = x_domain**3.0 + 3 * eps
+            y_domain = y_domain / scale  # scale with train datasets
+            y_pred = model.propagate(x_domain)
+            eval_logging(
+                x_domain,
+                y_domain,
+                x_tr,
+                y_tr,
+                y_pred,
+                rmse(y_domain, y_pred),
+                y_pred.var(0),
+                "Entire domain",
+                config.results_dir,
+                "eval_domain_preds_fix_ylim",
+                config.plot_dir,
+                ylim=(-4, 4),
+            )
 
-        # Ober's plot
-        mean_ys = y_pred.mean(0)
-        std_ys = y_pred.std(0)
-        ax = plt.gca()
-        plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
-        plt.plot(x_domain, mean_ys)
-        plt.scatter(x_tr, y_tr, c="r")
-        ax.set_axisbelow(True)  # Show grid lines below other elements.
-        ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
-        plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
+            # Ober's plot
+            mean_ys = y_pred.mean(0)
+            std_ys = y_pred.std(0)
+            ax = plt.gca()
+            plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
+            plt.plot(x_domain, mean_ys)
+            plt.scatter(x_tr, y_tr, c="r")
+            ax.set_axisbelow(True)  # Show grid lines below other elements.
+            ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
+            plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
 
 if __name__ == "__main__":
