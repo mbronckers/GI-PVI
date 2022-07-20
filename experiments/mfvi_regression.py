@@ -31,7 +31,7 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import MFVIConfig, PVIConfig
+from config.config import MFVI_ProteinConfig, MFVIConfig, PVIConfig
 from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
@@ -204,11 +204,13 @@ def main(args, config, logger):
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
 
-    # logger.info(f"Client final layer nz: {clients['client0'].t['layer2'].prec.diag}")
-
     # Save model metrics.
     metrics = pd.DataFrame(server.log)
     metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    for client_name, _c in clients.items():
+        # Save client log.
+        metrics = pd.DataFrame(_c.log)
+        metrics.to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
 
     if args.plot:
         for c_name in clients.keys():
@@ -317,7 +319,9 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    config = MFVIConfig()
+    # config = MFVIConfig()
+    config = MFVI_ProteinConfig()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)

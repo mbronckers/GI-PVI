@@ -84,14 +84,14 @@ class PVIConfig(Config):
     global_iters: int = 1  # server iterations
     local_iters: int = 2000 # client-local iterations
 
-    deterministic: bool = True  # deterministic client training
+    # deterministic: bool = True  # deterministic client training
     # linspace_yz: bool = True  # True => use linspace(-1, 1) for yz initialization
 
     N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 40
     batch_size: int = 40
-
-    dims = [1, 50, 50, 1]
+    S: int = 10
+    dims = [1, 50, 50, 50, 1]
 
     # Server & clients
     server_type: Server = SequentialServer
@@ -123,6 +123,8 @@ class MFVIConfig(PVIConfig):
     global_iters: int = 1
     local_iters: int = 2000
 
+    dims = [1, 50, 50, 1]
+
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = False
 
@@ -137,14 +139,17 @@ class ProteinConfig(PVIConfig):
     posterior_type: str = "pvi_protein"
 
     global_iters: int = 1  # server iterations
-    local_iters: int = 2000  # client-local iterations
+    local_iters: int = 100  # client-local iterations
 
     # UCI Protein config
+    
     dgp: DGP = DGP.uci_protein
-    N: int = 36584  # Num total training data pts, not the number of data pts per client.
-    M: int = 100  # Number of inducing points per client
+    N: int = 0.8  # Fraction training pts (total)
+    M: int = 50  # Number of inducing points per client
     dims = [9, 50, 50, 1]
-    batch_size: int = 100
+    batch_size: int = 1000
+    fix_ll: bool = False  # true => fix ll variance
+    ll_var: float = 0.10  # likelihood variance
 
     def __post_init__(self):
         super().__post_init__()
@@ -154,15 +159,18 @@ class ProteinConfig(PVIConfig):
 class MFVI_ProteinConfig(MFVIConfig):
     posterior_type: str = "pvi_protein"
 
+    fix_ll: bool = False  # true => fix ll variance
     global_iters: int = 1  # server iterations
     local_iters: int = 10000  # client-local iterations
 
     # UCI Protein config
     dgp: DGP = DGP.uci_protein
-    N: int = 36584  # Num total training data pts, not the number of data pts per client.
+    N: int = 0.8  # Fraction training pts (total)
     M: int = 100  # Number of inducing points per client
     dims = [9, 50, 50, 1]
-    batch_size: int = 100
+    batch_size: int = 1000
+    fix_ll: bool = False
+    ll_var: float = 0.10
 
     def __post_init__(self):
         super().__post_init__()

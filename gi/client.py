@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
@@ -21,6 +22,8 @@ class Client:
         # Add optimizable client variables to vs
         self._vs: Vars = Vars(B.default_dtype)
 
+        self.log = defaultdict(list)
+
     @property
     def vs(self):
         return self._vs
@@ -34,6 +37,10 @@ class Client:
 
     def __repr__(self) -> str:
         return f"{self.name}"
+
+    def update_log(self, metrics: dict):
+        for k, v in metrics.items():
+            self.log[k].append(v)
 
 
 class GI_Client(Client):

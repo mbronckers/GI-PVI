@@ -49,11 +49,12 @@ def main(args, config, logger):
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup regression dataset.
-    N = args.N  # num training points
+    N = args.N  # num/fraction training points 
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
     logger.info(f"Scale: {scale}")
+    N = x_tr.shape[0]
 
     # Build prior.
     M = args.M  # number of inducing points
@@ -173,6 +174,10 @@ def main(args, config, logger):
                     logger.info(
                         f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
+                    # Save client metrics.
+                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+
                     # Only plot every <log_step> epoch
                     if args.plot and ((client_iter + 1) % log_step == 0):
                         plot_client_vp(config, curr_client, iter, client_iter)
@@ -216,6 +221,10 @@ def main(args, config, logger):
     # Save model metrics.
     metrics = pd.DataFrame(server.log)
     metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    for client_name, _c in clients.items():
+        # Save client log.
+        metrics = pd.DataFrame(_c.log)
+        metrics.to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
 
     if args.plot:
         for c_name in clients.keys():
@@ -325,8 +334,9 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    # config = ProteinConfig()
-    config = PVIConfig()
+    config = ProteinConfig()
+    # config = PVIConfig()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
