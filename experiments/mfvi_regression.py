@@ -54,6 +54,7 @@ def main(args, config, logger):
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
     logger.info(f"Scale: {scale}")
+    N = x_tr.shape[0]
 
     # Code to save/load data
     # torch.save(x_tr, os.path.join(file_dir, "data/mfvi_x_tr.pt"))
@@ -146,7 +147,8 @@ def main(args, config, logger):
 
             # Run client-local optimization.
             client_data_size = curr_client.x.shape[0]
-            batch_size = min(len(curr_client.x), min(args.batch_size, N))
+            batch_size = min(client_data_size, min(args.batch_size, N))
+            logger.debug(f"Client {curr_client.name} batch size: {batch_size}")
             max_local_iters = args.local_iters
             for client_iter in range(max_local_iters):
 

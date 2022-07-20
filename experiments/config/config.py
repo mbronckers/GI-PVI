@@ -24,12 +24,8 @@ class Config:
     deterministic: bool = False  # deterministic client training
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
-    N: int = 40  # Num total training data pts, not the number of data pts per client.
-    M: int = 20  # Number of inducing points per client
     S: int = 10  # Number of training weight samples
     I: int = 100  # Number of inference samples
-
-    batch_size: int = 40
 
     # ll_var: float = 1e-2  # likelihood variance
     fix_ll: bool = True  # fix ll variance
@@ -38,16 +34,14 @@ class Config:
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
     lr_global: float = 0.05
-    lr_nz: float = 0.001
-    lr_client_z: float = 0.01
-    lr_yz: float = 0.01
+    lr_nz: float = 0.05
+    lr_client_z: float = 0.05
+    lr_yz: float = 0.05
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
-    dgp: DGP = DGP.ober_regression
     optimizer: str = "Adam"
 
-    dims = [1, 50, 50, 1]
     bias: bool = True
 
     load: str = None
@@ -77,12 +71,12 @@ class Config:
 
 @dataclass
 class PVIConfig(Config):
-
     posterior_type: str = "pvi"
+    dgp: DGP = DGP.ober_regression
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 2000 # client-local iterations
+    local_iters: int = 2000  # client-local iterations
 
     # deterministic: bool = True  # deterministic client training
     # linspace_yz: bool = True  # True => use linspace(-1, 1) for yz initialization
@@ -91,7 +85,7 @@ class PVIConfig(Config):
     M: int = 40
     batch_size: int = 40
     S: int = 10
-    dims = [1, 50, 50, 50, 1]
+    dims = [1, 50, 50, 1]
 
     # Server & clients
     server_type: Server = SequentialServer
@@ -134,46 +128,50 @@ class MFVIConfig(PVIConfig):
         # Weight variances per Ober et al.
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
+
 @dataclass
 class ProteinConfig(PVIConfig):
     posterior_type: str = "pvi_protein"
+    dgp: DGP = DGP.uci_protein
 
     global_iters: int = 1  # server iterations
-    local_iters: int = 100  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
 
     # UCI Protein config
-    
-    dgp: DGP = DGP.uci_protein
-    N: int = 0.8  # Fraction training pts (total)
-    M: int = 50  # Number of inducing points per client
+    N: int = 0.8  # Fraction training pts vs test
+    M: int = 10  # Number of inducing points per client
     dims = [9, 50, 50, 1]
-    batch_size: int = 1000
+    batch_size: int = 10000
     fix_ll: bool = False  # true => fix ll variance
     ll_var: float = 0.10  # likelihood variance
 
     def __post_init__(self):
         super().__post_init__()
+        self.name = f"_{self.posterior_type}"
+        self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M"
 
 
 @dataclass
 class MFVI_ProteinConfig(MFVIConfig):
     posterior_type: str = "pvi_protein"
+    dgp: DGP = DGP.uci_protein
 
     fix_ll: bool = False  # true => fix ll variance
     global_iters: int = 1  # server iterations
-    local_iters: int = 10000  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
 
     # UCI Protein config
-    dgp: DGP = DGP.uci_protein
     N: int = 0.8  # Fraction training pts (total)
     M: int = 100  # Number of inducing points per client
     dims = [9, 50, 50, 1]
-    batch_size: int = 1000
+    batch_size: int = 10000
     fix_ll: bool = False
     ll_var: float = 0.10
 
     def __post_init__(self):
         super().__post_init__()
+        self.name = f"_{self.posterior_type}"
+        self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M"
 
 
 @dataclass

@@ -49,7 +49,7 @@ def main(args, config, logger):
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup regression dataset.
-    N = args.N  # num/fraction training points 
+    N = args.N  # num/fraction training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
@@ -155,6 +155,7 @@ def main(args, config, logger):
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
             max_local_iters = args.local_iters
+            logger.debug(f"Client {curr_client.name} batch size: {batch_size}")
             for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.

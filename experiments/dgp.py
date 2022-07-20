@@ -57,7 +57,7 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         y = torch.from_numpy(y).clone().to(B.default_dtype)
 
         if size < 1:
-            key, splits = split_data_clients(key, X, y, [size, 1-size])
+            key, splits = split_data_clients(key, X, y, [size, 1 - size])
         else:
             key, splits = split_data_clients(key, X, y, [0.8, 0.2])
         x_tr, y_tr = splits[0]
@@ -74,7 +74,7 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         y = torch.from_numpy(y).clone().to(B.default_dtype)
 
         if size < 1:
-            key, splits = split_data_clients(key, X, y, [size, 1-size])
+            key, splits = split_data_clients(key, X, y, [size, 1 - size])
         else:
             key, splits = split_data_clients(key, X, y, [0.8, 0.2])
         x_tr, y_tr = splits[0]
@@ -120,6 +120,7 @@ def uci_protein(dir_path):
 
     return X, y
 
+
 def uci_adult(dir_path):
     from data.preprocess_data import download_datasets, process_dataset, datasets, adult_config
 
@@ -130,7 +131,6 @@ def uci_adult(dir_path):
     X, y = np.load(data_dir("x.npy")), np.load(data_dir("y.npy"))
 
     return X, y
-
 
 
 def dgp2(key, size, xmin=-4.0, xmax=4.0):
@@ -191,17 +191,6 @@ def generate_cifar(augment: bool):
     train_dataset = datasets.CIFAR10("data", train=True, download=True, transform=transform_train)
     num_classes = max(train_dataset.targets) + 1
     test_dataset = datasets.CIFAR10("data", train=False, transform=transform)
-
-
-def split_data(x, y, lb_mid=-2.0, ub_mid=2.0):
-    """Split toy regression dataset from paper into two domains: ([-4, -2) U (2, 4]) & [-2, 2]"""
-
-    idx_te = torch.logical_and((x >= lb_mid), x <= ub_mid)
-    idx_tr = torch.logical_or((x < lb_mid), x > ub_mid)
-    x_te, y_te = x[idx_te][:, None], y[idx_te][:, None]
-    x_tr, y_tr = x[idx_tr][:, None], y[idx_tr][:, None]
-
-    return x_tr, y_tr, x_te, y_te
 
 
 def split_data_clients(key, x, y, splits):
