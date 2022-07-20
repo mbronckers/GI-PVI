@@ -104,28 +104,28 @@ def main(args, config, logger):
         frozen_ts, _ = collect_vp(clients)
 
         # Log performance of global server model.
-        # with torch.no_grad():
-        #     # Resample <S> inference weights
-        #     key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
+        with torch.no_grad():
+            # Resample <S> inference weights
+            key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
 
-        #     server.evaluate_performance()
+            server.evaluate_performance()
 
-        #     # Run eval on entire dataset
-        #     y_pred = model.propagate(x)
-        #     eval_logging(
-        #         x,
-        #         y,
-        #         x_tr,
-        #         y_tr,
-        #         y_pred,
-        #         rmse(y, y_pred),
-        #         y_pred.var(0),
-        #         f"SERVER - global model - iter {iter} - train/test set",
-        #         config.results_dir,
-        #         f"server_all_preds_iter_{iter}",
-        #         config.server_dir,
-        #         plot_samples=False,
-        #     )
+            # Run eval on entire dataset
+            y_pred = model.propagate(x)
+            eval_logging(
+                x,
+                y,
+                x_tr,
+                y_tr,
+                y_pred,
+                rmse(y, y_pred),
+                y_pred.var(0),
+                f"SERVER - global model - iter {iter} - train/test set",
+                config.results_dir,
+                f"server_all_preds_iter_{iter}",
+                config.server_dir,
+                plot_samples=False,
+            )
 
         # Get next client(s).
         curr_clients = next(server)

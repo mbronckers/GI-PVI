@@ -198,7 +198,7 @@ class MeanFieldFactor:
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
         self.lam = lam
-        self.prec = Diagonal(prec) if len(prec.shape) == 2 else prec
+        self.prec = Diagonal(prec) if len(prec.shape) < 4 else prec
 
     @property
     def dtype(self):
@@ -219,7 +219,7 @@ class MeanFieldFactor:
         return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
 
     def __call__(self, S):
-        return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(B.diag_construct(self.prec.diag), S, 1, 1, 1))
+        return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(self.prec.diag, S, 1, 1))
 
     def __mul__(self, other: Union["MeanFieldFactor", "NaturalNormal"]):
         return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
@@ -231,7 +231,7 @@ class MeanFieldFactor:
         return MeanFieldFactor(other.lam - self.lam, other.prec - self.prec)
 
     def __copy__(self):
-        return MeanFieldFactor(deepcopy(self.lam.detach().clone()), deepcopy(B.dense(self.prec.diag).detach().clone()))
+        return MeanFieldFactor(self.lam.detach().clone(), B.dense(self.prec.diag).detach().clone())
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
@@ -244,7 +244,7 @@ class MeanField(NaturalNormal):
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
         self.lam = lam
-        self.prec = Diagonal(prec) if len(prec.shape) == 2 else prec
+        self.prec = Diagonal(prec) if len(prec.shape) < 4 else prec
 
         self._mean = None
         self._var = None

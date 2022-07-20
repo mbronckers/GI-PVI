@@ -82,7 +82,7 @@ class PVIConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 2000  # client-local iterations
+    local_iters: int = 2000 # client-local iterations
 
     deterministic: bool = True  # deterministic client training
     # linspace_yz: bool = True  # True => use linspace(-1, 1) for yz initialization
@@ -116,12 +116,12 @@ class MFVIConfig(PVIConfig):
     posterior_type: str = "mfvi"
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
-    lr_nz: float = 0.05
-    lr_yz: float = 0.05
+    lr_global: float = 0.10
+    lr_nz: float = 0.10
+    lr_yz: float = 0.10
 
     global_iters: int = 1
-    local_iters: int = 100
+    local_iters: int = 2000
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = False
@@ -132,13 +132,30 @@ class MFVIConfig(PVIConfig):
         # Weight variances per Ober et al.
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
-
 @dataclass
 class ProteinConfig(PVIConfig):
     posterior_type: str = "pvi_protein"
 
     global_iters: int = 1  # server iterations
     local_iters: int = 2000  # client-local iterations
+
+    # UCI Protein config
+    dgp: DGP = DGP.uci_protein
+    N: int = 36584  # Num total training data pts, not the number of data pts per client.
+    M: int = 100  # Number of inducing points per client
+    dims = [9, 50, 50, 1]
+    batch_size: int = 100
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class MFVI_ProteinConfig(MFVIConfig):
+    posterior_type: str = "pvi_protein"
+
+    global_iters: int = 1  # server iterations
+    local_iters: int = 10000  # client-local iterations
 
     # UCI Protein config
     dgp: DGP = DGP.uci_protein
