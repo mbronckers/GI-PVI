@@ -25,21 +25,20 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from gi.client import GI_Client, MFVI_Client
+from gi.client import MFVI_Client
 
 from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import MFVI_ProteinConfig, MFVIConfig, PVIConfig
 from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
 from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
-from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
-
+from utils.log import eval_logging
+import seaborn as sns
 
 def main(args, config, logger):
     # Lab variable initialization.
@@ -49,11 +48,23 @@ def main(args, config, logger):
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup regression dataset.
-    N = args.N  # num training points
+    N = args.N  # num/fraction training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
+
+    # Normalize data.
+    if args.data == DGP.ober_regression:
+        y_scale = B.std(y)
+        # x_scale = B.std(x_tr)
+        # x_te /= x_scale
+        # x_tr /= x_scale
+        y_tr /= y_scale
+        y_te /= y_scale
+        # x /= x_scale
+        y /= y_scale
+
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
-    logger.info(f"Scale: {scale}")
+    logger.info(f"Y_scale: {scale}")
     N = x_tr.shape[0]
 
     # Code to save/load data
@@ -66,10 +77,12 @@ def main(args, config, logger):
 
     # Likelihood variance is fixed in PVI.
     if config.fix_ll:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via config.ll_var
+        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
     else:
-        likelihood = gi.likelihoods.NormalLikelihood(config.ll_var)  # Specifyable via config.ll_var
+        # Specifyable via config.ll_var
+        likelihood = gi.likelihoods.NormalLikelihood(config.ll_var) 
     logger.info(f"Likelihood variance: {likelihood.var}")
+    logger.info(f"LR: {config.lr_global}")
 
     # Optimizer parameters.
     S = args.training_samples  # number of training inference samples
@@ -148,7 +161,7 @@ def main(args, config, logger):
             # Run client-local optimization.
             client_data_size = curr_client.x.shape[0]
             batch_size = min(client_data_size, min(args.batch_size, N))
-            logger.debug(f"Client {curr_client.name} batch size: {batch_size}")
+            logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size}")
             max_local_iters = args.local_iters
             for client_iter in range(max_local_iters):
 
@@ -169,6 +182,9 @@ def main(args, config, logger):
                     logger.info(
                         f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
+                    # Save client metrics.
+                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -225,7 +241,7 @@ def main(args, config, logger):
 
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
-        ts, _ = collect_vp(clients)
+        ts, zs = collect_vp(clients)
         key, _ = model.sample_posterior(key, ps, ts, S=args.inference_samples)
         y_pred = model.propagate(x_te)
 
@@ -260,10 +276,13 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             config.plot_dir,
         )
 
-        if type(config) == MFVIConfig:
+        # Plot regression domain (-1.5*x_tr_max, 1.5*x_tr_max).
+        if type(config) == MFVI_OberConfig:
+            domain_x_max = 1.5 * B.max(x_tr).item()
+
             # Run eval on entire domain (linspace)
             num_pts = 100
-            x_domain = B.linspace(-6, 6, num_pts)[..., None]
+            x_domain = B.linspace(-domain_x_max, domain_x_max, num_pts)[..., None]
             key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
             y_domain = x_domain**3.0 + 3 * eps
             y_domain = y_domain / scale  # scale with train datasets
@@ -284,8 +303,8 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
 
             # Run eval on entire domain (linspace)
             num_pts = 1000
-            x_domain = B.linspace(-6, 6, num_pts)[..., None]
             key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+            x_domain = B.linspace(-domain_x_max, domain_x_max, num_pts)[..., None]
             y_domain = x_domain**3.0 + 3 * eps
             y_domain = y_domain / scale  # scale with train datasets
             y_pred = model.propagate(x_domain)
@@ -307,21 +326,23 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             # Ober's plot
             mean_ys = y_pred.mean(0)
             std_ys = y_pred.std(0)
-            ax = plt.gca()
+            fig, ax = plt.subplots(figsize=(10, 10))
             plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
             plt.plot(x_domain, mean_ys)
+            lineplot = plot.patch(sns.lineplot)
+            lineplot(ax=ax, y=mean_ys, x=x_domain, color=gi.utils.plotting.colors[3])
             plt.scatter(x_tr, y_tr, c="r")
             ax.set_axisbelow(True)  # Show grid lines below other elements.
             ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
             plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
-
 if __name__ == "__main__":
     import warnings
-
+    from config.ober import MFVI_OberConfig
+    from config.protein import MFVI_ProteinConfig
     warnings.filterwarnings("ignore")
 
-    # config = MFVIConfig()
+    # config = MFVI_OberConfig()
     config = MFVI_ProteinConfig()
 
     parser = argparse.ArgumentParser()
@@ -331,7 +352,6 @@ if __name__ == "__main__":
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
-    parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
     parser.add_argument(
         "--training_samples",
@@ -360,13 +380,6 @@ if __name__ == "__main__":
         type=str,
         help="model directory to load (e.g. experiment_name)",
         default=config.load,
-    )
-    parser.add_argument(
-        "--random_z",
-        "-z",
-        action="store_true",
-        help="Randomly initializes global inducing points z",
-        default=config.random_z,
     )
     parser.add_argument("--prior", "-P", type=str, help="prior type", default=config.prior)
     args = parser.parse_args()

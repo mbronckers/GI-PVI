@@ -31,7 +31,6 @@ from slugify import slugify
 from varz import Vars, namespace
 from wbml import experiment, out, plot
 
-from config.config import PVIConfig, ProteinConfig
 from utils.colors import Color
 from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
@@ -39,7 +38,7 @@ from utils.gif import make_gif
 from utils.metrics import rmse
 from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
-
+import seaborn as sns
 
 def main(args, config, logger):
     # Lab variable initialization.
@@ -51,9 +50,21 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num/fraction training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
+
+    # Normalize data.
+    if args.data == DGP.ober_regression:
+        y_scale = B.std(y)
+        # x_scale = B.std(x_tr)
+        # x_te /= x_scale
+        # x_tr /= x_scale
+        y_tr /= y_scale
+        y_te /= y_scale
+        # x /= x_scale
+        y /= y_scale
+
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
-    logger.info(f"Scale: {scale}")
+    logger.info(f"Y_scale: {scale}")
     N = x_tr.shape[0]
 
     # Build prior.
@@ -67,6 +78,7 @@ def main(args, config, logger):
     else:
         likelihood = gi.likelihoods.NormalLikelihood(config.ll_var)  # Specifyable via config.ll_var
     logger.info(f"Likelihood variance: {likelihood.var}")
+    logger.info(f"LR: {config.lr_global}")
 
     # Define model and clients.
     model = gi.GIBNN_Regression(nn.functional.relu, config.bias, config.kl, likelihood)
@@ -155,7 +167,7 @@ def main(args, config, logger):
             client_data_size = curr_client.x.shape[0]
             batch_size = min(len(curr_client.x), min(args.batch_size, N))
             max_local_iters = args.local_iters
-            logger.debug(f"Client {curr_client.name} batch size: {batch_size}")
+            logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size}")
             for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.
@@ -273,11 +285,13 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             config.plot_dir,
         )
 
-        # Plot regression domain (-6, 6).
-        if type(config) == PVIConfig:
+        # Plot regression domain (-1.5*x_tr_max, 1.5*x_tr_max).
+        if type(config) == OberConfig:
+            domain_x_max = 1.5 * B.max(x_tr).item()
+
             # Run eval on entire domain (linspace)
             num_pts = 100
-            x_domain = B.linspace(-6, 6, num_pts)[..., None]
+            x_domain = B.linspace(-domain_x_max, domain_x_max, num_pts)[..., None]
             key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
             y_domain = x_domain**3.0 + 3 * eps
             y_domain = y_domain / scale  # scale with train datasets
@@ -298,8 +312,8 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
 
             # Run eval on entire domain (linspace)
             num_pts = 1000
-            x_domain = B.linspace(-6, 6, num_pts)[..., None]
             key, eps = B.randn(key, B.default_dtype, int(num_pts), 1)
+            x_domain = B.linspace(-domain_x_max, domain_x_max, num_pts)[..., None]
             y_domain = x_domain**3.0 + 3 * eps
             y_domain = y_domain / scale  # scale with train datasets
             y_pred = model.propagate(x_domain)
@@ -321,22 +335,25 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             # Ober's plot
             mean_ys = y_pred.mean(0)
             std_ys = y_pred.std(0)
-            ax = plt.gca()
+            fig, ax = plt.subplots(figsize=(10, 10))
             plt.fill_between(x_domain[:, 0], mean_ys[:, 0] - 2 * std_ys[:, 0], mean_ys[:, 0] + 2 * std_ys[:, 0], alpha=0.5)
-            # plt.plot(x_domain, mean_ys)
+            plt.plot(x_domain, mean_ys)
+            lineplot = plot.patch(sns.lineplot)
+            lineplot(ax=ax, y=mean_ys, x=x_domain, color=gi.utils.plotting.colors[3])
             plt.scatter(x_tr, y_tr, c="r")
             ax.set_axisbelow(True)  # Show grid lines below other elements.
             ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
             plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
-
 if __name__ == "__main__":
     import warnings
+    from config.protein import ProteinConfig
+    from config.ober import OberConfig
 
     warnings.filterwarnings("ignore")
 
     config = ProteinConfig()
-    # config = PVIConfig()
+    # config = OberConfig()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
@@ -419,8 +436,8 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(
-            os.path.join(_root_dir, "experiments/config/config.py"),
+        shutil.copy(    
+            os.path.join(_root_dir, f"experiments/config/{config.location}"),
             _wd.file("config.py"),
         )
 

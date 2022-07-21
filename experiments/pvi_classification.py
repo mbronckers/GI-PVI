@@ -66,7 +66,7 @@ def main(args, config, logger):
     y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
-    N = len(x_tr)
+    N = x_tr.shape[0]
 
     # Define model and clients.
     model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
@@ -77,6 +77,7 @@ def main(args, config, logger):
     dims = config.dims
     assert dims[0] == x_tr.shape[1]
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
+    logger.info(f"LR: {config.lr_global}")
 
     # Build clients.
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
@@ -188,6 +189,10 @@ def main(args, config, logger):
                     logger.info(
                         f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
+                    # Save client metrics.
+                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+                    
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
