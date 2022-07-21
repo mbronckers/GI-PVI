@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
 
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import torch
 from gi.distributions import MeanFieldFactor, NormalPseudoObservation
@@ -41,6 +41,17 @@ class Client:
     def update_log(self, metrics: dict):
         for k, v in metrics.items():
             self.log[k].append(v)
+
+    def log_metrics(self):
+        report = ""
+        for i, (k, v) in enumerate(self.log.items()):
+            if k.__contains__("iter"):
+                report += f"{k}: {v[-1]} "
+            elif i == len(self.log.keys()) - 1:
+                report += f"{k}: {v[-1]:10.4f}"
+            else:
+                report += f"{k}: {v[-1]:10.4f} - "
+        return report
 
 
 class GI_Client(Client):

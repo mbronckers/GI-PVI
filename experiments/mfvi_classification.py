@@ -33,12 +33,7 @@ from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from torch.utils.data import DataLoader, TensorDataset
-from utils.optimization import (
-    collect_frozen_vp,
-    construct_optimizer,
-    collect_vp,
-    estimate_local_vfe,
-)
+from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
 
 
 def main(args, config, logger):
@@ -58,8 +53,9 @@ def main(args, config, logger):
     )
     y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
     y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
-    
-    if config.batch_size == None: config.batch_size = x_tr.shape[0]
+
+    if config.batch_size == None:
+        config.batch_size = x_tr.shape[0]
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = len(x_tr)
@@ -76,16 +72,18 @@ def main(args, config, logger):
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
     logger.info(f"LR: {config.lr_global}")
 
-    # Build clients.
-    if config.deterministic and args.num_clients == 1:
-        clients[f"client0"] = MFVI_Client(key, f"client0", x_tr, y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
-        key = clients[f"client0"].key
+    # Split dataset
+    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
+    if config.deterministic and config.num_clients == 1:
+        splits = [(x_tr, y_tr)]
     else:
         key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
-        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-            _c = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
-            clients[f"client{client_i}"] = _c
-            key = _c.key
+
+    # Build clients.
+    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+        _c = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
+        clients[f"client{client_i}"] = _c
+        key = _c.key
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -134,18 +132,7 @@ def main(args, config, logger):
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(
-                    key,
-                    model,
-                    curr_client,
-                    x_mb,
-                    y_mb,
-                    ps,
-                    tmp_ts,
-                    {},
-                    S,
-                    N=client_data_size,
-                )
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, {}, S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -290,4 +277,3 @@ if __name__ == "__main__":
     logger.info(f"{Color.WHITE}Args: {args}{Color.END}")
 
     main(args, config, logger)
- 

@@ -40,6 +40,7 @@ from utils.optimization import collect_frozen_vp, construct_optimizer, collect_v
 from utils.log import eval_logging, plot_client_vp, plot_all_inducing_pts
 import seaborn as sns
 
+
 def main(args, config, logger):
     # Lab variable initialization.
     B.default_dtype = torch.float32
@@ -73,10 +74,8 @@ def main(args, config, logger):
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
 
     # Likelihood variance is fixed in PVI.
-    if config.fix_ll:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)  # Specifyable via config.ll_var
-    else:
-        likelihood = gi.likelihoods.NormalLikelihood(config.ll_var)  # Specifyable via config.ll_var
+    ll_var = 3 / scale if config.fix_ll else config.ll_var
+    likelihood = gi.likelihoods.NormalLikelihood(ll_var)
     logger.info(f"Likelihood variance: {likelihood.var}")
     logger.info(f"LR: {config.lr_global}")
 
@@ -84,21 +83,19 @@ def main(args, config, logger):
     model = gi.GIBNN_Regression(nn.functional.relu, config.bias, config.kl, likelihood)
     clients: dict[str, GI_Client] = {}
 
-    # Build clients.
+    # Split dataset
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
     if config.deterministic and config.num_clients == 1:
-        _client = GI_Client(key, f"client0", x_tr, y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
-        key = _client.key
-        clients[f"client0"] = _client
+        splits = [(x_tr, y_tr)]
     else:
-        # We use a separate key here to create consistent keys with deterministic (i.e. not calling split_data) runs of PVI.
-        # otherwise, replace _tmp_key with key
-        _tmp_key = B.create_random_state(B.default_dtype, seed=1)
-        _tmp_key, splits = split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)
-        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-            _client = GI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz)
-            key = _client.key
-            clients[f"client{client_i}"] = _client
+        key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
+
+    # Build clients.
+    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+        clients[f"client{client_i}"] = GI_Client(
+            key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
+        )
+        key = clients[f"client{client_i}"].key
 
     # Plot initial inducing points.
     if args.data == DGP.ober_regression:
@@ -189,7 +186,7 @@ def main(args, config, logger):
                     )
 
                     # Save client metrics.
-                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+                    curr_client.update_log({"global_iter": iter, "local_iter": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
 
                     # Only plot every <log_step> epoch
                     if args.plot and ((client_iter + 1) % log_step == 0):
@@ -345,6 +342,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
             plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
+
 if __name__ == "__main__":
     import warnings
     from config.protein import ProteinConfig
@@ -436,7 +434,7 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(    
+        shutil.copy(
             os.path.join(_root_dir, f"experiments/config/{config.location}"),
             _wd.file("config.py"),
         )

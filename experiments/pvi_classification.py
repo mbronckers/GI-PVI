@@ -1,13 +1,9 @@
 from __future__ import annotations
-from copy import copy, deepcopy
-from locale import currency
 
 import os
 import shutil
 import sys
 from datetime import datetime
-from typing import Callable, Optional
-
 from matplotlib import pyplot as plt
 import pandas as pd
 
@@ -38,12 +34,7 @@ from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from torch.utils.data import DataLoader, TensorDataset
-from utils.optimization import (
-    collect_frozen_vp,
-    construct_optimizer,
-    collect_vp,
-    estimate_local_vfe,
-)
+from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
 
 
 def main(args, config, logger):
@@ -69,7 +60,8 @@ def main(args, config, logger):
         y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
         y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
 
-    if config.batch_size == None: config.batch_size = x_tr.shape[0]
+    if config.batch_size == None:
+        config.batch_size = x_tr.shape[0]
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = x_tr.shape[0]
@@ -85,41 +77,19 @@ def main(args, config, logger):
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
     logger.info(f"LR: {config.lr_global}")
 
-    # Build clients.
+    # Split dataset.
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
-    if config.deterministic and args.num_clients == 1:
-        _client = gi.GI_Client(
-            key,
-            f"client0",
-            x_tr,
-            y_tr,
-            M,
-            *dims,
-            random_z=args.random_z,
-            nz_inits=config.nz_inits,
-            linspace_yz=config.linspace_yz,
-        )
-        key = _client.key
-        clients[f"client0"] = _client
+    if config.deterministic and config.num_clients == 1:
+        splits = [(x_tr, y_tr)]
     else:
-        # We use a separate key here to create consistent keys with deterministic (i.e. not calling split_data) runs of PVI.
-        # otherwise, replace _tmp_key with key
-        _tmp_key = B.create_random_state(B.default_dtype, seed=1)
-        _tmp_key, splits = split_data_clients(_tmp_key, x_tr, y_tr, config.client_splits)
-        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-            _client = GI_Client(
-                key,
-                f"client{client_i}",
-                client_x_tr,
-                client_y_tr,
-                M,
-                *dims,
-                random_z=args.random_z,
-                nz_inits=config.nz_inits,
-                linspace_yz=config.linspace_yz,
-            )
-            key = _client.key
-            clients[f"client{client_i}"] = _client
+        key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
+
+    # Build clients.
+    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+        clients[f"client{client_i}"] = GI_Client(
+            key, f"client{client_i}", client_x_tr, client_y_tr, M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
+        )
+        key = clients[f"client{client_i}"].key
 
     # Optimizer parameters
     S = args.training_samples  # number of training inference samples
@@ -168,23 +138,13 @@ def main(args, config, logger):
             max_local_iters = args.local_iters
             for client_iter in range(max_local_iters):
 
-                # Construct epoch-th minibatch {x, y} training data
+                # Construct client_iter-th minibatch {x, y} training data.
                 inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(
-                    key,
-                    model,
-                    curr_client,
-                    x_mb,
-                    y_mb,
-                    ps,
-                    tmp_ts,
-                    tmp_zs,
-                    S,
-                    N=client_data_size,
-                )
+                # Run client-local optimization.
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -198,7 +158,7 @@ def main(args, config, logger):
 
                     # Save client metrics.
                     curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
-                    
+
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -219,9 +179,10 @@ def main(args, config, logger):
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
 
-    # Save model metrics.
-    metrics = pd.DataFrame(server.log)
-    metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    # Save model & client metrics.
+    pd.DataFrame(server.log).to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    for client_name, _c in clients.items():
+        pd.DataFrame(_c.log).to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
@@ -317,7 +278,7 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(    
+        shutil.copy(
             os.path.join(_root_dir, f"experiments/config/{config.location}"),
             _wd.file("config.py"),
         )

@@ -39,6 +39,7 @@ from utils.optimization import collect_frozen_vp, construct_optimizer, collect_v
 from utils.log import eval_logging
 import seaborn as sns
 
+
 def main(args, config, logger):
     # Lab variable initialization.
     B.default_dtype = torch.float32
@@ -49,6 +50,8 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num/fraction training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
+    logger.info(f"Y_scale: {scale}")
+    N = x_tr.shape[0]
 
     # Normalize data.
     if args.data == DGP.ober_regression:
@@ -61,10 +64,9 @@ def main(args, config, logger):
         # x /= x_scale
         y /= y_scale
 
+    # Construct data loaders.
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
-    logger.info(f"Y_scale: {scale}")
-    N = x_tr.shape[0]
 
     # Code to save/load data
     # torch.save(x_tr, os.path.join(file_dir, "data/mfvi_x_tr.pt"))
@@ -74,12 +76,9 @@ def main(args, config, logger):
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
 
-    # Likelihood variance is fixed in PVI.
-    if config.fix_ll:
-        likelihood = gi.likelihoods.NormalLikelihood(3 / scale)
-    else:
-        # Specifyable via config.ll_var
-        likelihood = gi.likelihoods.NormalLikelihood(config.ll_var) 
+    # Likelihood variance is fixed in multi-client PVI.
+    ll_var = 3 / scale if config.fix_ll else config.ll_var
+    likelihood = gi.likelihoods.NormalLikelihood(ll_var)
     logger.info(f"Likelihood variance: {likelihood.var}")
     logger.info(f"LR: {config.lr_global}")
 
@@ -91,17 +90,19 @@ def main(args, config, logger):
     model = gi.MFVI_Regression(nn.functional.relu, config.bias, config.kl, likelihood)
     clients: dict[str, MFVI_Client] = {}
 
-    # Build clients.
+    # Split dataset
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
     if config.deterministic and config.num_clients == 1:
-        clients[f"client0"] = MFVI_Client(key, f"client0", x_tr, y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
-        key = clients[f"client0"].key
+        splits = [(x_tr, y_tr)]
     else:
         key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
-        for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-            _c = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
-            clients[f"client{client_i}"] = _c
-            key = _c.key
+
+    # Build clients.
+    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
+        clients[f"client{client_i}"] = MFVI_Client(
+            key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S
+        )
+        key = clients[f"client{client_i}"].key
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -335,10 +336,12 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
             ax.grid(which="major", c="#c0c0c0", alpha=0.5, lw=1)
             plt.savefig(os.path.join(config.plot_dir, f"ober.png"), pad_inches=0.2, bbox_inches="tight")
 
+
 if __name__ == "__main__":
     import warnings
     from config.ober import MFVI_OberConfig
     from config.protein import MFVI_ProteinConfig
+
     warnings.filterwarnings("ignore")
 
     # config = MFVI_OberConfig()
