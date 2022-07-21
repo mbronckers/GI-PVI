@@ -56,13 +56,6 @@ class Config:
     model_dir = None
     training_plot_dir = None
 
-    def __post_init__(self):
-        # Directory name
-        if self.server_type == SequentialServer:
-            self.name = "seq"
-        elif self.server_type == SynchronousServer:
-            self.name = "sync"
-
 
 ################################################################
 
@@ -78,8 +71,8 @@ class PVIConfig(Config):
     global_iters: int = 1  # server iterations
     local_iters: int = 2000  # client-local iterations
 
-    # deterministic: bool = True  # deterministic client training
-    # linspace_yz: bool = True  # True => use linspace(-1, 1) for yz initialization
+    deterministic: bool = False  # deterministic client training
+    linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 40
@@ -92,7 +85,11 @@ class PVIConfig(Config):
     num_clients: int = 1
 
     def __post_init__(self):
-        super().__post_init__()
+        # Directory name
+        if self.server_type == SequentialServer:
+            self.name = "seq"
+        elif self.server_type == SynchronousServer:
+            self.name = "sync"
         self.name += f"_{self.posterior_type}"
         self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M"
 
@@ -152,13 +149,17 @@ class ProteinConfig(PVIConfig):
 
 
 @dataclass
-class MFVI_ProteinConfig(MFVIConfig):
-    posterior_type: str = "pvi_protein"
+class MFVI_ProteinConfig(Config):
+    posterior_type: str = "mfvi_protein"
     dgp: DGP = DGP.uci_protein
 
     fix_ll: bool = False  # true => fix ll variance
     global_iters: int = 1  # server iterations
     local_iters: int = 1000  # client-local iterations
+
+    # Server & clients
+    server_type: Server = SequentialServer
+    num_clients: int = 1
 
     # UCI Protein config
     N: int = 0.8  # Fraction training pts (total)
@@ -169,14 +170,25 @@ class MFVI_ProteinConfig(MFVIConfig):
     ll_var: float = 0.10
 
     def __post_init__(self):
-        super().__post_init__()
-        self.name = f"_{self.posterior_type}"
+        # Directory name
+        if self.server_type == SequentialServer:
+            self.name = "seq"
+        elif self.server_type == SynchronousServer:
+            self.name = "sync"
+        self.name += f"_{self.posterior_type}"
         self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M"
+
+        # Homogeneous, equal-sized split.
+        self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
+        self.optimizer_params: dict = {"lr": self.lr_global}
+
+        # Precisions of the inducing points per layer
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
 
 @dataclass
-class ClassificationConfig(PVIConfig):
-    posterior_type: str = "pvi_class"
+class MNISTConfig(Config):
+    posterior_type: str = "pvi_mnist"
 
     data: DGP = DGP.mnist
     dims = [(28 * 28), 100, 100, 10]
@@ -186,7 +198,7 @@ class ClassificationConfig(PVIConfig):
     local_iters: int = 2000  # client-local iterations
 
     # Note: number of test points is also equal to N
-    N: int = 60000
+    N: int = None
     M: int = 100  # Number of inducing points per client
     S: int = 1
     I: int = 5
@@ -197,7 +209,6 @@ class ClassificationConfig(PVIConfig):
 
     prior: Prior = Prior.NealPrior
     kl: KL = KL.Analytical
-    log_step: int = 1
 
     # Learning rates
     separate_lr: bool = False  # True => use seperate learning rates
@@ -208,6 +219,9 @@ class ClassificationConfig(PVIConfig):
 
     def __post_init__(self):
         super().__post_init__()
+        self.name += f"_{self.posterior_type}"
+        self.name += f"_{self.num_clients}c_{self.global_iters}g_{self.local_iters}l_{self.N}N_{self.M}M"
+
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
         self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
