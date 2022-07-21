@@ -1,4 +1,5 @@
 from itertools import accumulate
+from typing import Optional
 import lab as B
 import lab.torch
 import numpy as np
@@ -23,7 +24,7 @@ class DGP(IntEnum):
     uci_adult = 6
 
 
-def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
+def generate_data(key, dgp, size = None, xmin=-4.0, xmax=4):
     if dgp == DGP.ober_regression:
         """Build train data with test data in between the train space
         Equal number of training points as test points"""
@@ -73,7 +74,7 @@ def generate_data(key, dgp, size, xmin=-4.0, xmax=4):
         X = torch.from_numpy(X).clone().to(B.default_dtype)
         y = torch.from_numpy(y).clone().to(B.default_dtype)
 
-        if size < 1:
+        if size and size < 1:
             key, splits = split_data_clients(key, X, y, [size, 1 - size])
         else:
             key, splits = split_data_clients(key, X, y, [0.8, 0.2])

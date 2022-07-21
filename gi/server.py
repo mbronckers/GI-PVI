@@ -48,7 +48,7 @@ class Server:
             test_metrics = self.model.performance_metrics(self.test_loader)
             error_key = self.model.error_metric
             logger.info(
-                "SERVER - {} - iter [{:2}/{:2}] - {}train mll: {:8.3f}, train {}: {:8.3f}, test mll: {:8.3f}, test {}: {:8.3f}{}".format(
+                "SERVER - {} - iter [{:2}/{:2}] - {}train mll: {:8.3f}, train {}: {:8.4f}, test mll: {:8.3f}, test {}: {:8.4f}{}".format(
                     self.name,
                     self.curr_iter,
                     self.max_iters,

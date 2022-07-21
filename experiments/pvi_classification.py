@@ -34,7 +34,6 @@ from gi.client import GI_Client
 from slugify import slugify
 from wbml import experiment, out
 
-from config.config import PVIConfig, ClassificationConfig
 from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
@@ -55,21 +54,28 @@ def main(args, config, logger):
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup dataset. One-hot encode the labels.
-    train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
-    x_tr, y_tr, x_te, y_te = (
-        train_data["x"],
-        train_data["y"],
-        test_data["x"],
-        test_data["y"],
-    )
-    y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
-    y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
+    if config.dgp == DGP.mnist:
+        train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
+        x_tr, y_tr, x_te, y_te = (
+            train_data["x"],
+            train_data["y"],
+            test_data["x"],
+            test_data["y"],
+        )
+        y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
+        y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
+    elif config.dgp == DGP.uci_adult:
+        key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, config.dgp)
+        y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
+        y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
+
+    if config.batch_size == None: config.batch_size = x_tr.shape[0]
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = x_tr.shape[0]
 
     # Define model and clients.
-    model = gi.GIBNN_Classification(nn.functional.relu, args.bias, config.kl)
+    model = gi.GIBNN_Classification(nn.functional.relu, config.bias, config.kl)
     clients: dict[str, GI_Client] = {}
 
     # Build prior.
@@ -158,7 +164,7 @@ def main(args, config, logger):
 
             # Run client-local optimization
             client_data_size = curr_client.x.shape[0]
-            batch_size = min(client_data_size, min(args.batch_size, N))
+            batch_size = min(client_data_size, min(config.batch_size, N))
             max_local_iters = args.local_iters
             for client_iter in range(max_local_iters):
 
@@ -222,10 +228,14 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     import warnings
+    from config.mnist import MNISTConfig
+    from config.adult import AdultConfig
 
     warnings.filterwarnings("ignore")
 
-    config = ClassificationConfig()
+    # config = MNISTConfig()
+    config = AdultConfig()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
@@ -235,7 +245,6 @@ if __name__ == "__main__":
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
     parser.add_argument("--M", "-M", type=int, help="number of inducing points", default=config.M)
     parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
-    parser.add_argument("--det", action="store_true", help="Deterministic training data split and ll variance", default=config.deterministic)
     parser.add_argument(
         "--training_samples",
         "-S",
@@ -250,14 +259,6 @@ if __name__ == "__main__":
         help="number of inference weight samples",
         default=config.I,
     )
-    parser.add_argument(
-        "--nz_init",
-        type=float,
-        help="Initial value of client's likelihood precision",
-        default=config.nz_init,
-    )
-    parser.add_argument("--lr", type=float, help="learning rate", default=config.lr_global)
-    parser.add_argument("--ll_var", type=float, help="likelihood var", default=config.ll_var)
     parser.add_argument(
         "--batch_size",
         "-b",
@@ -280,18 +281,6 @@ if __name__ == "__main__":
         default=config.random_z,
     )
     parser.add_argument("--prior", "-P", type=str, help="prior type", default=config.prior)
-    parser.add_argument("--bias", help="Use bias vectors in BNN", default=config.bias)
-    parser.add_argument(
-        "--sep_lr",
-        help="Use separate LRs for parameters (see config)",
-        default=config.separate_lr,
-    )
-    parser.add_argument(
-        "--num_clients",
-        "-nc",
-        help="Number of clients (implicit equal split)",
-        default=config.num_clients,
-    )
     args = parser.parse_args()
 
     # Create experiment directories
@@ -328,8 +317,8 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(
-            os.path.join(_root_dir, "experiments/config/config.py"),
+        shutil.copy(    
+            os.path.join(_root_dir, f"experiments/config/{config.location}"),
             _wd.file("config.py"),
         )
 
@@ -349,6 +338,7 @@ if __name__ == "__main__":
     logger.debug(f"Root: {_results_dir}")
     logger.debug(f"Time: {_time}")
     logger.debug(f"Seed: {args.seed}")
+    logger.info(f"{Color.WHITE}Config: {config}{Color.END}")
     logger.info(f"{Color.WHITE}Args: {args}{Color.END}")
 
     main(args, config, logger)
