@@ -345,13 +345,13 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
 
 if __name__ == "__main__":
     import warnings
-    from config.protein import ProteinConfig
-    from config.ober import OberConfig
+    from config.protein import GI_ProteinConfig
+    from config.ober import GI_OberConfig
 
     warnings.filterwarnings("ignore")
 
-    # config = ProteinConfig()
-    config = OberConfig()
+    # config = GI_ProteinConfig()
+    config = GI_OberConfig()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)

@@ -14,16 +14,17 @@ import lab as B
 import torch
 from gi.server import SequentialServer, Server, SynchronousServer
 from gi.mfvi import MFVI_Classification
-from kl import KL
+from gi.gibnn import GIBNN_Classification
 
 from .config import Config, set_experiment_name
 
-
 @dataclass
-class AdultConfig(Config):
+class GI_AdultConfig(Config):
     posterior_type: str = "pvi_adult"
     location = os.path.basename(__file__)
     dgp: DGP = DGP.uci_adult
+    model_type = GIBNN_Classification
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -70,6 +71,8 @@ class MFVI_AdultConfig(Config):
     dgp: DGP = DGP.uci_adult
     model_type = MFVI_Classification
 
+    prior: Prior = Prior.StandardPrior
+
     # MFVI settings
     deterministic: bool = False  # deterministic client training
     random_mean_init: bool = False  # True => Initialize weight layer mean from N(0,1)
@@ -89,7 +92,7 @@ class MFVI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.02
     lr_nz: float = 0.05
     lr_client_z: float = 0.01
     lr_yz: float = 0.01

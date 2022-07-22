@@ -23,9 +23,6 @@ class Config:
     seed: int = 0
     plot: bool = True
 
-    # prior: Prior = Prior.NealPrior
-    prior: Prior = Prior.StandardPrior
-
     kl: KL = KL.Analytical
     optimizer: str = "Adam"
     bias: bool = True

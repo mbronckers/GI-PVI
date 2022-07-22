@@ -18,7 +18,7 @@ from kl import KL
 from .config import Config, set_experiment_name
 
 @dataclass
-class MNISTConfig(Config):
+class GI_MNISTConfig(Config):
     posterior_type: str = "pvi_mnist"
     location = os.path.basename(__file__)
     dgp: DGP = DGP.mnist

@@ -21,7 +21,7 @@ from .config import Config, set_experiment_name
 # The default config settings below follow Ober et al.'s toy regression experiment details
 
 @dataclass
-class OberConfig(Config):
+class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
@@ -73,7 +73,7 @@ class OberConfig(Config):
 
 
 @dataclass
-class MFVI_OberConfig(OberConfig):
+class MFVI_OberConfig(GI_OberConfig):
     """ We keep hypers equal as much as possible for MFVI.
     We only change the learning rate and weight precisions.
     """

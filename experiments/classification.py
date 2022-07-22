@@ -4,8 +4,9 @@ import os
 import shutil
 import sys
 from datetime import datetime
-from matplotlib import pyplot as plt
+
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from config.adult import MFVI_AdultConfig
 
@@ -24,19 +25,17 @@ import lab.torch
 import numpy as np
 import torch
 import torch.nn as nn
-
-from gi.server import SequentialServer, SynchronousServer
-
 from gi.client import Client, GI_Client, MFVI_Client
-
+from gi.server import SequentialServer, SynchronousServer
 from slugify import slugify
+from torch.utils.data import DataLoader, TensorDataset
 from wbml import experiment, out
 
-from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
-from torch.utils.data import DataLoader, TensorDataset
-from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
+from utils.colors import Color
+from utils.optimization import (collect_frozen_vp, collect_vp,
+                                construct_optimizer, estimate_local_vfe)
 
 
 def main(args, config, logger):
@@ -92,13 +91,12 @@ def main(args, config, logger):
     for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
         if config.model_type == gi.GIBNN_Classification:
             clients[f"client{client_i}"] = GI_Client(
-                key, f"client{client_i}", client_x_tr, client_y_tr, config.M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
+                key, f"client{client_i}", client_x_tr, client_y_tr, config.M, *dims, random_z=config.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
             )
         elif config.model_type == gi.MFVI_Classification:
             clients[f"client{client_i}"] = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
         key = clients[f"client{client_i}"].key
 
-    
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -200,13 +198,20 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     import warnings
-    from config.mnist import MNISTConfig
-    from config.adult import AdultConfig
+
+    from config.adult import GI_AdultConfig, MFVI_AdultConfig
+    from config.mnist import GI_MNISTConfig, MFVI_MNISTConfig
 
     warnings.filterwarnings("ignore")
 
-    # config = AdultConfig()
-    config = MFVI_AdultConfig()
+    ### SPECIFY HERE WHICH CONFIG TO USE ###
+    assert len(sys.argv) >= 2, "Please specify which config to use: 'GI' or 'MFVI'"
+    if sys.argv[1] == "GI":
+        config = GI_AdultConfig()
+    elif sys.argv[1].__contains__ == "MF":
+        config = MFVI_AdultConfig()
+    else:
+        raise NotImplementedError
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
@@ -229,7 +234,7 @@ if __name__ == "__main__":
         help="number of inference weight samples",
         default=config.I,
     )
-    args = parser.parse_args()
+    args = parser.parse_args(sys.argv[2:])
 
     # Create experiment directories
     config.name += f"_{args.name}"
