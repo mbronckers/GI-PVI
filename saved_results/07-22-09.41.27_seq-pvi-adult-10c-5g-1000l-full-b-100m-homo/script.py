@@ -115,11 +115,6 @@ def main(args, config, logger):
 
             server.evaluate_performance()
 
-        # Save model & client metrics.
-        pd.DataFrame(server.log).to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
-        for client_name, _c in clients.items():
-            pd.DataFrame(_c.log).to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
-
         # Get next client(s).
         curr_clients = next(server)
 
