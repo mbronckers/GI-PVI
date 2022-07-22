@@ -16,7 +16,28 @@ class MFVI(BaseBNN):
     def __init__(self, nonlinearity, bias: bool, kl: KL) -> None:
         super().__init__(nonlinearity, bias, kl)
 
-    def sample_posterior(self, key, ps: dict[str, NaturalNormal], ts: dict[str, dict[str, MeanFieldFactor]], S, **kwargs):
+    def _sample_posterior(self, key, q, p, layer_name, S: int = 1):
+        # Sample weights from the posterior distribution q.
+        key, w = q.sample(key, S)
+
+        kl_qp = compute_kl(self.kl, q, p, w)
+        kl_qp = B.sum(kl_qp, -1)
+
+        w = w[..., 0]
+
+        # Save posterior w samples and KL to cache
+        self._cache[layer_name] = {"w": w, "kl": kl_qp}
+
+        return key, w
+
+    def sample_posterior(
+        self,
+        key,
+        ps: dict[str, NaturalNormal],
+        ts: dict[str, dict[str, MeanFieldFactor]],
+        S,
+        **kwargs,
+    ):
 
         # Construct posterior, sample, and propagate
         for i, (layer_name, p) in enumerate(ps.items()):
@@ -25,13 +46,13 @@ class MFVI(BaseBNN):
 
             # Build posterior. layer_client_q is MeanFieldFactor
             for layer_client_q in ts[layer_name].values():
-                q *= layer_client_q(S=S)
+                q *= layer_client_q
 
             # Constrain q to have positive precision.
             # Reduce to diagonal
             q = MeanField.from_factor(q)
 
-            key, _ = self._sample_posterior(key, q, p, layer_name)
+            key, _ = self._sample_posterior(key, q, p, layer_name, S)
 
         return key, self.cache
 

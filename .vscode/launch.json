@@ -44,13 +44,14 @@
             ]
         },
         {
-            "name": "PVI Classification - Debug",
+            "name": "GI Classification - Debug",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/experiments/pvi_classification.py",
+            "program": "${workspaceFolder}/experiments/classification.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
+                "GI",
                 "--name=debug"
             ]
         },
@@ -58,10 +59,11 @@
             "name": "MFVI Classification - Debug",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/experiments/mfvi_classification.py",
+            "program": "${workspaceFolder}/experiments/classification.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
+                "MF",
                 "--name=debug"
             ]
         },

@@ -5,8 +5,10 @@ import shutil
 import sys
 from datetime import datetime
 
-from matplotlib import pyplot as plt
 import pandas as pd
+from matplotlib import pyplot as plt
+
+from config.adult import MFVI_AdultConfig
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -23,22 +25,17 @@ import lab.torch
 import numpy as np
 import torch
 import torch.nn as nn
-
-from gi.client import MFVI_Client
-
+from gi.client import Client, GI_Client, MFVI_Client
+from gi.server import SequentialServer, SynchronousServer
 from slugify import slugify
+from torch.utils.data import DataLoader, TensorDataset
 from wbml import experiment, out
 
-from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
-from torch.utils.data import DataLoader, TensorDataset
-from utils.optimization import (
-    collect_frozen_vp,
-    construct_optimizer,
-    collect_vp,
-    estimate_local_vfe,
-)
+from utils.colors import Color
+from utils.optimization import (collect_frozen_vp, collect_vp,
+                                construct_optimizer, estimate_local_vfe)
 
 
 def main(args, config, logger):
@@ -48,7 +45,7 @@ def main(args, config, logger):
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
 
-    # Setup dataset. One-hot encode the labels.
+    # Load dataset
     if config.dgp == DGP.mnist:
         train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
         x_tr, y_tr, x_te, y_te = (
@@ -66,33 +63,24 @@ def main(args, config, logger):
 
     if config.batch_size == None:
         config.batch_size = x_tr.shape[0]
-    train_loader = DataLoader(
-        TensorDataset(x_tr, y_tr),
-        batch_size=config.batch_size,
-        shuffle=False,
-        num_workers=0,
-    )
-    test_loader = DataLoader(
-        TensorDataset(x_te, y_te),
-        batch_size=config.batch_size,
-        shuffle=True,
-        num_workers=0,
-    )
+    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
+    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = x_tr.shape[0]
-
+    
     # Define model and clients.
-    model = gi.MFVI_Classification(nn.functional.relu, config.bias, config.kl)
-    clients: dict[str, MFVI_Client] = {}
+    model = config.model_type(nn.functional.relu, config.bias, config.kl)
+    clients: dict[str, Client] = {}
 
-    # Build prior
     S = args.training_samples  # number of training inference samples
     log_step = config.log_step
+
+    # Build prior.
     dims = config.dims
     assert dims[0] == x_tr.shape[1]
-    ps = build_prior(*dims, prior=args.prior, bias=config.bias)
+    ps = build_prior(*dims, prior=config.prior, bias=config.bias)
     logger.info(f"LR: {config.lr_global}")
 
-    # Split dataset
+    # Split dataset.
     logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
     if config.deterministic and config.num_clients == 1:
         splits = [(x_tr, y_tr)]
@@ -101,18 +89,14 @@ def main(args, config, logger):
 
     # Build clients.
     for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-        _c = MFVI_Client(
-            key,
-            f"client{client_i}",
-            client_x_tr,
-            client_y_tr,
-            *dims,
-            random_mean_init=config.random_mean_init,
-            prec_inits=config.nz_inits,
-            S=S,
-        )
-        clients[f"client{client_i}"] = _c
-        key = _c.key
+        if config.model_type == gi.GIBNN_Classification:
+            clients[f"client{client_i}"] = GI_Client(
+                key, f"client{client_i}", client_x_tr, client_y_tr, config.M, *dims, random_z=config.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
+            )
+        elif config.model_type == gi.MFVI_Classification:
+            clients[f"client{client_i}"] = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
+        key = clients[f"client{client_i}"].key
+
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -125,12 +109,12 @@ def main(args, config, logger):
         server.curr_iter = iter
 
         # Construct frozen zs, ts by iterating over all the clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, _ = collect_vp(clients)
+        frozen_ts, frozen_zs = collect_vp(clients)
 
         # Log performance of global server model.
         with torch.no_grad():
             # Resample <S> inference weights
-            key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples, cavity_client=None)
+            key, _ = model.sample_posterior(key, ps, frozen_ts, zs=frozen_zs, S=args.inference_samples, cavity_client=None)
 
             server.evaluate_performance()
 
@@ -138,7 +122,6 @@ def main(args, config, logger):
         pd.DataFrame(server.log).to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
         for client_name, _c in clients.items():
             pd.DataFrame(_c.log).to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
-
 
         # Get next client(s).
         curr_clients = next(server)
@@ -152,9 +135,10 @@ def main(args, config, logger):
             # Communicated posterior communicated to client in 1st iter is the prior
             if iter == 0:
                 tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
+                tmp_zs = {curr_client.name: curr_client.z} if config.model_type == gi.GIBNN_Classification else {}
             else:
                 # Construct the posterior communicated to client.
-                tmp_ts, _ = collect_frozen_vp(frozen_ts, None, curr_client)  # All detached except current client.
+                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization
             client_data_size = curr_client.x.shape[0]
@@ -163,23 +147,13 @@ def main(args, config, logger):
             logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size} - training data size: {client_data_size}")
             for client_iter in range(max_local_iters):
 
-                # Construct epoch-th minibatch {x, y} training data
+                # Construct client_iter-th minibatch {x, y} training data.
                 inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(
-                    key,
-                    model,
-                    curr_client,
-                    x_mb,
-                    y_mb,
-                    ps,
-                    tmp_ts,
-                    {},
-                    S,
-                    N=client_data_size,
-                )
+                # Run client-local optimization.
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -190,16 +164,10 @@ def main(args, config, logger):
                     logger.info(
                         f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
                     # Save client metrics.
-                    curr_client.update_log(
-                        {
-                            "iteration": client_iter,
-                            "vfe": local_vfe.item(),
-                            "ll": exp_ll.item(),
-                            "kl": kl.item(),
-                            "error": error.item(),
-                        }
-                    )
+                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -208,8 +176,8 @@ def main(args, config, logger):
     # Log global/server model post training
     server.curr_iter += 1
     with torch.no_grad():
-        frozen_ts, _ = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples, cavity_client=None)
+        frozen_ts, frozen_zs = collect_vp(clients)
+        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
 
         server.evaluate_performance()
 
@@ -220,43 +188,38 @@ def main(args, config, logger):
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
 
-    # Save model metrics.
-    metrics = pd.DataFrame(server.log)
-    metrics.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    # Save model & client metrics.
+    pd.DataFrame(server.log).to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    for client_name, _c in clients.items():
+        pd.DataFrame(_c.log).to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
 
 if __name__ == "__main__":
     import warnings
-    from config.mnist import MFVI_MNISTConfig
-    from config.adult import MFVI_AdultConfig
+
+    from config.adult import GI_AdultConfig, MFVI_AdultConfig
+    from config.mnist import GI_MNISTConfig, MFVI_MNISTConfig
 
     warnings.filterwarnings("ignore")
 
-    # config = MFVI_MNISTConfig()
-    config = MFVI_AdultConfig()
+    ### SPECIFY HERE WHICH CONFIG TO USE ###
+    assert len(sys.argv) >= 2, "Please specify which config to use: 'GI' or 'MFVI'"
+    if sys.argv[1] == "GI":
+        config = GI_AdultConfig()
+    elif sys.argv[1].__contains__ == "MF":
+        config = MFVI_AdultConfig()
+    else:
+        raise NotImplementedError
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument(
-        "--local_iters",
-        "-l",
-        type=int,
-        help="client-local optimization iterations",
-        default=config.local_iters,
-    )
-    parser.add_argument(
-        "--global_iters",
-        "-g",
-        type=int,
-        help="server iters (running over all clients <iters> times)",
-        default=config.global_iters,
-    )
+    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
+    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
-    parser.add_argument("--N", "-N", type=int, help="number of training points", default=config.N)
     parser.add_argument(
         "--training_samples",
         "-S",
@@ -271,22 +234,7 @@ if __name__ == "__main__":
         help="number of inference weight samples",
         default=config.I,
     )
-    parser.add_argument(
-        "--batch_size",
-        "-b",
-        type=int,
-        help="training batch size",
-        default=config.batch_size,
-    )
-    parser.add_argument("--data", "-d", type=int, help="dgp/dataset type", default=config.dgp)
-    parser.add_argument(
-        "--load",
-        type=str,
-        help="model directory to load (e.g. experiment_name)",
-        default=config.load,
-    )
-    parser.add_argument("--prior", "-P", type=str, help="prior type", default=config.prior)
-    args = parser.parse_args()
+    args = parser.parse_args(sys.argv[2:])
 
     # Create experiment directories
     config.name += f"_{args.name}"

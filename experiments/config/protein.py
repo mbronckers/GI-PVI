@@ -18,7 +18,7 @@ from kl import KL
 from .config import Config, set_experiment_name
 
 @dataclass
-class ProteinConfig(Config):
+class GI_ProteinConfig(Config):
     location = os.path.basename(__file__)
     posterior_type: str = "pvi_protein"
     dgp: DGP = DGP.uci_protein
