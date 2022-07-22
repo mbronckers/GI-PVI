@@ -344,8 +344,8 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    # config = MFVI_OberConfig()
-    config = MFVI_ProteinConfig()
+    config = MFVI_OberConfig()
+    # config = MFVI_ProteinConfig()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)

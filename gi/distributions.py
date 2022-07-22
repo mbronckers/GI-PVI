@@ -215,17 +215,6 @@ class MeanFieldFactor:
         """int: Dimensionality."""
         return B.shape_matrix(self.prec)[0]
 
-    # @classmethod
-    # def from_normal(cls, dist):
-    #     """
-    #     Convert class:Normal into class:NaturalNormal
-    #     - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
-    #     """
-    #     return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
-
-    def __call__(self, S):
-        return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(self.prec.diag, S, 1, 1))
-
     def __mul__(self, other: Union["MeanFieldFactor", "NaturalNormal"]):
         if type(other) == MeanFieldFactor:
             return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)

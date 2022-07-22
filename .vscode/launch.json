@@ -66,6 +66,17 @@
             ]
         },
         {
+            "name": "Classification - Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiments/classification.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--name=debug"
+            ]
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",

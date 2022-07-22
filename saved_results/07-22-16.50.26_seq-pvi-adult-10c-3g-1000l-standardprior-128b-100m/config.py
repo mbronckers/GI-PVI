@@ -13,7 +13,6 @@ from dgp import DGP
 import lab as B
 import torch
 from gi.server import SequentialServer, Server, SynchronousServer
-from gi.mfvi import MFVI_Classification
 from kl import KL
 
 from .config import Config, set_experiment_name
@@ -46,7 +45,7 @@ class AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.03 
+    lr_global: float = 0.03
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
@@ -68,7 +67,6 @@ class MFVI_AdultConfig(Config):
     posterior_type: str = "mfvi_adult"
     location = os.path.basename(__file__)
     dgp: DGP = DGP.uci_adult
-    model_type = MFVI_Classification
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
@@ -89,7 +87,7 @@ class MFVI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 5e-2
     lr_nz: float = 0.05
     lr_client_z: float = 0.01
     lr_yz: float = 0.01

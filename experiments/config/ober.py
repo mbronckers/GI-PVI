@@ -26,9 +26,11 @@ class OberConfig(Config):
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
 
+    prior: Prior = Prior.StandardPrior
+
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global = 0.05
+    lr_global = 0.01
     lr_nz: float = 0.05
     lr_client_z: float = 0.05
     lr_yz: float = 0.05
@@ -78,7 +80,7 @@ class MFVI_OberConfig(OberConfig):
     posterior_type: str = "mfvi"
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.01
     lr_nz: float = 0.10
     lr_yz: float = 0.10
 

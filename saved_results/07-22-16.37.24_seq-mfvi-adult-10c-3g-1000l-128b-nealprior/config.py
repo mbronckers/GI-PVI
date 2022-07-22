@@ -23,8 +23,8 @@ class Config:
     seed: int = 0
     plot: bool = True
 
-    # prior: Prior = Prior.NealPrior
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
+    # prior: Prior = Prior.StandardPrior
 
     kl: KL = KL.Analytical
     optimizer: str = "Adam"
@@ -52,7 +52,7 @@ def set_experiment_name(config: Config):
     elif config.server_type == SynchronousServer:
         name = "sync"
     name += f"_{config.posterior_type}"
-    name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l_{config.prior.name.lower()}"
+    name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l"
 
     if config.N > 1:
         name += f"_{config.N}N"
