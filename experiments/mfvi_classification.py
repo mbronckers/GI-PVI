@@ -33,7 +33,12 @@ from utils.colors import Color
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from torch.utils.data import DataLoader, TensorDataset
-from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
+from utils.optimization import (
+    collect_frozen_vp,
+    construct_optimizer,
+    collect_vp,
+    estimate_local_vfe,
+)
 
 
 def main(args, config, logger):
@@ -61,8 +66,18 @@ def main(args, config, logger):
 
     if config.batch_size == None:
         config.batch_size = x_tr.shape[0]
-    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
-    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(
+        TensorDataset(x_tr, y_tr),
+        batch_size=config.batch_size,
+        shuffle=False,
+        num_workers=0,
+    )
+    test_loader = DataLoader(
+        TensorDataset(x_te, y_te),
+        batch_size=config.batch_size,
+        shuffle=True,
+        num_workers=0,
+    )
     N = x_tr.shape[0]
 
     # Define model and clients.
@@ -86,7 +101,16 @@ def main(args, config, logger):
 
     # Build clients.
     for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
-        _c = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
+        _c = MFVI_Client(
+            key,
+            f"client{client_i}",
+            client_x_tr,
+            client_y_tr,
+            *dims,
+            random_mean_init=config.random_mean_init,
+            prec_inits=config.nz_inits,
+            S=S,
+        )
         clients[f"client{client_i}"] = _c
         key = _c.key
 
@@ -138,7 +162,18 @@ def main(args, config, logger):
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
-                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, {}, S, N=client_data_size)
+                key, local_vfe, exp_ll, kl, error = estimate_local_vfe(
+                    key,
+                    model,
+                    curr_client,
+                    x_mb,
+                    y_mb,
+                    ps,
+                    tmp_ts,
+                    {},
+                    S,
+                    N=client_data_size,
+                )
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
@@ -150,7 +185,15 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - global iter {iter+1:2}/{max_global_iters} - local iter [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
                     # Save client metrics.
-                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+                    curr_client.update_log(
+                        {
+                            "iteration": client_iter,
+                            "vfe": local_vfe.item(),
+                            "ll": exp_ll.item(),
+                            "kl": kl.item(),
+                            "error": error.item(),
+                        }
+                    )
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
@@ -190,8 +233,20 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
-    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
+    parser.add_argument(
+        "--local_iters",
+        "-l",
+        type=int,
+        help="client-local optimization iterations",
+        default=config.local_iters,
+    )
+    parser.add_argument(
+        "--global_iters",
+        "-g",
+        type=int,
+        help="server iters (running over all clients <iters> times)",
+        default=config.global_iters,
+    )
     parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
     parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")

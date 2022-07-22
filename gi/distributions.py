@@ -157,12 +157,14 @@ class NaturalNormal:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
 
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
-        dW, _ = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True)  # Ober
+        # dW, _ = torch.triangular_solve(
+        #     noise, B.dense(B.chol(self.prec)), upper=False, transpose=True
+        # )  # Ober
 
-        # sample = self.mean + B.triangular_solve(B.chol(self.prec).T, noise, lower_a=True)
-        sample = self.mean + dW
+        sample = self.mean + B.cholsolve(B.chol(self.prec), noise)
+        # sample = self.mean + dW
 
-        del dW, noise
+        del noise
         if not structured(sample):
             sample = B.dense(sample)  # transform Dense to Transform matrix
 
@@ -183,7 +185,10 @@ class NaturalNormal:
         return NaturalNormal(other.lam - self.lam, other.prec - self.prec)
 
     def __copy__(self):
-        return NaturalNormal(deepcopy(self.lam.detach().clone()), deepcopy(B.dense(self.prec).detach().clone()))
+        return NaturalNormal(
+            deepcopy(self.lam.detach().clone()),
+            deepcopy(B.dense(self.prec).detach().clone()),
+        )
 
     def __repr__(self) -> str:
         return f"lam: {self.lam.shape}, \nprec: {self.prec.shape} \n"
@@ -210,19 +215,24 @@ class MeanFieldFactor:
         """int: Dimensionality."""
         return B.shape_matrix(self.prec)[0]
 
-    @classmethod
-    def from_normal(cls, dist):
-        """
-        Convert class:Normal into class:NaturalNormal
-        - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
-        """
-        return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
+    # @classmethod
+    # def from_normal(cls, dist):
+    #     """
+    #     Convert class:Normal into class:NaturalNormal
+    #     - \\eta = [\\Sigma_inv \\mu, -0.5 \\Sigma_inv]^T
+    #     """
+    #     return cls(B.mm(B.pd_inv(dist.var), dist.mean), B.pd_inv(dist.var))
 
     def __call__(self, S):
         return MeanFieldFactor(B.tile(self.lam, S, 1, 1, 1), B.tile(self.prec.diag, S, 1, 1))
 
     def __mul__(self, other: Union["MeanFieldFactor", "NaturalNormal"]):
-        return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
+        if type(other) == MeanFieldFactor:
+            return MeanFieldFactor(self.lam + other.lam, self.prec + other.prec)
+        elif type(other) == NaturalNormal:
+            return NaturalNormal(self.lam + other.lam, self.prec + other.prec)
+        else:
+            raise TypeError("Can't multiply by this type.")
 
     def __truediv__(self, other: "MeanFieldFactor"):
         return MeanFieldFactor(self.lam - other.lam, self.prec - other.prec)
@@ -244,7 +254,12 @@ class MeanField(NaturalNormal):
         :param prec: second natural parameter of Normal dist = -0.5 x precision \\propto precision
         """
         self.lam = lam
-        self.prec = Diagonal(prec) if len(prec.shape) < 4 else prec
+
+        if isinstance(prec, Diagonal):
+            self.prec = prec
+        else:
+            assert lam.shape[:-1] == prec.shape, "Dealing with one dimensional precisions only."
+            self.prec = Diagonal(prec)
 
         self._mean = None
         self._var = None
@@ -253,11 +268,27 @@ class MeanField(NaturalNormal):
     def from_factor(cls, factor: MeanFieldFactor):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
         MIN_PREC = 1e-4
-        if B.any(factor.prec.mat < 0).item():
+        if B.any(factor.prec.diag < 0).item():
             logger.debug(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
-            factor.prec.mat[factor.prec.mat < 0] = MIN_PREC
+            factor.prec.mat[factor.prec.diag < 0] = MIN_PREC
 
         return cls(lam=factor.lam, prec=factor.prec)
+
+    def kl(self, other: "MeanField"):
+        """Compute the Kullback-Leibler divergence with respect to another normal
+        parametrised by its natural parameters.
+        Args:
+            other (:class:`.MeanField`): Other.
+        Returns:
+            scalar: KL divergence with respect to `other`.
+
+        See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
+        """
+        logdet = B.sum(B.log(self.prec.diag) - B.log(other.prec.diag), -1)
+        diff = (self.mean - other.mean)[..., 0]  # [50, Dout, 1]
+        ratio = B.sum((self.var.diag + diff**2) / other.var.diag, -1)
+
+        return 0.5 * (logdet + ratio - B.cast(self.dtype, self.dim))
 
 
 class NormalPseudoObservation:

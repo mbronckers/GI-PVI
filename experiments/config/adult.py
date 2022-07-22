@@ -17,6 +17,7 @@ from kl import KL
 
 from .config import Config, set_experiment_name
 
+
 @dataclass
 class AdultConfig(Config):
     posterior_type: str = "pvi_adult"
@@ -29,12 +30,12 @@ class AdultConfig(Config):
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
 
     # Model architecture
-    N: int = 0.8 # train_split
+    N: int = 0.8  # train_split
     M: int = 100
     S: int = 10
     I: int = 100
     dims = [108, 50, 50, 2]
-    batch_size: int = None # full batch
+    batch_size: int = 128  # full batch
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
@@ -51,7 +52,7 @@ class AdultConfig(Config):
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
-        
+
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
@@ -59,6 +60,7 @@ class AdultConfig(Config):
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
         self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+
 
 @dataclass
 class MFVI_AdultConfig(Config):
@@ -68,14 +70,14 @@ class MFVI_AdultConfig(Config):
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
-    random_mean_init: bool = False   # True => Initialize weight layer mean from N(0,1)
+    random_mean_init: bool = False  # True => Initialize weight layer mean from N(0,1)
 
     # Model architecture
-    N: int = 0.8 # train_split
+    N: int = 0.8  # train_split
     S: int = 10
     I: int = 100
     dims = [108, 50, 50, 2]
-    batch_size: int = None # full batch
+    batch_size: int = 128  # full batch
 
     # PVI settings
     server_type: Server = SequentialServer
@@ -85,14 +87,14 @@ class MFVI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 5e-2
     lr_nz: float = 0.05
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
-        
+
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}

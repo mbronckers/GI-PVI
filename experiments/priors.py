@@ -49,12 +49,12 @@ def build_prior(*dims: B.Int, prior: Union[Prior, str], bias: bool):
         mean = B.zeros(B.default_dtype, dims[i + 1], dim_in, 1)  # [Dout x Din+bias x 1]
 
         if prior == Prior.StandardPrior:
-            prec = B.eye(B.default_dtype, dim_in)
+            prec = B.ones(B.default_dtype, dim_in)
         elif prior == Prior.NealPrior:
-            prec = dim_in * B.eye(B.default_dtype, dim_in)
+            prec = dim_in * B.ones(B.default_dtype, dim_in)
 
         # [Dout x Din+bias x Din+bias], i.e. [batch x Din x Din]
-        prec = B.tile(prec, dims[i + 1], 1, 1)
-        ps[f"layer{i}"] = gi.NaturalNormal(mean, prec)
+        prec = B.tile(prec, dims[i + 1], 1)
+        ps[f"layer{i}"] = gi.MeanField(mean, prec)
 
     return ps
