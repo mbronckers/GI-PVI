@@ -46,7 +46,7 @@ class Client:
         report = ""
         for i, (k, v) in enumerate(self.log.items()):
             if k.__contains__("iter"):
-                report += f"{k}: {v[-1]} "
+                report += f"{k}: {v[-1]:2} "
             elif i == len(self.log.keys()) - 1:
                 report += f"{k}: {v[-1]:10.4f}"
             else:

@@ -28,7 +28,7 @@
             "args": [
                 // "--no_plot",
                 "-l=100",
-                "--name=pvi_debug"
+                "--name=debug"
             ]
         },
         {
@@ -40,9 +40,9 @@
             "justMyCode": true,
             "args": [
                 // "--no_plot",
-                "--name=mfvi_debug"
+                "--name=debug"
             ]
-        }
+        },
         {
             "name": "PVI Classification - Debug",
             "type": "python",
@@ -51,7 +51,18 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--name=classification_debug"
+                "--name=debug"
+            ]
+        },
+        {
+            "name": "MFVI Classification - Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiments/mfvi_classification.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--name=debug"
             ]
         },
         {

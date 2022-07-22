@@ -48,5 +48,9 @@ def set_experiment_name(config: Config):
     elif config.server_type == SynchronousServer:
         name = "sync"
     name += f"_{config.posterior_type}"
-    name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l_{config.N}N_{config.M}M"
+    name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l"
+    
+    if config.N > 1: name += f"_{config.N}N"
+    name += f"_{config.batch_size}b" if config.batch_size else f"_full_b"
+    if "M" in config.__annotations__.keys(): name += f"_{config.M}M"
     return name

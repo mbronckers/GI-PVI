@@ -161,7 +161,7 @@ def main(args, config, logger):
             # Run client-local optimization.
             client_data_size = curr_client.x.shape[0]
             batch_size = min(client_data_size, min(args.batch_size, N))
-            logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size}")
+            logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size} - training data size: {client_data_size}")
             max_local_iters = args.local_iters
             for client_iter in range(max_local_iters):
 

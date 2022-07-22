@@ -26,7 +26,6 @@ class OberConfig(Config):
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
 
-    
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
     lr_global = 0.05

@@ -44,21 +44,26 @@ def main(args, config, logger):
     torch.set_printoptions(precision=10, sci_mode=False)
 
     # Setup dataset. One-hot encode the labels.
-    train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
-    x_tr, y_tr, x_te, y_te = (
-        train_data["x"],
-        train_data["y"],
-        test_data["x"],
-        test_data["y"],
-    )
-    y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
-    y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
+    if config.dgp == DGP.mnist:
+        train_data, test_data = generate_mnist(data_dir=f"{_root_dir}/gi/data")
+        x_tr, y_tr, x_te, y_te = (
+            train_data["x"],
+            train_data["y"],
+            test_data["x"],
+            test_data["y"],
+        )
+        y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
+        y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
+    elif config.dgp == DGP.uci_adult:
+        key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, config.dgp)
+        y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
+        y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
 
     if config.batch_size == None:
         config.batch_size = x_tr.shape[0]
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
-    N = len(x_tr)
+    N = x_tr.shape[0]
 
     # Define model and clients.
     model = gi.MFVI_Classification(nn.functional.relu, config.bias, config.kl)
@@ -123,8 +128,9 @@ def main(args, config, logger):
 
             # Run client-local optimization
             client_data_size = curr_client.x.shape[0]
-            batch_size = min(client_data_size, min(args.batch_size, N))
+            batch_size = min(client_data_size, min(config.batch_size, N))
             max_local_iters = args.local_iters
+            logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size} - training data size: {client_data_size}")
             for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data
@@ -175,10 +181,13 @@ def main(args, config, logger):
 if __name__ == "__main__":
     import warnings
     from config.mnist import MFVI_MNISTConfig
+    from config.adult import MFVI_AdultConfig
 
     warnings.filterwarnings("ignore")
 
-    config = MFVI_MNISTConfig()
+    # config = MFVI_MNISTConfig()
+    config = MFVI_AdultConfig()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)

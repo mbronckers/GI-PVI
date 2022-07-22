@@ -136,6 +136,7 @@ def main(args, config, logger):
             client_data_size = curr_client.x.shape[0]
             batch_size = min(client_data_size, min(config.batch_size, N))
             max_local_iters = args.local_iters
+            logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size} - training data size: {client_data_size}")
             for client_iter in range(max_local_iters):
 
                 # Construct client_iter-th minibatch {x, y} training data.

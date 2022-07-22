@@ -79,7 +79,6 @@ class MFVI_ProteinConfig(Config):
 
     # UCI Protein config
     N: int = 0.8  # Fraction training pts vs test
-    M: int = 10  # Number of inducing points per client
     batch_size: int = 10000
 
     # Model architecture

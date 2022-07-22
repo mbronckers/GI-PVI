@@ -72,7 +72,6 @@ class MFVI_MNISTConfig(Config):
 
     # Model architecture
     N: int = None
-    M: int = 50
     S: int = 1
     I: int = 5
     dims = [(28 * 28), 50, 50, 10]
