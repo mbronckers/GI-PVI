@@ -101,6 +101,6 @@ class SequentialServer(Server):
         client = self.current_client()
         self._idx = (self._idx + 1) % len(self.clients)
 
-        logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {self.clients}")
+        logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 
         return [client]

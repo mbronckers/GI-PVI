@@ -18,11 +18,14 @@ from kl import KL
 
 @dataclass
 class Config:
-    """ Any settings that are common to all experiments and do not change."""
+    """Any settings that are common to all experiments and do not change."""
+
     seed: int = 0
     plot: bool = True
 
     prior: Prior = Prior.NealPrior
+    # prior: Prior = Prior.StandardPrior
+
     kl: KL = KL.Analytical
     optimizer: str = "Adam"
     bias: bool = True
@@ -42,15 +45,18 @@ class Config:
 
 ################################################################
 
+
 def set_experiment_name(config: Config):
     if config.server_type == SequentialServer:
         name = "seq"
     elif config.server_type == SynchronousServer:
         name = "sync"
     name += f"_{config.posterior_type}"
-    name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l"
-    
-    if config.N > 1: name += f"_{config.N}N"
+    name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l_{config.prior.name.lower()}"
+
+    if config.N > 1:
+        name += f"_{config.N}N"
     name += f"_{config.batch_size}b" if config.batch_size else f"_full_b"
-    if "M" in config.__annotations__.keys(): name += f"_{config.M}M"
+    if "M" in config.__annotations__.keys():
+        name += f"_{config.M}M"
     return name

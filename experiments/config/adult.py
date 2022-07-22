@@ -35,17 +35,17 @@ class AdultConfig(Config):
     S: int = 10
     I: int = 100
     dims = [108, 50, 50, 2]
-    batch_size: int = 128  # full batch
+    batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
-    global_iters: int = 1  # shared/global server iterations
-    local_iters: int = 2000  # client-local iterations
+    num_clients: int = 10
+    global_iters: int = 3  # shared/global server iterations
+    local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.03
+    lr_global: float = 0.03 
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
@@ -77,13 +77,13 @@ class MFVI_AdultConfig(Config):
     S: int = 10
     I: int = 100
     dims = [108, 50, 50, 2]
-    batch_size: int = 128  # full batch
+    batch_size: int = 128  # None => full batch
 
     # PVI settings
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 3  # shared/global server iterations
-    local_iters: int = 2000  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
