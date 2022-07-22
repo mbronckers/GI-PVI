@@ -7,6 +7,8 @@ import os
 
 import torch
 
+from gi.models.bnn import BaseBNN
+
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -21,7 +23,7 @@ logger = logging.getLogger()
 
 
 class Server:
-    def __init__(self, clients: list[Client], model: GIBNN):
+    def __init__(self, clients: list[Client], model: BaseBNN):
 
         self.clients = clients
 
@@ -29,8 +31,11 @@ class Server:
 
         self.log = defaultdict(list)
 
-        self.max_iters = None
-        self.curr_iter = 0
+        # At the moment: number of times posterior is sent from server
+        self.communications: int = 0 
+
+        self.max_iters: int = None
+        self.curr_iter: int = 0
 
     def __iter__(self):
         return self
@@ -64,10 +69,13 @@ class Server:
             )
 
             # Save metrics.
+            self.log["communications"].append(self.communications)
+            self.log["iteration"].append(self.curr_iter)
+            
             train_metrics = {"train_" + k: v for k, v in train_metrics.items()}
             test_metrics = {"test_" + k: v for k, v in test_metrics.items()}
+            
             metrics = {**train_metrics, **test_metrics}
-            self.log["iteration"].append(self.curr_iter)
             for k, v in metrics.items():
                 self.log[k].append(v.item())
 
@@ -81,6 +89,9 @@ class SynchronousServer(Server):
 
     def __next__(self):
         logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
+
+        # Increment communication counter.
+        self.communications += len(self.clients.keys())
 
         return list(self.clients.values())
 
@@ -100,6 +111,9 @@ class SequentialServer(Server):
     def __next__(self):
         client = self.current_client()
         self._idx = (self._idx + 1) % len(self.clients)
+
+        # Increment communication counter.
+        self.communications += 1
 
         logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 
