@@ -283,7 +283,7 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
         )
 
         # Plot regression domain (-1.5*x_tr_max, 1.5*x_tr_max).
-        if type(config) == OberConfig:
+        if type(config) == GI_OberConfig:
             domain_x_max = 1.5 * B.max(x_tr).item()
 
             # Run eval on entire domain (linspace)
@@ -350,8 +350,8 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    # config = GI_ProteinConfig()
-    config = GI_OberConfig()
+    config = GI_ProteinConfig()
+    # config = GI_OberConfig()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)

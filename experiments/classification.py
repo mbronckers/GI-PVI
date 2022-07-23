@@ -177,7 +177,7 @@ def main(args, config, logger):
     server.curr_iter += 1
     with torch.no_grad():
         frozen_ts, frozen_zs = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, frozen_ts, frozen_zs, S=args.inference_samples, cavity_client=None)
+        key, _ = model.sample_posterior(key, ps, frozen_ts, zs=frozen_zs, S=args.inference_samples, cavity_client=None)
 
         server.evaluate_performance()
 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     assert len(sys.argv) >= 2, "Please specify which config to use: 'GI' or 'MFVI'"
     if sys.argv[1] == "GI":
         config = GI_AdultConfig()
-    elif sys.argv[1].__contains__ == "MF":
+    elif sys.argv[1] == "MFVI":
         config = MFVI_AdultConfig()
     else:
         raise NotImplementedError

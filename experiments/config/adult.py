@@ -25,6 +25,7 @@ class GI_AdultConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.uci_adult
     model_type = GIBNN_Classification
+    
     prior: Prior = Prior.StandardPrior
 
     # GI settings
@@ -35,8 +36,8 @@ class GI_AdultConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 10
-    I: int = 100
+    S: int = 2
+    I: int = 10
     dims = [108, 50, 50, 2]
     
     batch_size: int = 128  # None => full batch
@@ -81,8 +82,8 @@ class MFVI_AdultConfig(Config):
 
     # Model architecture
     N: int = 0.8  # train_split
-    S: int = 10
-    I: int = 100
+    S: int = 2
+    I: int = 10
     dims = [108, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch

@@ -23,6 +23,8 @@ class GI_ProteinConfig(Config):
     posterior_type: str = "pvi_protein"
     dgp: DGP = DGP.uci_protein
 
+    prior: Prior = Prior.StandardPrior
+
     # GI settings
     deterministic: bool = False  # deterministic client training
     random_z: bool = False  # random inducing point initialization
@@ -72,6 +74,8 @@ class MFVI_ProteinConfig(Config):
     posterior_type: str = "mfvi_protein"
     location = os.path.basename(__file__)
     dgp: DGP = DGP.uci_protein
+
+    prior: Prior = Prior.StandardPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
