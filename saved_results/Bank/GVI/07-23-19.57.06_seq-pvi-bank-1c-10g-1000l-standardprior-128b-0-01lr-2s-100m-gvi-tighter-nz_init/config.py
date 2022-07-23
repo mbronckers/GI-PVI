@@ -26,7 +26,7 @@ class GI_BankConfig(Config):
     dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
     
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
