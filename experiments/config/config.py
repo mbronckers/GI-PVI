@@ -54,7 +54,7 @@ def set_experiment_name(config: Config):
     if config.N > 1:
         name += f"_{config.N}N"
     name += f"_{config.batch_size}b" if config.batch_size else f"_full_b"
-    name += f"_{config.lr}lr_{config.S}S"
+    name += f"_{config.lr_global}lr_{config.S}S"
     if "M" in config.__annotations__.keys():
         name += f"_{config.M}M"
     return name
