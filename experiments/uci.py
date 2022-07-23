@@ -1,4 +1,5 @@
-from data.preprocess_data import download_datasets, process_dataset, datasets, protein_config, adult_config
+from data.preprocess_data import download_datasets, process_dataset, datasets, protein_config, adult_config, bank_config
+
 from dataclasses import asdict
 import sys
 import os
@@ -17,6 +18,7 @@ import math
 
 
 dir_path = f"{file_dir}/data/uci"
+
 # download_datasets(root_dir=dir_path, datasets={"protein": datasets["protein"]})
 # process_dataset(os.path.join(dir_path, "protein"), protein_config)
 
@@ -31,9 +33,9 @@ dir_path = f"{file_dir}/data/uci"
 
 # train_loader, test_loader = DataLoader(train), DataLoader(test)
 
-download_datasets(root_dir=dir_path, datasets={"adult": datasets["adult"]})
-process_dataset(os.path.join(dir_path, "adult"), adult_config)
-data_dir = lambda x: os.path.join(dir_path, "adult", x)
+download_datasets(root_dir=dir_path, datasets={"bank": datasets["bank"]})
+process_dataset(os.path.join(dir_path, "bank"), bank_config)
+data_dir = lambda x: os.path.join(dir_path, "bank", x)
 
 X, y = np.load(data_dir("x.npy")), np.load(data_dir("y.npy"))
 

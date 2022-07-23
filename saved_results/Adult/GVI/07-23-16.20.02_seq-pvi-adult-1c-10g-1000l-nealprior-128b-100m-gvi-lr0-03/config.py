@@ -36,7 +36,7 @@ class GI_AdultConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 10
+    S: int = 2
     I: int = 50
     dims = [108, 50, 50, 2]
     
@@ -74,7 +74,7 @@ class MFVI_AdultConfig(Config):
     dgp: DGP = DGP.uci_adult
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
