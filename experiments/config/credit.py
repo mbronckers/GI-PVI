@@ -20,13 +20,13 @@ from .config import Config, set_experiment_name
 
 
 @dataclass
-class GI_BankConfig(Config):
-    posterior_type: str = "pvi_bank"
+class GI_CreditConfig(Config):
+    posterior_type: str = "pvi_credit"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_bank
+    dgp: DGP = DGP.uci_credit
     model_type = GIBNN_Classification
     
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -36,16 +36,16 @@ class GI_BankConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 2
+    S: int = 1
     I: int = 50
-    dims = [51, 50, 50, 2]
+    dims = [46, 50, 50, 2]
     
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
     num_clients: int = 1
-    global_iters: int = 10  # shared/global server iterations
+    global_iters: int = 10   # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
@@ -63,19 +63,18 @@ class GI_BankConfig(Config):
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
-        # self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
 @dataclass
-class MFVI_BankConfig(Config):
-    posterior_type: str = "mfvi_bank"
+class MFVI_CreditConfig(Config):
+    posterior_type: str = "mfvi_credit"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_bank
+    dgp: DGP = DGP.uci_credit
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
@@ -85,7 +84,7 @@ class MFVI_BankConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [51, 50, 50, 2]
+    dims = [108, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 

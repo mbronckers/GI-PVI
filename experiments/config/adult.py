@@ -74,7 +74,7 @@ class MFVI_AdultConfig(Config):
     dgp: DGP = DGP.uci_adult
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training

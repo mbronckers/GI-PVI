@@ -26,7 +26,7 @@ class GI_BankConfig(Config):
     dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
     
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -63,8 +63,7 @@ class GI_BankConfig(Config):
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
-        # self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
@@ -75,7 +74,7 @@ class MFVI_BankConfig(Config):
     dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
