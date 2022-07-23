@@ -26,7 +26,7 @@ class GI_AdultConfig(Config):
     dgp: DGP = DGP.uci_adult
     model_type = GIBNN_Classification
     
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -45,7 +45,7 @@ class GI_AdultConfig(Config):
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
     num_clients: int = 1
-    global_iters: int = 10   # shared/global server iterations
+    global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
