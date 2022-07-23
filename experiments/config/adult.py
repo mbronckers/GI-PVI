@@ -36,7 +36,7 @@ class GI_AdultConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 10
+    S: int = 1
     I: int = 50
     dims = [108, 50, 50, 2]
     

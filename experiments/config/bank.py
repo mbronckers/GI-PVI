@@ -38,7 +38,7 @@ class GI_BankConfig(Config):
     M: int = 100
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [51, 50, 50, 2]
     
     batch_size: int = 128  # None => full batch
 
@@ -84,7 +84,7 @@ class MFVI_BankConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 

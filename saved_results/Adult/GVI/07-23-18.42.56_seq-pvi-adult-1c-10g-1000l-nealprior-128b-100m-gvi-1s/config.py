@@ -36,7 +36,7 @@ class GI_AdultConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 2
+    S: int = 1
     I: int = 50
     dims = [108, 50, 50, 2]
     
@@ -45,7 +45,7 @@ class GI_AdultConfig(Config):
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
     num_clients: int = 1
-    global_iters: int = 10  # shared/global server iterations
+    global_iters: int = 10   # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates

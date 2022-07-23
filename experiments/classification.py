@@ -56,7 +56,7 @@ def main(args, config, logger):
         )
         y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr, num_classes=-1))
         y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
-    elif config.dgp == DGP.uci_adult:
+    elif config.dgp == DGP.uci_adult or config.dgp == DGP.uci_bank:
         key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, config.dgp)
         y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
         y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
@@ -200,6 +200,7 @@ if __name__ == "__main__":
     import warnings
 
     from config.adult import GI_AdultConfig, MFVI_AdultConfig
+    from config.bank import GI_BankConfig, MFVI_BankConfig
     from config.mnist import GI_MNISTConfig, MFVI_MNISTConfig
 
     warnings.filterwarnings("ignore")
@@ -207,9 +208,11 @@ if __name__ == "__main__":
     ### SPECIFY HERE WHICH CONFIG TO USE ###
     assert len(sys.argv) >= 2, "Please specify which config to use: 'GI' or 'MFVI'"
     if sys.argv[1] == "GI":
-        config = GI_AdultConfig()
+        # config = GI_AdultConfig()
+        config = GI_BankConfig()
     elif sys.argv[1] == "MFVI":
-        config = MFVI_AdultConfig()
+        # config = MFVI_AdultConfig()
+        config = MFVI_BankConfig()
     else:
         raise NotImplementedError
 

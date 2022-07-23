@@ -160,10 +160,10 @@ class NaturalNormal:
         # dW, _ = torch.triangular_solve(
         #     noise, B.dense(B.chol(self.prec)), upper=False, transpose=True
         # )  # Ober
-
-        sample = self.mean + B.cholsolve(B.chol(self.prec), noise)
         # sample = self.mean + dW
 
+        sample = self.mean + B.cholsolve(B.chol(self.prec), noise)
+        
         del noise
         if not structured(sample):
             sample = B.dense(sample)  # transform Dense to Transform matrix
