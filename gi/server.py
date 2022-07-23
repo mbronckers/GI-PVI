@@ -31,7 +31,7 @@ class Server:
 
         self.log = defaultdict(list)
 
-        # At the moment: number of times posterior is sent from server
+        # Number of times communicated with clients. Once for factor collection, once for posterior sending => 2 * num clients to optimize in iteration
         self.communications: int = 0 
 
         self.max_iters: int = None
@@ -90,8 +90,8 @@ class SynchronousServer(Server):
     def __next__(self):
         logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 
-        # Increment communication counter.
-        self.communications += len(self.clients.keys())
+        # Increment communication counter: one for collection, one for sending out
+        self.communications += 2*len(self.clients.keys())
 
         return list(self.clients.values())
 
@@ -113,7 +113,7 @@ class SequentialServer(Server):
         self._idx = (self._idx + 1) % len(self.clients)
 
         # Increment communication counter.
-        self.communications += 1
+        self.communications += 2
 
         logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 

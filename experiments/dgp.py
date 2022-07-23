@@ -9,9 +9,6 @@ from enum import IntEnum
 import logging
 import os
 
-# import matplotlib.pyplot as plt
-# from wbml import plot
-
 logger = logging.getLogger()
 
 
@@ -22,7 +19,8 @@ class DGP(IntEnum):
     cifar = 4
     uci_protein = 5
     uci_adult = 6
-
+    uci_bank = 7
+    uci_credit = 8
 
 def generate_data(key, dgp, size = None, xmin=-4.0, xmax=4):
     if dgp == DGP.ober_regression:
@@ -70,6 +68,23 @@ def generate_data(key, dgp, size = None, xmin=-4.0, xmax=4):
         file_dir = os.path.dirname(__file__)
         dir_path = f"{file_dir}/data/uci"
         X, y = uci_adult(dir_path)
+        scale = B.std(y)
+        X = torch.from_numpy(X).clone().to(B.default_dtype)
+        y = torch.from_numpy(y).clone().to(B.default_dtype)
+
+        if size and size < 1:
+            key, splits = split_data_clients(key, X, y, [size, 1 - size])
+        else:
+            key, splits = split_data_clients(key, X, y, [0.8, 0.2])
+        x_tr, y_tr = splits[0]
+        x_te, y_te = splits[1]
+
+        return key, X, y, x_tr, y_tr, x_te, y_te, scale
+
+    elif dgp == DGP.uci_bank:
+        file_dir = os.path.dirname(__file__)
+        dir_path = f"{file_dir}/data/uci"
+        X, y = uci_bank(dir_path)
         scale = B.std(y)
         X = torch.from_numpy(X).clone().to(B.default_dtype)
         y = torch.from_numpy(y).clone().to(B.default_dtype)
@@ -133,6 +148,16 @@ def uci_adult(dir_path):
 
     return X, y
 
+def uci_bank(dir_path):
+    from data.preprocess_data import download_datasets, process_dataset, datasets, bank_config
+
+    download_datasets(root_dir=dir_path, datasets={"bank": datasets["bank"]})
+    process_dataset(os.path.join(dir_path, "bank"), bank_config)
+    data_dir = lambda x: os.path.join(dir_path, "bank", x)
+
+    X, y = np.load(data_dir("x.npy")), np.load(data_dir("y.npy"))
+
+    return X, y
 
 def dgp2(key, size, xmin=-4.0, xmax=4.0):
 

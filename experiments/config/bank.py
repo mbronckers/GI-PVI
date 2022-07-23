@@ -20,13 +20,13 @@ from .config import Config, set_experiment_name
 
 
 @dataclass
-class GI_AdultConfig(Config):
-    posterior_type: str = "pvi_adult"
+class GI_BankConfig(Config):
+    posterior_type: str = "pvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_adult
+    dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
     
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -68,13 +68,13 @@ class GI_AdultConfig(Config):
 
 
 @dataclass
-class MFVI_AdultConfig(Config):
-    posterior_type: str = "mfvi_adult"
+class MFVI_BankConfig(Config):
+    posterior_type: str = "mfvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_adult
+    dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
