@@ -184,7 +184,17 @@ def main(args, config, logger):
                     )
 
                     # Save client metrics.
-                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+                    curr_client.update_log(
+                        {
+                            "global_iteration": iter,
+                            "local_iteration": client_iter,
+                            "total_iteration": iter * max_local_iters + client_iter,
+                            "vfe": local_vfe.item(),
+                            "ll": exp_ll.item(),
+                            "kl": kl.item(),
+                            "error": error.item(),
+                        }
+                    )
                 else:
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"

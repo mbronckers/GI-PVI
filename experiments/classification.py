@@ -34,8 +34,7 @@ from wbml import experiment, out
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from utils.colors import Color
-from utils.optimization import (collect_frozen_vp, collect_vp,
-                                construct_optimizer, estimate_local_vfe)
+from utils.optimization import collect_frozen_vp, collect_vp, construct_optimizer, estimate_local_vfe
 
 
 def main(args, config, logger):
@@ -66,7 +65,7 @@ def main(args, config, logger):
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = x_tr.shape[0]
-    
+
     # Define model and clients.
     model = config.model_type(nn.functional.relu, config.bias, config.kl)
     clients: dict[str, Client] = {}
@@ -94,9 +93,10 @@ def main(args, config, logger):
                 key, f"client{client_i}", client_x_tr, client_y_tr, config.M, *dims, random_z=config.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
             )
         elif config.model_type == gi.MFVI_Classification:
-            clients[f"client{client_i}"] = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S)
+            clients[f"client{client_i}"] = MFVI_Client(
+                key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S
+            )
         key = clients[f"client{client_i}"].key
-
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
@@ -166,7 +166,17 @@ def main(args, config, logger):
                     )
 
                     # Save client metrics.
-                    curr_client.update_log({"iteration": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
+                    curr_client.update_log(
+                        {
+                            "global_iteration": iter,
+                            "local_iteration": client_iter,
+                            "total_iteration": iter * max_local_iters + client_iter,
+                            "vfe": local_vfe.item(),
+                            "ll": exp_ll.item(),
+                            "kl": kl.item(),
+                            "error": error.item(),
+                        }
+                    )
 
                 else:
                     logger.debug(

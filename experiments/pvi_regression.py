@@ -110,7 +110,7 @@ def main(args, config, logger):
     server.train_loader = train_loader
     server.test_loader = test_loader
 
-    # Perform PVI. 
+    # Perform PVI.
     max_global_iters = server.max_iters
     for iter in range(max_global_iters):
         server.curr_iter = iter
@@ -186,8 +186,17 @@ def main(args, config, logger):
                     )
 
                     # Save client metrics.
-                    curr_client.update_log({"global_iter": iter, "local_iter": client_iter, "vfe": local_vfe.item(), "ll": exp_ll.item(), "kl": kl.item(), "error": error.item()})
-
+                    curr_client.update_log(
+                        {
+                            "global_iteration": iter,
+                            "local_iteration": client_iter,
+                            "total_iteration": iter * max_local_iters + client_iter,
+                            "vfe": local_vfe.item(),
+                            "ll": exp_ll.item(),
+                            "kl": kl.item(),
+                            "error": error.item(),
+                        }
+                    )
                     # Only plot every <log_step> epoch
                     if args.plot and ((client_iter + 1) % log_step == 0):
                         plot_client_vp(config, curr_client, iter, client_iter)
