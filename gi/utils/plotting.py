@@ -114,9 +114,6 @@ def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None, ylim: Optional[T
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     lw = 2  # linewidth=lw
 
-    def get_values(x):
-        return np.array(x.squeeze().detach().cpu())
-
     sns.lineplot(y=y, x=x, label=f"{desc}", ax=ax, color=colors[0])
 
     ax.legend()
