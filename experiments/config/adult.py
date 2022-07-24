@@ -91,7 +91,7 @@ class MFVI_AdultConfig(Config):
 
     # PVI settings
     server_type: Server = SynchronousServer
-    num_clients: int = 10
+    num_clients: int = 1
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
