@@ -25,7 +25,7 @@ class GI_BankConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
-
+    
     prior: Prior = Prior.NealPrior
 
     # GI settings
@@ -39,7 +39,7 @@ class GI_BankConfig(Config):
     S: int = 2
     I: int = 50
     dims = [51, 50, 50, 2]
-
+    
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
@@ -64,9 +64,8 @@ class GI_BankConfig(Config):
 
         # Precisions of the inducing points per layer
         # self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
-        # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
-
         self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
 @dataclass

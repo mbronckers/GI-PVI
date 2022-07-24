@@ -25,7 +25,7 @@ class GI_AdultConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.uci_adult
     model_type = GIBNN_Classification
-    
+
     prior: Prior = Prior.NealPrior
 
     # GI settings
@@ -39,18 +39,18 @@ class GI_AdultConfig(Config):
     S: int = 1
     I: int = 50
     dims = [108, 50, 50, 2]
-    
+
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
     num_clients: int = 1
-    global_iters: int = 10   # shared/global server iterations
+    global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.03
+    lr_global: float = 0.01
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
@@ -63,7 +63,8 @@ class GI_AdultConfig(Config):
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
-        self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
