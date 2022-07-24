@@ -44,7 +44,7 @@ class GI_BankConfig(Config):
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
@@ -75,7 +75,7 @@ class MFVI_BankConfig(Config):
     dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
@@ -90,7 +90,7 @@ class MFVI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations

@@ -44,7 +44,7 @@ class GI_BankConfig(Config):
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
@@ -90,8 +90,8 @@ class MFVI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SynchronousServer
-    num_clients: int = 10
+    server_type: Server = SequentialServer
+    num_clients: int = 1
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
