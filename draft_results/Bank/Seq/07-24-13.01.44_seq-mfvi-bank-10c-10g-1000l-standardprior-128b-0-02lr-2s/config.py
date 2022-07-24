@@ -75,7 +75,7 @@ class MFVI_BankConfig(Config):
     dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
