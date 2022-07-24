@@ -36,7 +36,7 @@ class GI_CreditConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 1
+    S: int = 2
     I: int = 50
     dims = [46, 50, 50, 2]
 
@@ -44,13 +44,13 @@ class GI_CreditConfig(Config):
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.02
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
@@ -63,7 +63,7 @@ class GI_CreditConfig(Config):
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
-        self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
@@ -84,19 +84,19 @@ class MFVI_CreditConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [46, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI settings
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.02
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 

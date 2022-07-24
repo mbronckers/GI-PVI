@@ -126,8 +126,16 @@ class GI_Client(Client):
             z, yz = x[idx].clone(), y[idx].clone()
         else:
             z, yz = x.clone(), y.clone()
-            key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:])  # Generate z_, yz_
+
+            # Generate z_, yz_
+            key, z_ = B.randn(key, B.default_dtype, M - len(x), *x.shape[1:])
             key, yz_ = B.randn(key, B.default_dtype, M - len(x), *y.shape[1:])
+
+            if z_.device != z.device:
+                z_ = z_.to(z.device)
+            if yz_.device != yz.device:
+                yz_ = yz_.to(yz.device)
+            
             z = B.concat(z, z_)
             yz = B.concat(yz, yz_)
 
