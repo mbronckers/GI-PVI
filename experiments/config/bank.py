@@ -36,7 +36,7 @@ class GI_BankConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 10
+    S: int = 2
     I: int = 50
     dims = [51, 50, 50, 2]
 
@@ -91,13 +91,13 @@ class MFVI_BankConfig(Config):
 
     # PVI settings
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.02
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 
