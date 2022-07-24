@@ -20,10 +20,10 @@ from .config import Config, set_experiment_name
 
 
 @dataclass
-class GI_BankConfig(Config):
-    posterior_type: str = "pvi_bank"
+class GI_AdultConfig(Config):
+    posterior_type: str = "pvi_adult"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_bank
+    dgp: DGP = DGP.uci_adult
     model_type = GIBNN_Classification
 
     prior: Prior = Prior.NealPrior
@@ -36,21 +36,21 @@ class GI_BankConfig(Config):
     # Model architecture
     N: int = 0.8  # train_split
     M: int = 100
-    S: int = 10
+    S: int = 2
     I: int = 50
-    dims = [51, 50, 50, 2]
+    dims = [108, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 10
+    num_clients: int = 1
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.02
+    lr_global: float = 0.01
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
@@ -69,13 +69,13 @@ class GI_BankConfig(Config):
 
 
 @dataclass
-class MFVI_BankConfig(Config):
-    posterior_type: str = "mfvi_bank"
+class MFVI_AdultConfig(Config):
+    posterior_type: str = "mfvi_adult"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_bank
+    dgp: DGP = DGP.uci_adult
     model_type = MFVI_Classification
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
@@ -85,7 +85,7 @@ class MFVI_BankConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [51, 50, 50, 2]
+    dims = [108, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 

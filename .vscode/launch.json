@@ -52,6 +52,7 @@
             "justMyCode": true,
             "args": [
                 "GI",
+                "A",
                 "--name=debug"
             ]
         },
@@ -64,6 +65,7 @@
             "justMyCode": true,
             "args": [
                 "MFVI",
+                "A",
                 "--name=debug"
             ]
         },
