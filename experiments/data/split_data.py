@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_factor, dataset_seed):
@@ -12,8 +13,8 @@ def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_f
 
     if num_clients == 1:
         client_data = [{"x": x, "y": y}]
-        N_is = [x.shape[0]]
-        props_positive = [np.mean(y > 0)]
+        N_is = [1]
+        props_positive = [(y == 0).float().mean()]
 
         return client_data, N_is, props_positive, num_clients
 
@@ -92,10 +93,10 @@ def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_f
         x = x[big_client_size:]
         y = y[big_client_size:]
 
-        client_data.append({"x": client_x, "y": client_y})
+        client_data.append({"x": torch.tensor(client_x), "y": torch.tensor(client_y)})
 
-    N_is = [data["x"].shape[0] for data in client_data]
-    props_positive = [np.mean(data["y"] > 0) for data in client_data]
+    N_is = [(data["x"].shape[0] / N) for data in client_data]
+    props_positive = [(data["y"] > 0).mean() for data in client_data]
 
     np.random.set_state(random_state)
 

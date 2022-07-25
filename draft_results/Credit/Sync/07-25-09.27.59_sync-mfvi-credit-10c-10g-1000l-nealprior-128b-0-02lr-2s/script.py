@@ -9,7 +9,6 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from config.adult import MFVI_AdultConfig
-from data.split_data import generate_clients_data
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -58,20 +57,11 @@ def main(args, config, logger):
         y_te = torch.squeeze(torch.nn.functional.one_hot(y_te, num_classes=-1))
     elif config.dgp == DGP.uci_adult or config.dgp == DGP.uci_bank or config.dgp == DGP.uci_credit:
         key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, config.dgp)
-
-    # Split dataset.
-    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
-    if config.deterministic and config.num_clients == 1:
-        splits = [(x_tr, y_tr)]
-    else:
-        splits, N_balance, prop_positive, _ = generate_clients_data(x_tr, y_tr, config.num_clients, config.client_size_factor, config.class_balance_factor, config.seed)
-        logger.info(f"{Color.YELLOW}Client data partitions - relative partition size: {[round(x, 2) for x in N_balance]}{Color.END}")
-        logger.info(f"{Color.YELLOW}Client data partitions - proportion positive: {[round(x, 2) for x in prop_positive]}{Color.END}")
+        y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
+        y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
 
     if config.batch_size == None:
         config.batch_size = x_tr.shape[0]
-    y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
-    y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
     N = x_tr.shape[0]
@@ -89,11 +79,15 @@ def main(args, config, logger):
     ps = build_prior(*dims, prior=config.prior, bias=config.bias)
     logger.info(f"LR: {config.lr_global}")
 
-    # Build clients.
-    for client_i, client_data in enumerate(splits):
-        client_x_tr = client_data["x"]
-        client_y_tr = torch.squeeze(torch.nn.functional.one_hot(client_data["y"].long(), num_classes=2))
+    # Split dataset.
+    logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
+    if config.deterministic and config.num_clients == 1:
+        splits = [(x_tr, y_tr)]
+    else:
+        key, splits = split_data_clients(key, x_tr, y_tr, config.client_splits)
 
+    # Build clients.
+    for client_i, (client_x_tr, client_y_tr) in enumerate(splits):
         if config.model_type == gi.GIBNN_Classification:
             clients[f"client{client_i}"] = GI_Client(
                 key, f"client{client_i}", client_x_tr, client_y_tr, config.M, *dims, random_z=config.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz

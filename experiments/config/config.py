@@ -58,3 +58,14 @@ def set_experiment_name(config: Config):
     if "M" in config.__annotations__.keys():
         name += f"_{config.M}M"
     return name
+
+
+def set_partition_factors(config: Config):
+    if config.split_type == "A":
+        config.client_size_factor = 0.0
+        config.class_balance_factor = 0.0
+    elif config.split_type == "B":
+        config.client_size_factor = 0.9
+        config.class_balance_factor = 0.95
+    else:
+        raise NotImplementedError

@@ -22,7 +22,8 @@ class DGP(IntEnum):
     uci_bank = 7
     uci_credit = 8
 
-def generate_data(key, dgp, size = None, xmin=-4.0, xmax=4):
+
+def generate_data(key, dgp, size=None, xmin=-4.0, xmax=4):
     if dgp == DGP.ober_regression:
         """Build train data with test data in between the train space
         Equal number of training points as test points"""
@@ -165,6 +166,7 @@ def uci_adult(dir_path):
 
     return X, y
 
+
 def uci_bank(dir_path):
     from data.preprocess_data import download_datasets, process_dataset, datasets, bank_config
 
@@ -175,6 +177,7 @@ def uci_bank(dir_path):
     X, y = np.load(data_dir("x.npy")), np.load(data_dir("y.npy"))
 
     return X, y
+
 
 def uci_credit(dir_path):
     from data.preprocess_data import download_datasets, process_dataset, datasets, credit_config
@@ -263,16 +266,3 @@ def split_data_clients(key, x, y, splits):
     indices = B.to_numpy(indices)
 
     return key, [(x[indices[offset - length : offset]], y[indices[offset - length : offset]]) for offset, length in zip(accumulate(splits), splits)]
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    # Lab variable initialization
-    B.default_dtype = torch.float64
-    key = B.create_random_state(B.default_dtype, seed=0)
-
-    N = 40
-    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, 1, N, xmin=-4.0, xmax=4.0)
-
-    print(f"Scale: {scale}")
