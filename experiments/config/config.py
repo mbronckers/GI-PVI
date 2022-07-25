@@ -51,6 +51,9 @@ def set_experiment_name(config: Config):
     name += f"_{config.posterior_type}"
     name += f"_{config.num_clients}c_{config.global_iters}g_{config.local_iters}l_{config.prior.name.lower()}"
 
+    if config.split_type:
+        name += f"_split{config.split_type}"
+
     if config.N > 1:
         name += f"_{config.N}N"
     name += f"_{config.batch_size}b" if config.batch_size else f"_full_b"

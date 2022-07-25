@@ -14,7 +14,7 @@ def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_f
     if num_clients == 1:
         client_data = [{"x": x, "y": y}]
         N_is = [1]
-        props_positive = [(y == 0).float().mean()]
+        props_positive = [(y == 0).float().mean().item()]
 
         return client_data, N_is, props_positive, num_clients
 

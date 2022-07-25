@@ -44,7 +44,7 @@ class GI_AdultConfig(Config):
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
@@ -63,7 +63,7 @@ class GI_AdultConfig(Config):
         set_partition_factors(self)
 
         # Homogeneous, equal-sized split.
-        # self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
+        self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
@@ -93,7 +93,7 @@ class MFVI_AdultConfig(Config):
 
     # PVI settings
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
@@ -111,6 +111,7 @@ class MFVI_AdultConfig(Config):
         set_partition_factors(self)
 
         # Homogeneous, equal-sized split.
+        self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
