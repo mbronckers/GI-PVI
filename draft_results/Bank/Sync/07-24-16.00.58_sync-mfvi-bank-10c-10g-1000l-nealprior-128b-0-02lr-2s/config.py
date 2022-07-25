@@ -20,10 +20,10 @@ from .config import Config, set_experiment_name
 
 
 @dataclass
-class GI_CreditConfig(Config):
-    posterior_type: str = "pvi_credit"
+class GI_BankConfig(Config):
+    posterior_type: str = "pvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_credit
+    dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
 
     prior: Prior = Prior.NealPrior
@@ -38,13 +38,13 @@ class GI_CreditConfig(Config):
     M: int = 100
     S: int = 2
     I: int = 50
-    dims = [46, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SynchronousServer
-    num_clients: int = 10
+    server_type: Server = SequentialServer
+    num_clients: int = 1
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
@@ -63,15 +63,16 @@ class GI_CreditConfig(Config):
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
+        # self.nz_inits: list[float] = [B.exp(-4) / 3 for _ in range(len(self.dims) - 1)]
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
 
 @dataclass
-class MFVI_CreditConfig(Config):
-    posterior_type: str = "mfvi_credit"
+class MFVI_BankConfig(Config):
+    posterior_type: str = "mfvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_credit
+    dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
     prior: Prior = Prior.NealPrior
@@ -84,7 +85,7 @@ class MFVI_CreditConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [46, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 

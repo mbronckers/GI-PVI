@@ -20,13 +20,14 @@ from .config import Config, set_experiment_name
 
 # The default config settings below follow Ober et al.'s toy regression experiment details
 
+
 @dataclass
 class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -42,7 +43,7 @@ class GI_OberConfig(Config):
     deterministic: bool = False  # deterministic client training
     random_z: bool = False  # random inducing point initialization
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
-    
+
     # Ober fixes ll variance to 3/scale(x_tr)
     fix_ll: bool = True  # true => fix ll variance
     # ll_var: float = 0.10  # likelihood variance
@@ -50,12 +51,12 @@ class GI_OberConfig(Config):
     N: int = 40  # Num total training data pts, not the number of data pts per client.
     M: int = 40
     batch_size: int = 40
-    
+
     # Model architecture
     S: int = 10
     I: int = 100
     dims = [1, 50, 50, 1]
-    
+
     # Server & clients
     server_type: Server = SequentialServer
     num_clients: int = 1
@@ -64,8 +65,9 @@ class GI_OberConfig(Config):
         self.name = set_experiment_name(self)
 
         # Precisions of the inducing points per layer
-        self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
@@ -74,9 +76,10 @@ class GI_OberConfig(Config):
 
 @dataclass
 class MFVI_OberConfig(GI_OberConfig):
-    """ We keep hypers equal as much as possible for MFVI.
+    """We keep hypers equal as much as possible for MFVI.
     We only change the learning rate and weight precisions.
     """
+
     posterior_type: str = "mfvi"
 
     sep_lr: bool = False  # True => use seperate learning rates
@@ -100,4 +103,3 @@ class MFVI_OberConfig(GI_OberConfig):
 
         # Weight variances per Ober et al.
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
-

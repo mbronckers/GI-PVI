@@ -43,7 +43,7 @@ class GI_CreditConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -89,7 +89,7 @@ class MFVI_CreditConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations

@@ -359,8 +359,8 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("ignore")
 
-    config = GI_ProteinConfig()
-    # config = GI_OberConfig()
+    # config = GI_ProteinConfig()
+    config = GI_OberConfig()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
