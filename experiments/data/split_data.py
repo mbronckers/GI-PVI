@@ -42,10 +42,10 @@ def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_f
     if small_client_positive_class_size * num_clients / 2 > (1 - class_balance) * N:
         raise ValueError(f"Not enough positive class instances to fill the small clients. Client size factor:{client_size_factor}, class balance factor:{class_balance_factor}")
 
-    pos_inds = np.where(y > 0)
-    zero_inds = np.where(y == 0)
+    pos_inds = np.where(y > 0)[0]
+    zero_inds = np.where(y == 0)[0]
 
-    assert (len(pos_inds[0]) + len(zero_inds[0])) == len(y), "Some indeces missed."
+    assert (len(pos_inds) + len(zero_inds)) == len(y), "Some indeces missed."
 
     y_pos = y[pos_inds]
     y_neg = y[zero_inds]
@@ -75,7 +75,7 @@ def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_f
         client_x = client_x[shuffle_inds]
         client_y = client_y[shuffle_inds]
 
-        client_data.append({"x": client_x, "y": client_y})
+        client_data.append({"x": torch.tensor(client_x), "y": torch.tensor(client_y)})
 
     # Recombine remaining data and shuffle.
     x = np.concatenate([x_pos, x_neg])
@@ -96,7 +96,7 @@ def generate_clients_data(x, y, num_clients, client_size_factor, class_balance_f
         client_data.append({"x": torch.tensor(client_x), "y": torch.tensor(client_y)})
 
     N_is = [(data["x"].shape[0] / N) for data in client_data]
-    props_positive = [(data["y"] > 0).mean() for data in client_data]
+    props_positive = [(data["y"] > 0).float().mean().item() for data in client_data]
 
     np.random.set_state(random_state)
 

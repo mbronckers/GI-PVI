@@ -65,8 +65,8 @@ def main(args, config, logger):
         splits = [(x_tr, y_tr)]
     else:
         splits, N_balance, prop_positive, _ = generate_clients_data(x_tr, y_tr, config.num_clients, config.client_size_factor, config.class_balance_factor, config.seed)
-        logger.info(f"{Color.YELLOW}Client data partitions - relative partition size: {[round(x, 2) for x in N_balance]}{Color.END}")
-        logger.info(f"{Color.YELLOW}Client data partitions - proportion positive: {[round(x, 2) for x in prop_positive]}{Color.END}")
+        logger.info(f"{Color.YELLOW}Client data partition size:      {[round(x, 2) for x in N_balance]}{Color.END}")
+        logger.info(f"{Color.YELLOW}Client data proportion positive: {[round(x, 2) for x in prop_positive]}{Color.END}")
 
     if config.batch_size == None:
         config.batch_size = x_tr.shape[0]
