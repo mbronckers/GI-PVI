@@ -20,10 +20,10 @@ from .config import Config, set_experiment_name, set_partition_factors
 
 
 @dataclass
-class GI_CreditConfig(Config):
-    posterior_type: str = "pvi_credit"
+class GI_BankConfig(Config):
+    posterior_type: str = "pvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_credit
+    dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
 
     prior: Prior = Prior.NealPrior
@@ -38,7 +38,7 @@ class GI_CreditConfig(Config):
     M: int = 100
     S: int = 2
     I: int = 50
-    dims = [46, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
@@ -56,25 +56,23 @@ class GI_CreditConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "A"
-    dampening_factor = 1.0
+    split_type: str = "B"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        # Homogeneous, equal-sized split.
-        self.optimizer_params: dict = {"lr": self.lr_global * self.dampening_factor}
+        self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
 
 @dataclass
-class MFVI_CreditConfig(Config):
-    posterior_type: str = "mfvi_credit"
+class MFVI_BankConfig(Config):
+    posterior_type: str = "mfvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_credit
+    dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
     prior: Prior = Prior.NealPrior
@@ -87,12 +85,12 @@ class MFVI_CreditConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [46, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -104,15 +102,13 @@ class MFVI_CreditConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "A"
-    dampening_factor = 1e-3
+    split_type: str = "B"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        # Homogeneous, equal-sized split.
-        self.optimizer_params: dict = {"lr": self.lr_global * self.dampening_factor}
+        self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
