@@ -20,10 +20,10 @@ from .config import Config, set_experiment_name, set_partition_factors
 
 
 @dataclass
-class GI_AdultConfig(Config):
-    posterior_type: str = "pvi_adult"
+class GI_BankConfig(Config):
+    posterior_type: str = "pvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_adult
+    dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
 
     prior: Prior = Prior.NealPrior
@@ -38,7 +38,7 @@ class GI_AdultConfig(Config):
     M: int = 100
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
@@ -63,18 +63,18 @@ class GI_AdultConfig(Config):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        self.lr_global = self.lr_global * self.dampening_factor
-        self.optimizer_params: dict = {"lr": self.lr_global}
+        # Homogeneous, equal-sized split.
+        self.optimizer_params: dict = {"lr": self.lr_global * self.dampening_factor}
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
 
 @dataclass
-class MFVI_AdultConfig(Config):
-    posterior_type: str = "mfvi_adult"
+class MFVI_BankConfig(Config):
+    posterior_type: str = "mfvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_adult
+    dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
     prior: Prior = Prior.NealPrior
@@ -87,7 +87,7 @@ class MFVI_AdultConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
@@ -105,15 +105,14 @@ class MFVI_AdultConfig(Config):
 
     # Partition settings
     split_type: str = "A"
-    dampening_factor = 1e-1
-
+    dampening_factor = 1e-3
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        self.lr_global = self.lr_global * self.dampening_factor
-        self.optimizer_params: dict = {"lr": self.lr_global}
+        # Homogeneous, equal-sized split.
+        self.optimizer_params: dict = {"lr": self.lr_global * self.dampening_factor}
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]

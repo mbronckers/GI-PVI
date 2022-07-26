@@ -63,11 +63,12 @@ class GI_BankConfig(Config):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        # Homogeneous, equal-sized split.
-        self.optimizer_params: dict = {"lr": self.lr_global * self.dampening_factor}
+        self.lr_global = self.lr_global * self.dampening_factor
+        self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+
 
 
 @dataclass
@@ -111,8 +112,9 @@ class MFVI_BankConfig(Config):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        # Homogeneous, equal-sized split.
-        self.optimizer_params: dict = {"lr": self.lr_global * self.dampening_factor}
+        self.lr_global = self.lr_global * self.dampening_factor
+        self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+
