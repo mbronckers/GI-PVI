@@ -105,7 +105,7 @@ class MFVI_BankConfig(Config):
 
     # Partition settings
     split_type: str = "A"
-    dampening_factor = 1e-3
+    dampening_factor = 1e-1
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
