@@ -43,10 +43,10 @@ class GI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 1000  # client-local iterations
+    local_iters: int = 2000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates

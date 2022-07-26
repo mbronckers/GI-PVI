@@ -60,7 +60,6 @@ def main(args, config, logger):
         key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, config.dgp)
 
     # Split dataset.
-    # logger.info(f"{Color.WHITE}Client splits: {config.client_splits}{Color.END}")
     if config.deterministic and config.num_clients == 1:
         splits = [(x_tr, y_tr)]
     else:
