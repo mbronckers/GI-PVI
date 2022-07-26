@@ -20,10 +20,10 @@ from .config import Config, set_experiment_name, set_partition_factors
 
 
 @dataclass
-class GI_AdultConfig(Config):
-    posterior_type: str = "pvi_adult"
+class GI_BankConfig(Config):
+    posterior_type: str = "pvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_adult
+    dgp: DGP = DGP.uci_bank
     model_type = GIBNN_Classification
 
     prior: Prior = Prior.NealPrior
@@ -38,15 +38,15 @@ class GI_AdultConfig(Config):
     M: int = 100
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 2000  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -62,8 +62,6 @@ class GI_AdultConfig(Config):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        # Homogeneous, equal-sized split.
-        # self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
@@ -71,10 +69,10 @@ class GI_AdultConfig(Config):
 
 
 @dataclass
-class MFVI_AdultConfig(Config):
-    posterior_type: str = "mfvi_adult"
+class MFVI_BankConfig(Config):
+    posterior_type: str = "mfvi_bank"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_adult
+    dgp: DGP = DGP.uci_bank
     model_type = MFVI_Classification
 
     prior: Prior = Prior.NealPrior
@@ -87,13 +85,13 @@ class MFVI_AdultConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [108, 50, 50, 2]
+    dims = [51, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI settings
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
 
@@ -110,7 +108,6 @@ class MFVI_AdultConfig(Config):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        # Homogeneous, equal-sized split.
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
