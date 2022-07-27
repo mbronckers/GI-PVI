@@ -92,10 +92,10 @@ class MFVI_AdultConfig(Config):
 
     # PVI settings
     server_type: Server = SynchronousServer
-    num_clients: int = 4
+    num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
-    dampening_factor = 0.25
+    dampening_factor = 0.10
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
