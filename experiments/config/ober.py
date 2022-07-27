@@ -26,8 +26,10 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
-
     prior: Prior = Prior.NealPrior
+
+    split_type: str = None
+    dampening_factor = None
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -83,7 +85,7 @@ class MFVI_OberConfig(GI_OberConfig):
     posterior_type: str = "mfvi"
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.02
     lr_nz: float = 0.10
     lr_yz: float = 0.10
 
