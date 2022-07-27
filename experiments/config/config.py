@@ -61,8 +61,9 @@ def set_experiment_name(config: Config):
     if "M" in config.__annotations__.keys():
         name += f"_{config.M}M"
 
-    if config.dampening_factor:
-        name += f"_damp_{config.dampening_factor}"
+    # if config.dampening_factor:
+    #     name += f"_damp_{config.dampening_factor}"
+
     return name
 
 
