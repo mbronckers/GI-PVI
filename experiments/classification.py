@@ -35,7 +35,7 @@ from wbml import experiment, out
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from utils.colors import Color
-from utils.optimization import collect_frozen_vp, collect_vp, construct_optimizer, estimate_local_vfe
+from utils.optimization import collect_frozen_vp, collect_vp, construct_optimizer, dampen_updates, estimate_local_vfe
 
 
 def main(args, config, logger):
@@ -187,6 +187,9 @@ def main(args, config, logger):
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
+            if config.dampening_factor:
+                dampen_updates(curr_client, config.dampening_factor, frozen_ts, frozen_zs)
 
     # Log global/server model post training
     server.curr_iter += 1

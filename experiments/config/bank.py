@@ -47,6 +47,7 @@ class GI_BankConfig(Config):
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 2000  # client-local iterations
+    dampening_factor = None
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -57,13 +58,11 @@ class GI_BankConfig(Config):
 
     # Partition settings
     split_type: str = "A"
-    # dampening_factor = 1.0
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        self.lr_global = self.lr_global
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer
@@ -96,6 +95,7 @@ class MFVI_BankConfig(Config):
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
+    dampening_factor = None
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -105,13 +105,11 @@ class MFVI_BankConfig(Config):
 
     # Partition settings
     split_type: str = "A"
-    # dampening_factor = 1e-1
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
         set_partition_factors(self)
 
-        self.lr_global = self.lr_global
         self.optimizer_params: dict = {"lr": self.lr_global}
 
         # Precisions of the inducing points per layer

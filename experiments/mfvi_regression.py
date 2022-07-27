@@ -1,4 +1,5 @@
 from __future__ import annotations
+from copy import copy
 
 import os
 import shutil
@@ -35,7 +36,7 @@ from dgp import DGP, generate_data, split_data_clients
 from priors import build_prior
 from utils.gif import make_gif
 from utils.metrics import rmse
-from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, estimate_local_vfe
+from utils.optimization import collect_frozen_vp, construct_optimizer, collect_vp, dampen_updates, estimate_local_vfe
 from utils.log import eval_logging
 import seaborn as sns
 
@@ -199,6 +200,9 @@ def main(args, config, logger):
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
+            if config.dampening_factor:
+                dampen_updates(curr_client, config.dampening_factor, frozen_ts, {})
 
     # Log global/server model post training
     server.curr_iter += 1

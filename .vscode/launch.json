@@ -27,7 +27,7 @@
             "justMyCode": true,
             "args": [
                 // "--no_plot",
-                "-l=100",
+                // "-l=100",
                 "--name=debug"
             ]
         },

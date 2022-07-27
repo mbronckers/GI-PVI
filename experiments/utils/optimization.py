@@ -17,7 +17,11 @@ import lab.torch
 import torch
 from varz import Vars, namespace
 from experiments.config.config import Config
-from gi.client import Client, GI_Client
+from gi.client import Client, GI_Client, MFVI_Client
+
+import logging
+
+logger = logging.getLogger()
 
 
 def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs: Optional[Vars] = None):
@@ -160,6 +164,49 @@ def estimate_local_vfe(
 
     # Takes mean wrt q (inference samples)
     return key, elbo.mean(), exp_ll.mean(), kl.mean(), error
+
+
+def dampen_updates(curr_client: Client, damping_factor: float, frozen_ts, frozen_zs):
+    """Dampen the updates of the current client.
+
+    Args:
+        curr_client (Client): The current client.
+        damping_factor (float): The damping factor.
+    """
+    rho = damping_factor
+    logger.info(f"Damping updates of {curr_client.name} with factor {rho}")
+    if type(curr_client) == GI_Client:
+        # Handle z dampening
+        delta_z = (curr_client.z - frozen_zs[curr_client.name]).detach().clone()
+        new_z = (frozen_zs[curr_client.name] + rho * delta_z).detach().clone()
+        curr_client.vs.set_latent_vector(B.flatten(new_z), f"zs.{curr_client.name}_z", differentiable=True)
+
+        for layer_name, frozen_t in frozen_ts.items():
+            # Compute delta of curr_client's parameters.
+            delta_yz = (curr_client.t[layer_name].yz - frozen_t[curr_client.name].yz).detach().clone()
+            delta_nz = (curr_client.t[layer_name].nz - frozen_t[curr_client.name].nz).detach().clone()
+
+            # Set curr_client's parameters to old curr_client parameters + delta*rho.
+            new_yz = (frozen_t[curr_client.name].yz + rho * delta_yz).detach().clone()
+            new_nz = (frozen_t[curr_client.name].nz + rho * delta_nz).detach().clone()
+            new_nz = B.log(new_nz)  # latent vector is stored
+
+            curr_client.vs.set_latent_vector(B.flatten(new_yz), f"ts.{curr_client.name}_{layer_name}_yz", differentiable=True)
+            curr_client.vs.set_latent_vector(B.flatten(new_nz), f"ts.{curr_client.name}_{layer_name}_nz", differentiable=True)
+
+    elif type(curr_client) == MFVI_Client:
+        for layer_name, frozen_t in frozen_ts.items():
+            # Compute delta of curr_client's parameters.
+            delta_yz = (curr_client.t[layer_name].lam - frozen_t[curr_client.name].lam).detach().clone()
+            delta_nz = (curr_client.t[layer_name].prec.diag - frozen_t[curr_client.name].prec.diag).detach().clone()
+
+            # Set curr_client's parameters to old curr_client parameters + delta*rho.
+            new_yz = (frozen_t[curr_client.name].lam + rho * delta_yz).detach().clone()
+            new_nz = (frozen_t[curr_client.name].prec.diag + rho * delta_nz).detach().clone()
+            new_nz = B.log(new_nz)
+
+            curr_client.vs.set_latent_vector(B.flatten(new_yz), f"ts.{curr_client.name}_{layer_name}_yz", differentiable=True)
+            curr_client.vs.set_latent_vector(B.flatten(new_nz), f"ts.{curr_client.name}_{layer_name}_nz", differentiable=True)
 
 
 def get_vs_state(vs):

@@ -23,53 +23,55 @@ from .config import Config, set_experiment_name
 
 @dataclass
 class GI_OberConfig(Config):
+    posterior_type: str = "pvi_ober"
     location = os.path.basename(__file__)
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
-    prior: Prior = Prior.NealPrior
 
-    split_type: str = None
-    dampening_factor = None
+    prior: Prior = Prior.StandardPrior
 
-    # Learning rates
-    sep_lr: bool = False  # True => use seperate learning rates
-    lr_global = 0.01
-    lr_nz: float = 0.05
-    lr_client_z: float = 0.05
-    lr_yz: float = 0.05
-
-    # Communication settings
-    global_iters: int = 1  # server iterations
-    local_iters: int = 2000  # client-local iterations
-
+    # GI settings
     deterministic: bool = False  # deterministic client training
     random_z: bool = False  # random inducing point initialization
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
-
     # Ober fixes ll variance to 3/scale(x_tr)
-    fix_ll: bool = True  # true => fix ll variance
     # ll_var: float = 0.10  # likelihood variance
-
-    N: int = 40  # Num total training data pts, not the number of data pts per client.
-    M: int = 40
-    batch_size: int = 40
+    fix_ll: bool = True  # true => fix ll variance
 
     # Model architecture
-    S: int = 10
-    I: int = 100
+    N: int = 80  # train_split
+    M: int = 40
+    S: int = 2
+    I: int = 50
     dims = [1, 50, 50, 1]
 
+    batch_size: int = 40
+
+    # Learning rates
+    sep_lr: bool = False  # True => use seperate learning rates
+    lr_global: float = 0.02
+    lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
+    lr_client_z: float = 0.01
+    lr_yz: float = 0.01
+
+    # Communication settings
+    global_iters: int = 2  # server iterations
+    local_iters: int = 1000  # client-local iterations
+
+    split_type: str = None
+
     # Server & clients
-    server_type: Server = SequentialServer
-    num_clients: int = 1
+    server_type: Server = SynchronousServer
+    num_clients: int = 4
+    dampening_factor = 0.25
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
 
         # Precisions of the inducing points per layer
-        # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
-        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
@@ -82,20 +84,12 @@ class MFVI_OberConfig(GI_OberConfig):
     We only change the learning rate and weight precisions.
     """
 
-    posterior_type: str = "mfvi"
+    posterior_type: str = "mfvi_ober"
 
     sep_lr: bool = False  # True => use seperate learning rates
     lr_global: float = 0.02
     lr_nz: float = 0.10
     lr_yz: float = 0.10
-
-    global_iters: int = 1
-    local_iters: int = 2000
-
-    # Model architecture
-    S: int = 10
-    I: int = 100
-    dims = [1, 50, 50, 1]
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = False
