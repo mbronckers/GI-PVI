@@ -46,8 +46,8 @@ class GI_BankConfig(Config):
     server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 2000  # client-local iterations
-    dampening_factor = None
+    local_iters: int = 1000  # client-local iterations
+    dampening_factor = 0.1
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -95,7 +95,7 @@ class MFVI_BankConfig(Config):
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
-    dampening_factor = None
+    dampening_factor = 0.1
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
