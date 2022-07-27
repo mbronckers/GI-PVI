@@ -11,5 +11,6 @@
     "editor.foldingImportsByDefault": true,
     "python.analysis.extraPaths": [
         "./experiments"
-    ]
+    ],
+    "window.zoomLevel": -0.6
 }
