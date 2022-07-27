@@ -46,7 +46,7 @@ class GI_BankConfig(Config):
     server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 1000  # client-local iterations
+    local_iters: int = 2000  # client-local iterations
     dampening_factor = 0.1
 
     # Learning rates
@@ -57,7 +57,7 @@ class GI_BankConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
@@ -94,7 +94,7 @@ class MFVI_BankConfig(Config):
     server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 1000  # client-local iterations
+    local_iters: int = 2000  # client-local iterations
     dampening_factor = 0.10
 
     # Learning rates
