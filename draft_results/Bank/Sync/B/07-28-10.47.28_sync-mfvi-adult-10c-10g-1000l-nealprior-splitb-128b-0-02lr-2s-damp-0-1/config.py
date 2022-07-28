@@ -20,10 +20,10 @@ from .config import Config, set_experiment_name, set_partition_factors
 
 
 @dataclass
-class GI_BankConfig(Config):
-    posterior_type: str = "pvi_bank"
+class GI_AdultConfig(Config):
+    posterior_type: str = "pvi_adult"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_bank
+    dgp: DGP = DGP.uci_adult
     model_type = GIBNN_Classification
 
     prior: Prior = Prior.NealPrior
@@ -38,7 +38,7 @@ class GI_BankConfig(Config):
     M: int = 100
     S: int = 2
     I: int = 50
-    dims = [51, 50, 50, 2]
+    dims = [108, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
@@ -70,10 +70,10 @@ class GI_BankConfig(Config):
 
 
 @dataclass
-class MFVI_BankConfig(Config):
-    posterior_type: str = "mfvi_bank"
+class MFVI_AdultConfig(Config):
+    posterior_type: str = "mfvi_adult"
     location = os.path.basename(__file__)
-    dgp: DGP = DGP.uci_bank
+    dgp: DGP = DGP.uci_adult
     model_type = MFVI_Classification
 
     prior: Prior = Prior.NealPrior
@@ -86,15 +86,15 @@ class MFVI_BankConfig(Config):
     N: int = 0.8  # train_split
     S: int = 2
     I: int = 50
-    dims = [51, 50, 50, 2]
+    dims = [108, 50, 50, 2]
 
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 2000  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
     dampening_factor = 0.10
 
     # Learning rates
