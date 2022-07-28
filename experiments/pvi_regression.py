@@ -235,6 +235,12 @@ def main(args, config, logger):
             plot_samples=False,
         )
 
+    # Save inducing points for all clients.
+    for _c in clients.values():
+        pd.DataFrame({"z": _c.z.squeeze().detach().cpu(), "yz": _c.get_final_yz().squeeze().detach().cpu()}).to_csv(
+            os.path.join(config.results_dir, f"model/inducing_{_c.name}.csv"), index=False
+        )
+
     # Save var state
     _global_vs_state_dict = {}
     for _, _c in clients.items():
