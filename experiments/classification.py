@@ -153,9 +153,9 @@ def main(args, config, logger):
 
             # Save scores
             score_name = "local_vfe"
-            min_improvement = 0.1
+            min_improvement = 0.01
             scores = {score_name: []}
-            stop = EarlyStopping(patience=10, verbose=True, score_name=score_name, delta=min_improvement, patience=10)
+            stop = EarlyStopping(patience=10, verbose=True, score_name=score_name, delta=min_improvement)
             for client_iter in range(max_local_iters):
 
                 # Construct client_iter-th minibatch {x, y} training data.
@@ -194,7 +194,7 @@ def main(args, config, logger):
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
-                scores["local_vfe"].append(-local_vfe.item())
+                scores["local_vfe"].append(local_vfe.item())
                 if stop(scores):
                     logger.info(f"CLIENT - {curr_client.name} - early stopping at {client_iter+1}")
                     break
