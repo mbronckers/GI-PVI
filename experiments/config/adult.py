@@ -91,7 +91,7 @@ class MFVI_AdultConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -104,7 +104,7 @@ class MFVI_AdultConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "A"
+    split_type: str = "B"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)

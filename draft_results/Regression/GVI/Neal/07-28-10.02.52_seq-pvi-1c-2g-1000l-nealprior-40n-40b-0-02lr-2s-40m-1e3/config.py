@@ -28,7 +28,7 @@ class GI_OberConfig(Config):
     posterior_type: str = "pvi"
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -71,7 +71,7 @@ class GI_OberConfig(Config):
         # Precisions of the inducing points per layer
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
-        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
         # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         # Homogeneous, equal-sized split.
@@ -92,8 +92,6 @@ class MFVI_OberConfig(GI_OberConfig):
     lr_nz: float = 0.10
     lr_yz: float = 0.10
 
-    prior: Prior = Prior.StandardPrior
-
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = False
 
@@ -101,5 +99,4 @@ class MFVI_OberConfig(GI_OberConfig):
         super().__post_init__()
 
         # Weight variances per Ober et al.
-        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
-        self.nz_inits: list[float] = [1 for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
