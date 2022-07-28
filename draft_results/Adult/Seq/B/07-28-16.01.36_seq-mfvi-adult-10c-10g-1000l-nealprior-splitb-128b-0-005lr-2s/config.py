@@ -99,7 +99,7 @@ class MFVI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.005
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 

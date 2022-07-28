@@ -80,7 +80,7 @@ class MFVI_AdultConfig(Config):
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
-    random_mean_init: bool = True  # True => Initialize weight layer mean from N(0,1)
+    random_mean_init: bool = False  # True => Initialize weight layer mean from N(0,1)
 
     # Model architecture
     N: int = 0.8  # train_split
@@ -91,15 +91,15 @@ class MFVI_AdultConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
-    dampening_factor = None
+    dampening_factor = 0.10
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.02
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 
