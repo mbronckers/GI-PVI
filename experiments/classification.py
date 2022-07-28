@@ -153,9 +153,9 @@ def main(args, config, logger):
 
             # Save scores
             score_name = "local_vfe"
-            min_improvement = 0.01
+            min_improvement = 0.0001
             scores = {score_name: []}
-            stop = EarlyStopping(patience=10, verbose=True, score_name=score_name, delta=min_improvement)
+            stop = EarlyStopping(patience=50, verbose=True, score_name=score_name, delta=min_improvement)
             for client_iter in range(max_local_iters):
 
                 # Construct client_iter-th minibatch {x, y} training data.
