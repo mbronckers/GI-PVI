@@ -278,6 +278,8 @@ class EarlyStopping:
             # Check whether to stop.
             if len(vals) > self.patience:
                 prev_vals = np.array(vals[-self.patience :])
+
+                # Last reference value;
                 ref_val = np.array(vals[-self.patience - 1]) + self.delta
 
                 if np.all(prev_vals < ref_val):

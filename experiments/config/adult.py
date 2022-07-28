@@ -43,7 +43,7 @@ class GI_AdultConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -51,13 +51,13 @@ class GI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.005
+    lr_global: float = 0.02
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
@@ -99,12 +99,12 @@ class MFVI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.02
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
