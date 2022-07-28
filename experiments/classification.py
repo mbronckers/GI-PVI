@@ -35,7 +35,7 @@ from wbml import experiment, out
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
 from priors import build_prior
 from utils.colors import Color
-from utils.optimization import collect_frozen_vp, collect_vp, construct_optimizer, dampen_updates, estimate_local_vfe
+from utils.optimization import EarlyStopping, collect_frozen_vp, collect_vp, construct_optimizer, dampen_updates, estimate_local_vfe
 
 
 def main(args, config, logger):
@@ -150,6 +150,12 @@ def main(args, config, logger):
             batch_size = min(client_data_size, min(config.batch_size, N))
             max_local_iters = args.local_iters
             logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size} - training data size: {client_data_size}")
+
+            # Save scores
+            score_name = "local_vfe"
+            min_improvement = 0.1
+            scores = {score_name: []}
+            stop = EarlyStopping(patience=10, verbose=True, score_name=score_name, delta=min_improvement, patience=10)
             for client_iter in range(max_local_iters):
 
                 # Construct client_iter-th minibatch {x, y} training data.
@@ -187,6 +193,11 @@ def main(args, config, logger):
                     logger.debug(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
+
+                scores["local_vfe"].append(-local_vfe.item())
+                if stop(scores):
+                    logger.info(f"CLIENT - {curr_client.name} - early stopping at {client_iter+1}")
+                    break
 
             # After finishing client-local optimization, dampen updates.
             if config.dampening_factor:
