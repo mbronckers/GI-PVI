@@ -104,7 +104,7 @@ class MFVI_BankConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "A"
+    split_type: str = "B"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
