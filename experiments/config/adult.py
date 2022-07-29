@@ -51,7 +51,7 @@ class GI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.02
+    lr_global: float = 0.0005
     lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
     lr_client_z: float = 0.01
     lr_yz: float = 0.01
@@ -91,7 +91,7 @@ class MFVI_AdultConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -99,7 +99,7 @@ class MFVI_AdultConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.02
+    lr_global: float = 0.0005
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 
