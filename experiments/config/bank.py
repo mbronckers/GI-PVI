@@ -44,9 +44,9 @@ class GI_BankConfig(Config):
 
     # PVI architecture - server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 10
+    num_clients: int = 4
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 100  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
     dampening_factor = None
 
     # Learning rates
