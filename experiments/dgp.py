@@ -266,3 +266,34 @@ def split_data_clients(key, x, y, splits):
     indices = B.to_numpy(indices)
 
     return key, [(x[indices[offset - length : offset]], y[indices[offset - length : offset]]) for offset, length in zip(accumulate(splits), splits)]
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    import logging
+    import lab as B
+    import lab.torch
+    import torch
+
+    logger = logging.getLogger(__name__)
+    
+    # Determine if a CUDA enabled GPU is present; use it if it is
+    if torch.cuda.is_available():
+        logger.info("CUDA available - Lab/PyTorch will use GPU")
+        dev = "cuda:0"
+        B.set_global_device(dev)
+        print(("CUDA available - Lab/PyTorch will use GPU"))
+    else:
+        logger.info("CUDA unavailable - Lab/PyTorch will use CPU")
+        dev = "cpu"
+        print("CUDA unavailable - Lab/PyTorch will use CPU")
+
+    # Lab variable initialization
+    B.default_dtype = torch.float64
+    key = B.create_random_state(B.default_dtype, seed=0)
+
+    N = 40
+    key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, 1, N, xmin=-4.0, xmax=4.0)
+
+    print(B.randperm(key, B.default_dtype, N))
+
