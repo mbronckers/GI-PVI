@@ -178,10 +178,11 @@ def dampen_updates(curr_client: Client, damping_factor: float, frozen_ts, frozen
     rho = damping_factor
     logger.info(f"Damping updates of {curr_client.name} with factor {rho}")
     if type(curr_client) == GI_Client:
+
         # Handle z dampening
-        delta_z = (curr_client.z - frozen_zs[curr_client.name]).detach().clone()
-        new_z = (frozen_zs[curr_client.name] + rho * delta_z).detach().clone()
-        curr_client.vs.set_latent_vector(B.flatten(new_z), f"zs.{curr_client.name}_z", differentiable=True)
+        # delta_z = (curr_client.z - frozen_zs[curr_client.name]).detach().clone()
+        # new_z = (frozen_zs[curr_client.name] + rho * delta_z).detach().clone()
+        # curr_client.vs.set_latent_vector(B.flatten(new_z), f"zs.{curr_client.name}_z", differentiable=True)
 
         for layer_name, frozen_t in frozen_ts.items():
             # Compute delta of curr_client's parameters.
@@ -212,6 +213,7 @@ def dampen_updates(curr_client: Client, damping_factor: float, frozen_ts, frozen
 
     # Turn on gradients again.
     curr_client.vs.requires_grad(True, *curr_client.vs.names)
+
 
 def get_vs_state(vs):
     """returns dict<key=var_name, value=var_value>"""
