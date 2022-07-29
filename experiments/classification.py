@@ -233,10 +233,21 @@ def main(args, config, logger):
 
     with plt.rc_context({**figsizes.neurips2022(ncols=1), **fontsizes.neurips2022()}):
         fig, ax = plt.subplots(1, 1)
-
         x_metric = "communications"
         y_metric = "test_mll"
 
+        sns.lineplot(data=server_log, x=x_metric, y=y_metric, ax=ax)
+
+        ax.set_ylabel(" ".join(y_metric.split("_")))
+        ax.set_xlabel(" ".join(x_metric.split("_")))
+
+        file_name = f"server_{x_metric}_{y_metric}"
+        plt.savefig(os.path.join(config.plot_dir, file_name))
+        plt.show()
+
+        fig, ax = plt.subplots(1, 1)
+        x_metric = "communications"
+        y_metric = "test_acc"
         sns.lineplot(data=server_log, x=x_metric, y=y_metric, ax=ax)
 
         ax.set_ylabel(" ".join(y_metric.split("_")))
