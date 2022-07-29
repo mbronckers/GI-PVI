@@ -53,7 +53,8 @@
             "args": [
                 "GI",
                 "B",
-                "--name=debug"
+                "--name=debug",
+                "-l=100",
             ]
         },
         {
