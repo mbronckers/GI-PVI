@@ -52,7 +52,7 @@
             "justMyCode": true,
             "args": [
                 "GI",
-                "C",
+                "B",
                 "--name=debug"
             ]
         },

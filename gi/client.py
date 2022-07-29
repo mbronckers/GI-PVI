@@ -135,7 +135,7 @@ class GI_Client(Client):
                 z_ = z_.to(z.device)
             if yz_.device != yz.device:
                 yz_ = yz_.to(yz.device)
-            
+
             z = B.concat(z, z_)
             yz = B.concat(yz, yz_)
 

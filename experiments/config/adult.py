@@ -12,7 +12,7 @@ from priors import Prior
 from dgp import DGP
 import lab as B
 import torch
-from gi.server import SequentialServer, Server, SynchronousServer
+from gi.server import NewServer, SequentialServer, Server, SynchronousServer
 from gi.mfvi import MFVI_Classification
 from gi.gibnn import GIBNN_Classification
 
@@ -43,11 +43,11 @@ class GI_AdultConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
-    dampening_factor = 0.1
+    dampening_factor = None
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -57,7 +57,7 @@ class GI_AdultConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
@@ -80,7 +80,7 @@ class MFVI_AdultConfig(Config):
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
-    random_mean_init: bool = False  # True => Initialize weight layer mean from N(0,1)
+    random_mean_init: bool = True  # True => Initialize weight layer mean from N(0,1)
 
     # Model architecture
     N: int = 0.8  # train_split
@@ -95,7 +95,7 @@ class MFVI_AdultConfig(Config):
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
-    dampening_factor = 0.10
+    dampening_factor = None
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
@@ -104,7 +104,7 @@ class MFVI_AdultConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         self.name = set_experiment_name(self)

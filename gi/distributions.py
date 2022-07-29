@@ -163,7 +163,7 @@ class NaturalNormal:
         # sample = self.mean + dW
 
         sample = self.mean + B.cholsolve(B.chol(self.prec), noise)
-        
+
         del noise
         if not structured(sample):
             sample = B.dense(sample)  # transform Dense to Transform matrix
