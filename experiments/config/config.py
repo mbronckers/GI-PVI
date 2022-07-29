@@ -64,6 +64,10 @@ def set_experiment_name(config: Config):
     if config.posterior_type.__contains__("ober"):
         name += f"_{config.nz_inits[0]}nz"
 
+    if config.posterior_type.__contains__("mfvi"):
+        if config.random_mean_init:
+            name += "_rand_mean"
+
     if config.dampening_factor:
         name += f"_damp_{config.dampening_factor}"
 
