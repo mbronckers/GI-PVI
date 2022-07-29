@@ -50,7 +50,7 @@ def scatter_plot(
         ax.set_ylabel(ylabel)
     if title != None:
         ax.set_title(title)
-    ax.legend(loc="upper right", prop={"size": 12})
+    ax.legend(loc="lower right", prop={"size": 9})
 
     plot.tweak(ax)
 
@@ -116,7 +116,6 @@ def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None, ylim: Optional[T
 
     sns.lineplot(y=y, x=x, label=f"{desc}", ax=ax, color=colors[0])
 
-    ax.legend()
     if ylim != None:
         ax.set_ylim(ylim)
     if xlim != None:
@@ -127,7 +126,7 @@ def line_plot(x, y, desc, xlabel=None, ylabel=None, title=None, ylim: Optional[T
         ax.set_ylabel(ylabel)
     if title != None:
         ax.set_title(title)
-    ax.legend(loc="upper right", prop={"size": 12})
+    ax.legend(loc="lower right", prop={"size": 9})
 
     plot.tweak(ax)
 

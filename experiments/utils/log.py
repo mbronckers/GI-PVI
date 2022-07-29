@@ -26,6 +26,13 @@ from wbml import experiment, out, plot
 
 logger = logging.getLogger()
 
+from tueplots import figsizes, fontsizes
+
+colors = sns.color_palette("bright")
+sns.set_style("whitegrid")
+sns.set_palette(colors)
+plt.rcParams.update({**figsizes.neurips2022(ncols=1), **fontsizes.neurips2022(), "figure.dpi": 200})
+
 
 def plot_client_vp(config, curr_client, iter, epoch):
     _client_plot_dir = os.path.join(config.training_plot_dir, curr_client.name)
@@ -140,7 +147,7 @@ def eval_logging(
     if x.shape[-1] == 1:
         # Plot training data and model predictions (in that order)
         scatterplot = plot.patch(sns.scatterplot)
-        fig, _ax = plt.subplots(1, 1, figsize=(10, 10))
+        fig, _ax = plt.subplots(1, 1)
         scatterplot(y=y_tr, x=x_tr, label="Training data", ax=_ax)
 
         if ylim:
@@ -149,8 +156,7 @@ def eval_logging(
             _ax.set_xlim(xlim)
         _ax.set_xlabel("x")
         _ax.set_ylabel("y")
-        _ax.set_title(f"Model predictions on {data_name.lower()} data ({_S} samples)")
-        _ax.legend(loc="upper right", prop={"size": 12})
+        _ax.set_title(f"Model predictions - ({_S} samples)")
 
         lineplot = plot.patch(sns.lineplot)
         lineplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])
@@ -161,10 +167,10 @@ def eval_logging(
         quartiles = np.quantile(_results_eval[_preds_idx], np.array((0.02275, 0.15865, 0.84135, 0.97725)), axis=1)
         _ax = plot_confidence(_ax, x.squeeze().detach().cpu(), quartiles, all=True)
 
-        # _ax.legend(loc='upper right', prop={'size': 12})
+        _ax.legend(loc="lower right", prop={"size": 9})
 
-        plot.tweak(_ax)
-        plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
+        # plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
+        plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"))
 
         # Plot all sampled functions
         if plot_samples:

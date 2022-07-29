@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -65,14 +65,13 @@ class GI_OberConfig(Config):
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
-
         self.name = set_experiment_name(self)
 
         # Precisions of the inducing points per layer
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
         # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
@@ -85,10 +84,11 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # Model architecture
     N: int = 80  # train_split
+    M: int = 40
     S: int = 2
     I: int = 50
     dims = [1, 50, 50, 1]
@@ -96,6 +96,13 @@ class MFVI_OberConfig(Config):
 
     deterministic: bool = False  # deterministic client training
     fix_ll: bool = True  # true => fix ll variance
+
+    # Learning rates
+    sep_lr: bool = False  # True => use seperate learning rates
+    lr_global: float = 0.02
+    lr_nz: float = 0.05  # CIFAR from Ober uses log_prec_lr 3 factor
+    lr_client_z: float = 0.01
+    lr_yz: float = 0.01
 
     # Communication settings
     global_iters: int = 2  # server iterations
@@ -117,16 +124,11 @@ class MFVI_OberConfig(Config):
     random_mean_init: bool = False
 
     def __post_init__(self):
-        # Precisions of weights per layer
-        # Tight => low variance
-        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
-
-        # Medium => reasonable variance
-        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
-
-        # Loose => high variance
+        # Precisions of the inducing points per layer
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
+        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         self.name = set_experiment_name(self)
 
