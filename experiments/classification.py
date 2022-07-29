@@ -197,8 +197,9 @@ def main(args, config, logger):
                     #         f"CLIENT - {curr_client.name} - early stopping at {client_iter+1}: {scores[score_name][-patience:]} not lower than {scores[score_name][-patience - 1]}"
                     #     )
                     #     break
+
                 else:
-                    logger.debug(
+                    logger.info(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
