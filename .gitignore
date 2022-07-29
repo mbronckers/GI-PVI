@@ -151,3 +151,4 @@ tests/test_gvi_pvi.py
 *.out
 machine.file*
 train-log*
+.vscode/settings.json
