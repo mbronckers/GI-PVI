@@ -32,7 +32,7 @@ class Server:
         self.log = defaultdict(list)
 
         # Number of times communicated with clients. Once for factor collection, once for posterior sending => 2 * num clients to optimize in iteration
-        self.communications: int = 0 
+        self.communications: int = 0
 
         self.max_iters: int = None
         self.curr_iter: int = 0
@@ -71,10 +71,10 @@ class Server:
             # Save metrics.
             self.log["communications"].append(self.communications)
             self.log["iteration"].append(self.curr_iter)
-            
+
             train_metrics = {"train_" + k: v for k, v in train_metrics.items()}
             test_metrics = {"test_" + k: v for k, v in test_metrics.items()}
-            
+
             metrics = {**train_metrics, **test_metrics}
             for k, v in metrics.items():
                 self.log[k].append(v.item())
@@ -91,7 +91,7 @@ class SynchronousServer(Server):
         logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 
         # Increment communication counter: one for collection, one for sending out
-        self.communications += 2*len(self.clients.keys())
+        self.communications += 2 * len(self.clients.keys())
 
         return list(self.clients.values())
 
@@ -118,3 +118,34 @@ class SequentialServer(Server):
         logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
 
         return [client]
+
+
+class NewServer(Server):
+    def __init__(self, clients: list[Client], model: GIBNN, iters: int):
+        super().__init__(clients, model)
+        self.name = "seq-sync"
+        self._global_iter = 0
+        self._idx = 0
+
+        # Want to have equal number of posterior updates for same number of iterations.
+        self.max_iters = len(self.clients) + (len(self.clients) - 1)
+
+    def current_client(self):
+        return self.clients[list(self.clients.keys())[self._idx]]
+
+    def __next__(self):
+        if self._global_iter < len(self.clients):
+            client = self.current_client()
+            self._idx = (self._idx + 1) % len(self.clients)
+
+            # Increment communication counter.
+            self.communications += 2
+
+            logger.info(f"SERVER - {self.name} - iter [{self.curr_iter+1:2}/{self.max_iters}] - optimizing {list(self.clients.keys())}")
+
+            # Increment global iteration counter.
+            self._global_iter += 1
+
+            return [client]
+        else:
+            return list(self.clients.values())
