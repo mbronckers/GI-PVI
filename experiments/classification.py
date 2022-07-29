@@ -281,7 +281,6 @@ if __name__ == "__main__":
     assert len(sys.argv) >= 2, "Please specify which config and dataset to use: 'GI' or 'MFVI'."
 
     try:
-        # exp_type = sys.argv[1].split()
         q_type = sys.argv[1]
         data_type = sys.argv[2]
         if not (q_type in ["GI", "MFVI"]):
