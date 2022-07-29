@@ -69,6 +69,8 @@ def main(args, config, logger):
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
 
+    pd.DataFrame({"x_tr": x_tr.squeeze().detach().cpu(), "y_tr": y_tr.squeeze().detach().cpu()}).to_csv(os.path.join(config.results_dir, "model/training_data.csv"), index=False)
+
     # Code to save/load data
     # torch.save(x_tr, os.path.join(file_dir, "data/mfvi_x_tr.pt"))
     # torch.save(y_tr, os.path.join(file_dir, "data/mfvi_y_tr.pt"))
@@ -435,7 +437,7 @@ if __name__ == "__main__":
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
         shutil.copy(
-            os.path.join(_root_dir, "experiments/config/config.py"),
+            os.path.join(_root_dir, f"experiments/config/{config.location}"),
             _wd.file("config.py"),
         )
 
