@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -61,19 +61,18 @@ class GI_OberConfig(Config):
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 2
+    num_clients: int = 1
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
-
-        self.name = set_experiment_name(self)
-
         # Precisions of the inducing points per layer
-        # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
+
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
         # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
+        self.name = set_experiment_name(self)
         # Homogeneous, equal-sized split.
         self.client_splits: list[float] = [float(1 / self.num_clients) for _ in range(self.num_clients)]
         self.optimizer_params: dict = {"lr": self.lr_global}

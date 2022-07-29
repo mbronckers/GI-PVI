@@ -35,7 +35,7 @@ class GI_BankConfig(Config):
 
     # Model architecture
     N: int = 0.8  # train_split
-    M: int = 10
+    M: int = 100
     S: int = 2
     I: int = 50
     dims = [51, 50, 50, 2]
@@ -43,10 +43,10 @@ class GI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
-    local_iters: int = 1000  # client-local iterations
+    local_iters: int = 2000  # client-local iterations
     dampening_factor = None
 
     # Learning rates
