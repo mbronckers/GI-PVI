@@ -223,27 +223,9 @@ def main(args, config, logger):
     torch.save(_global_vs_state_dict, os.path.join(config.results_dir, "model/_vs.pt"))
 
     # Save model & client metrics.
-    server_log = pd.DataFrame(server.log)
-    server_log.to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
+    pd.DataFrame(server.log).to_csv(os.path.join(config.metrics_dir, f"server_log.csv"), index=False)
     for client_name, _c in clients.items():
         pd.DataFrame(_c.log).to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
-
-    from tueplots import figsizes, fontsizes
-    import seaborn as sns
-
-    with plt.rc_context({**figsizes.neurips2022(ncols=1), **fontsizes.neurips2022()}):
-        fig, ax = plt.subplots(1, 1)
-
-        x_metric = "communications"
-        y_metric = "test_mll"
-
-        sns.lineplot(data=server_log, x=x_metric, y=y_metric, ax=ax)
-
-        ax.set_ylabel(" ".join(y_metric.split("_")))
-        ax.set_xlabel(" ".join(x_metric.split("_")))
-
-        file_name = f"server_{x_metric}_{y_metric}"
-        plt.savefig(os.path.join(config.plot_dir, file_name))
 
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
