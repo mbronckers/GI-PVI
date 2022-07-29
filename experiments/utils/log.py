@@ -169,8 +169,8 @@ def eval_logging(
 
         _ax.legend(loc="lower right", prop={"size": 9})
 
-        # plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
-        plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"))
+        plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"), pad_inches=0.2, bbox_inches="tight")
+        # plt.savefig(os.path.join(_plot_dir, f"{_fname}.png"))
 
         # Plot all sampled functions
         if plot_samples:
