@@ -66,7 +66,7 @@ class GI_OberConfig(Config):
 
     def __post_init__(self):
         # Precisions of the inducing points per layer
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e-3 for _ in range(len(self.dims) - 1)]
 
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1

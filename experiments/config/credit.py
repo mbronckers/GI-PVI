@@ -61,7 +61,6 @@ class GI_CreditConfig(Config):
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
-        set_partition_factors(self)
 
         self.optimizer_params: dict = {"lr": self.lr_global}
 
@@ -108,7 +107,6 @@ class MFVI_CreditConfig(Config):
 
     def __post_init__(self):
         self.name = set_experiment_name(self)
-        set_partition_factors(self)
 
         self.optimizer_params: dict = {"lr": self.lr_global}
 

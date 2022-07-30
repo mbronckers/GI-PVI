@@ -23,6 +23,11 @@ class Prior(enum.IntEnum):
     StandardPrior = 0
     NealPrior = 1
 
+    def __str__(self):
+        if self.value == 0:
+            return "StdPrior"
+        elif self.value == 1:
+            return "NealPrior"
 
 def parse_prior_arg(arg: str):
     if arg.lower().__contains__("standard") or arg.lower().__contains__("normal"):

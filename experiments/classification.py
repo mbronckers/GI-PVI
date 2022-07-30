@@ -7,9 +7,13 @@ from datetime import datetime
 
 import pandas as pd
 from matplotlib import pyplot as plt
+from requests import options
 
 from config.adult import MFVI_AdultConfig
+from config.config import Config, set_partition_factors
 from data.split_data import generate_clients_data
+from gi.gibnn import GIBNN_Classification
+from gi.mfvi import MFVI_Classification
 
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
@@ -33,7 +37,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from wbml import experiment, out
 
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
-from priors import build_prior
+from priors import build_prior, Prior
 from utils.colors import Color
 from utils.optimization import EarlyStopping, collect_frozen_vp, collect_vp, construct_optimizer, dampen_updates, estimate_local_vfe
 
@@ -60,19 +64,14 @@ def main(args, config, logger):
         key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, config.dgp)
 
     # Split dataset.
-    if config.deterministic and config.num_clients == 1:
-        splits = [(x_tr, y_tr)]
-    else:
-        splits, N_balance, prop_positive, _ = generate_clients_data(x_tr, y_tr, config.num_clients, config.client_size_factor, config.class_balance_factor, config.seed)
-        logger.info(f"{Color.YELLOW}Client data partition size:      {[round(x, 2) for x in N_balance]}{Color.END}")
-        logger.info(f"{Color.YELLOW}Client data proportion positive: {[round(x, 2) for x in prop_positive]}{Color.END}")
+    splits, N_balance, prop_positive, _ = generate_clients_data(x_tr, y_tr, args.num_clients, config.client_size_factor, config.class_balance_factor, args.seed)
+    logger.info(f"{Color.YELLOW}Client data partition size:      {[round(x, 2) for x in N_balance]}{Color.END}")
+    logger.info(f"{Color.YELLOW}Client data proportion positive: {[round(x, 2) for x in prop_positive]}{Color.END}")
 
-    if config.batch_size == None:
-        config.batch_size = x_tr.shape[0]
     y_tr = torch.squeeze(torch.nn.functional.one_hot(y_tr.long(), num_classes=2))
     y_te = torch.squeeze(torch.nn.functional.one_hot(y_te.long(), num_classes=2))
-    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=4)
-    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=args.batch, shuffle=False, num_workers=4)
+    test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=args.batch, shuffle=True, num_workers=4)
     N = x_tr.shape[0]
 
     # Define model and clients.
@@ -85,8 +84,8 @@ def main(args, config, logger):
     # Build prior.
     dims = config.dims
     assert dims[0] == x_tr.shape[1]
-    ps = build_prior(*dims, prior=config.prior, bias=config.bias)
-    logger.info(f"LR: {config.lr_global}")
+    ps = build_prior(*dims, prior=args.prior, bias=config.bias)
+    logger.info(f"LR: {args.lr}")
 
     # Build clients.
     for client_i, client_data in enumerate(splits):
@@ -95,12 +94,10 @@ def main(args, config, logger):
 
         if config.model_type == gi.GIBNN_Classification:
             clients[f"client{client_i}"] = GI_Client(
-                key, f"client{client_i}", client_x_tr, client_y_tr, config.M, *dims, random_z=config.random_z, nz_inits=config.nz_inits, linspace_yz=config.linspace_yz
+                key, f"client{client_i}", client_x_tr, client_y_tr, args.M, *dims, random_z=args.random_z, nz_inits=config.nz_inits, linspace_yz=args.linspace_yz
             )
         elif config.model_type == gi.MFVI_Classification:
-            clients[f"client{client_i}"] = MFVI_Client(
-                key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=config.random_mean_init, prec_inits=config.nz_inits, S=S
-            )
+            clients[f"client{client_i}"] = MFVI_Client(key, f"client{client_i}", client_x_tr, client_y_tr, *dims, random_mean_init=args.rand_mean, prec_inits=config.nz_inits, S=S)
         key = clients[f"client{client_i}"].key
 
     # Construct server.
@@ -147,7 +144,7 @@ def main(args, config, logger):
 
             # Run client-local optimization
             client_data_size = curr_client.x.shape[0]
-            batch_size = min(client_data_size, min(config.batch_size, N))
+            batch_size = min(client_data_size, min(args.batch, N))
             max_local_iters = args.local_iters
             logger.info(f"CLIENT - {curr_client.name} - batch size: {batch_size} - training data size: {client_data_size}")
 
@@ -204,8 +201,8 @@ def main(args, config, logger):
                     )
 
             # After finishing client-local optimization, dampen updates.
-            if config.dampening_factor:
-                dampen_updates(curr_client, config.dampening_factor, frozen_ts, frozen_zs)
+            if args.damp:
+                dampen_updates(curr_client, args.damp, frozen_ts, frozen_zs)
 
     # Log global/server model post training
     server.curr_iter += 1
@@ -259,64 +256,95 @@ def main(args, config, logger):
     logger.info(f"Total time: {(datetime.utcnow() - config.start)} (H:MM:SS:ms)")
 
 
+def set_experiment_name(args):
+
+    name = args.server
+
+    name += f"_{args.q}"
+    name += f"_{args.num_clients}c_{args.global_iters}g_{args.local_iters}l_{args.prior}"
+    name += f"_split{args.split}"
+    name += f"_{args.batch}b"
+    name += f"_{args.lr}lr_{args.training_samples}S"
+
+    if args.q == "MFVI":
+        if args.rand_mean:
+            name += "_rand_mean"
+    else:
+        name += f"_{args.M}M"
+
+    if args.damp:
+        name += f"_damp_{args.damp}"
+
+    return name
+
+
 if __name__ == "__main__":
     import warnings
 
-    from config.adult import GI_AdultConfig, MFVI_AdultConfig
-    from config.bank import GI_BankConfig, MFVI_BankConfig
-    from config.credit import GI_CreditConfig, MFVI_CreditConfig
-
-    # from config.mnist import GI_MNISTConfig, MFVI_MNISTConfig
-
     warnings.filterwarnings("ignore")
-
-    configs = {
-        "A": {"GI": GI_AdultConfig(), "MFVI": MFVI_AdultConfig()},
-        "B": {"GI": GI_BankConfig(), "MFVI": MFVI_BankConfig()},
-        "C": {"GI": GI_CreditConfig(), "MFVI": MFVI_CreditConfig()},
-        # "D": {"GI": GI_MNISTConfig(), "MFVI": MFVI_MNISTConfig()},
-    }
-
-    ### SPECIFY HERE WHICH CONFIG TO USE ###
-    assert len(sys.argv) >= 2, "Please specify which config and dataset to use: 'GI' or 'MFVI'."
-
-    try:
-        q_type = sys.argv[1]
-        data_type = sys.argv[2]
-        if not (q_type in ["GI", "MFVI"]):
-            raise ValueError("Please specify which config to use: 'GI' or 'MFVI'.")
-        if not (data_type in ["A", "B", "C", "D"]):
-            raise ValueError("Please specify which dataset to use: 'A', 'B', 'C', or 'D'.")
-
-        config = configs[data_type][q_type]
-    except:
-        raise NotImplementedError(f"Config {sys.argv[1]}-{sys.argv[2]} is not recognized.")
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)
-    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=config.local_iters)
-    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=config.global_iters)
-    parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=config.plot)
+    parser.add_argument("--q", "-q", type=str, default="GI", choices=["GI", "MFVI"])
+    parser.add_argument("--dgp", "-d", type=str, default="A", choices=["A", "B", "C"])
+    parser.add_argument("--server", type=str, default="seq", choices=["SEQ", "SYNC"])
+    parser.add_argument("--prior", type=str, help="prior", nargs="?", default="neal", choices=["neal", "std"])
+    parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=0)
+    parser.add_argument("--split", type=str, help="dataset split", nargs="?", choices=["A", "B"])
+    parser.add_argument("--damp", type=float, default=None)
+    parser.add_argument("--lr", type=float)
+    parser.add_argument("--batch", type=float, default=128)
+    parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=1000)
+    parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=10)
+    parser.add_argument("--num_clients", "-c", type=int, help="number clients", default=10)
+    parser.add_argument("--M", "-M", type=int, help="number inducing pts", default=10)
+    parser.add_argument("--plot", "-p", action="store_true", help="Plot results", default=True)
     parser.add_argument("--no_plot", action="store_true", help="Do not plot results")
-    parser.add_argument("--name", "-n", type=str, help="Experiment name", default="")
-    parser.add_argument(
-        "--training_samples",
-        "-S",
-        type=int,
-        help="number of training weight samples",
-        default=config.S,
-    )
-    parser.add_argument(
-        "--inference_samples",
-        "-I",
-        type=int,
-        help="number of inference weight samples",
-        default=config.I,
-    )
-    args = parser.parse_args(sys.argv[3:])
+    parser.add_argument("--name", type=str, help="Experiment name", default="")
+    parser.add_argument("--training_samples", "-S", type=int, help="number of elbo weight samples", default=2)
+    parser.add_argument("--inference_samples", "-I", type=int, help="number of inference weight samples", default=50)
+    parser.add_argument("--random_z", action="store_true", help="Init GI z randomly", default=False)
+    parser.add_argument("--linspace_yz", action="store_true", help="Init GI yz linearly", default=False)
+    parser.add_argument("--rand_mean", action="store_true", help="Init MFVI weights N(0,1)", default=True)
+
+    args = parser.parse_args()
+
+    if args.q == "GI":
+        model_type = GIBNN_Classification
+    elif args.q == "MFVI":
+        model_type = MFVI_Classification
+
+    if args.server.lower() == "seq":
+        server_type = SequentialServer
+    elif args.server.lower() == "sync":
+        server_type = SynchronousServer
+    else:
+        raise ValueError(f"Unknown server type: {args.server_type}")
+
+    if args.dgp == "A":
+        dgp = DGP.uci_adult
+        dim_in = 108
+    elif args.dgp == "B":
+        dgp = DGP.uci_bank
+        dim_in = 51
+    elif args.dgp == "C":
+        dgp = DGP.uci_credit
+        dim_in = 46
+
+    config = Config()
+    dims = [dim_in, 50, 50, 2]
+    config.model_type = model_type
+    config.server_type = server_type
+    config.dims = dims
+    config.dgp = dgp
+    config.prior = Prior.NealPrior if args.prior == "neal" else Prior.StandardPrior
+    config.model_type = model_type
+    config.batch_size = args.batch
+    config.nz_inits = [1e3 - (dims[i] + 1) for i in range(len(dims) - 1)]
+    config.optimizer_params: dict = {"lr": args.lr}
+    config.sep_lr = False
+    set_partition_factors(args.split, config)
 
     # Create experiment directories
-    config.name += f"_{args.name}"
+    config.name = set_experiment_name(args)
     _start = datetime.utcnow()
     _time = _start.strftime("%m-%d-%H.%M.%S")
     _results_dir_name = "results"
@@ -349,11 +377,6 @@ if __name__ == "__main__":
     # Save script
     if os.path.exists(os.path.abspath(sys.argv[0])):
         shutil.copy(os.path.abspath(sys.argv[0]), _wd.file("script.py"))
-        shutil.copy(
-            os.path.join(_root_dir, f"experiments/config/{config.location}"),
-            _wd.file("config.py"),
-        )
-
     else:
         out("Could not save calling script.")
 

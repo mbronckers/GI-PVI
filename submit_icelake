@@ -12,16 +12,16 @@
 #! Name of the job:
 #SBATCH -J cpujob
 #! Which project should be charged:
-#SBATCH -A CHANGEME
+#SBATCH -A MLMI-MOJB2-SL2-CPU
 #SBATCH -p icelake
 #! How many whole nodes should be allocated?
 #SBATCH --nodes=1
 #! How many (MPI) tasks will there be in total? (<= nodes*76)
 #! The Ice Lake (icelake) nodes have 76 CPUs (cores) each and
 #! 3380 MiB of memory per CPU.
-#SBATCH --ntasks=76
+#SBATCH --ntasks=2
 #! How much wallclock time will be required?
-#SBATCH --time=02:00:00
+#SBATCH --time=10:00:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=NONE
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -54,15 +54,17 @@ module purge                               # Removes all modules still loaded
 module load rhel8/default-icl              # REQUIRED - loads the basic environment
 
 #! Insert additional module load commands after this line if needed:
+module load python/3.8 cuda/11.2 cudnn/8.1_cuda-11.2  
+source /home/mojb2/GI-PVI/venv/bin/activate
 
 #! Full path to application executable: 
-application=""
+application="python -m mimic3benchmark.scripts.extract_subjects"
 
 #! Run options for the application:
-options=""
+options="/home/mojb2/data/physionet.org/files/mimiciii/1.4/ /rds/project/rds-xyBFuSj0hm0/MLMI.2021-22/mojb2/data/root"
 
 #! Work directory (i.e. where the job will run):
-workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
+workdir="$SLURM_SUBMIT_DIR/gi/data/mimic3-benchmarks-master"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
                              # in which sbatch is run.
 
 #! Are you using OpenMP (NB this is unrelated to OpenMPI)? If so increase this

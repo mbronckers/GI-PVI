@@ -44,6 +44,8 @@ class Config:
 
 
 def set_experiment_name(config: Config):
+    """Old experiment naming file used primarily for 1D regression"""
+
     if config.server_type == SequentialServer:
         name = "seq"
     elif config.server_type == SynchronousServer:
@@ -74,11 +76,12 @@ def set_experiment_name(config: Config):
     return name
 
 
-def set_partition_factors(config: Config):
-    if config.split_type == "A":
+def set_partition_factors(split_type, config: Config):
+    config.split_type = split_type
+    if split_type == "A":
         config.client_size_factor = 0.0
         config.class_balance_factor = 0.0
-    elif config.split_type == "B":
+    elif split_type == "B":
         config.client_size_factor = 0.9
         config.class_balance_factor = 0.95
     else:
