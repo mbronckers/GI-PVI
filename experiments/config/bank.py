@@ -80,7 +80,7 @@ class MFVI_BankConfig(Config):
 
     # MFVI settings
     deterministic: bool = False  # deterministic client training
-    random_mean_init: bool = False  # True => Initialize weight layer mean from N(0,1)
+    random_mean_init: bool = True  # True => Initialize weight layer mean from N(0,1)
 
     # Model architecture
     N: int = 0.8  # train_split
@@ -91,7 +91,7 @@ class MFVI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SynchronousServer
+    server_type: Server = SequentialServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations

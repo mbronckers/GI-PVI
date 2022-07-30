@@ -113,7 +113,7 @@ class MFVI_OberConfig(Config):
     lr_yz: float = 0.10
 
     # Initialize weight layer mean from N(0,1)
-    random_mean_init: bool = False
+    random_mean_init: bool = True
 
     def __post_init__(self):
         # Precisions of weights per layer

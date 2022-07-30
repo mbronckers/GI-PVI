@@ -156,7 +156,8 @@ def eval_logging(
             _ax.set_xlim(xlim)
         _ax.set_xlabel("x")
         _ax.set_ylabel("y")
-        _ax.set_title(f"Model predictions - ({_S} samples)")
+        # _ax.set_title(f"Model predictions - ({_S} samples)")
+        _ax.set_title(f"Predictive distribution")
 
         lineplot = plot.patch(sns.lineplot)
         lineplot(ax=_ax, y=y_pred.mean(0), x=x, label="Model predictions (μ)", color=gi.utils.plotting.colors[3])
