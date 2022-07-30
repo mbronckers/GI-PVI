@@ -43,7 +43,7 @@ class GI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI architecture - server & clients
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -57,14 +57,13 @@ class GI_BankConfig(Config):
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         # Precisions of the inducing points per layer
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
         self.name = set_experiment_name(self)
-        set_partition_factors(self)
 
         self.optimizer_params: dict = {"lr": self.lr_global}
 
@@ -91,7 +90,7 @@ class MFVI_BankConfig(Config):
     batch_size: int = 128  # None => full batch
 
     # PVI settings
-    server_type: Server = SequentialServer
+    server_type: Server = SynchronousServer
     num_clients: int = 10
     global_iters: int = 10  # shared/global server iterations
     local_iters: int = 1000  # client-local iterations
@@ -99,16 +98,15 @@ class MFVI_BankConfig(Config):
 
     # Learning rates
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.001
+    lr_global: float = 0.01
     lr_nz: float = 0.05
     lr_yz: float = 0.01
 
     # Partition settings
-    split_type: str = "B"
+    split_type: str = "A"
 
     def __post_init__(self):
         self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
         self.name = set_experiment_name(self)
-        set_partition_factors(self)
 
         self.optimizer_params: dict = {"lr": self.lr_global}
