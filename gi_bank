@@ -34,7 +34,7 @@ source /home/mojb2/GI-PVI/venv/bin/activate
 application="python experiments/classification.py"
 
 #! Run options for the application:
-options="-q GI -d B --server SEQ --split A --lr 0.001 -l 1000 -g 10"
+options="-q GI -d B --server SEQ --split A --lr 0.02 -l 1000 -g 10 -M 100"
 
 #! Work directory (i.e. where the job will run):
 workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
