@@ -5,16 +5,6 @@ import shutil
 import sys
 from datetime import datetime
 
-import pandas as pd
-from matplotlib import pyplot as plt
-from requests import options
-
-from config.adult import MFVI_AdultConfig
-from config.config import Config, set_partition_factors
-from data.split_data import generate_clients_data
-from gi.gibnn import GIBNN_Classification
-from gi.mfvi import MFVI_Classification
-
 file_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(file_dir, ".."))
 sys.path.insert(0, os.path.abspath(_root_dir))
@@ -35,9 +25,15 @@ from gi.server import SequentialServer, SynchronousServer
 from slugify import slugify
 from torch.utils.data import DataLoader, TensorDataset
 from wbml import experiment, out
+import pandas as pd
+from gi.gibnn import GIBNN_Classification
+from gi.mfvi import MFVI_Classification
+from matplotlib import pyplot as plt
 
+from config.config import Config, set_partition_factors
+from data.split_data import generate_clients_data
 from dgp import DGP, generate_data, generate_mnist, split_data_clients
-from priors import build_prior, Prior
+from priors import Prior, build_prior
 from utils.colors import Color
 from utils.optimization import EarlyStopping, collect_frozen_vp, collect_vp, construct_optimizer, dampen_updates, estimate_local_vfe
 
@@ -225,8 +221,8 @@ def main(args, config, logger):
     for client_name, _c in clients.items():
         pd.DataFrame(_c.log).to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
 
-    from tueplots import figsizes, fontsizes
     import seaborn as sns
+    from tueplots import figsizes, fontsizes
 
     with plt.rc_context({**figsizes.neurips2022(ncols=1), **fontsizes.neurips2022()}):
         fig, ax = plt.subplots(1, 1)
