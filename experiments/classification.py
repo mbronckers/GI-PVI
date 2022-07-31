@@ -18,17 +18,17 @@ import gi
 import lab as B
 import lab.torch
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from gi.client import Client, GI_Client, MFVI_Client
+from gi.gibnn import GIBNN_Classification
+from gi.mfvi import MFVI_Classification
 from gi.server import SequentialServer, SynchronousServer
+from matplotlib import pyplot as plt
 from slugify import slugify
 from torch.utils.data import DataLoader, TensorDataset
 from wbml import experiment, out
-import pandas as pd
-from gi.gibnn import GIBNN_Classification
-from gi.mfvi import MFVI_Classification
-from matplotlib import pyplot as plt
 
 from config.config import Config, set_partition_factors
 from data.split_data import generate_clients_data
