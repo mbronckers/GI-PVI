@@ -211,8 +211,9 @@ def dampen_updates(curr_client: Client, damping_factor: float, frozen_ts, frozen
             curr_client.vs.set_latent_vector(B.flatten(new_yz), f"ts.{curr_client.name}_{layer_name}_yz", differentiable=True)
             curr_client.vs.set_latent_vector(B.flatten(new_nz), f"ts.{curr_client.name}_{layer_name}_nz", differentiable=True)
 
-    # Turn on gradients again.
+    # Turn on gradients again and update nz values
     curr_client.vs.requires_grad(True, *curr_client.vs.names)
+    curr_client.update_nz()
 
 
 def get_vs_state(vs):
