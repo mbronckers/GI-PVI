@@ -255,8 +255,14 @@ def main(args, config, logger):
 def set_experiment_name(args):
 
     name = args.server
-
     name += f"_{args.q}"
+    if args.dgp == "A":
+        dgp = "adult"
+    elif args.dgp == "B":
+        dgp = "bank"
+    elif args.dgp == "C":
+        dgp = "credit"
+    name += f"_{dgp}"
     name += f"_{args.num_clients}c_{args.global_iters}g_{args.local_iters}l_{args.prior}"
     name += f"_split{args.split}"
     name += f"_{args.batch}b"
