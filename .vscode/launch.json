@@ -51,10 +51,13 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "GI",
-                "B",
+                "--q GI",
+                "-d B",
+                "--server SEQ",
+                "--split B",
+                "--lr 0.001",
+                "--damp 0.1",
                 "--name=debug",
-                "-l=100",
             ]
         },
         {
@@ -65,9 +68,13 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "MFVI",
-                "A",
-                "--name=debug"
+                "--q MFVI",
+                "-d B",
+                "--server SEQ",
+                "--split B",
+                "--lr 0.001",
+                "--damp 0.1",
+                "--name=debug",
             ]
         },
         {
