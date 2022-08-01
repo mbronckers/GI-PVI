@@ -157,12 +157,21 @@ class NaturalNormal:
             key, noise = B.randn(key, B.default_dtype, *B.shape(self.lam))
 
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
-        # dW, _ = torch.triangular_solve(
-        #     noise, B.dense(B.chol(self.prec)), upper=False, transpose=True
-        # )  # Ober
-        # sample = self.mean + dW
+        # dW = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True).solution  # Ober sampling
 
-        sample = self.mean + B.cholsolve(B.chol(self.prec), noise)
+        # This samples weirdly!
+        # dW = torch.linalg.solve_triangular(B.dense(B.T(B.chol(self.prec))), noise, upper=False, left=False)  # new torch version
+
+        # Precision parameterization:
+        # U = B.T(B.chol(self.prec))  # upper triangular
+        # B.triangular_solve(U, noise, lower_a=True) ## wrong, bc U & lower_a
+
+        # dW = B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
+
+        # sample = self.mean + B.cholsolve(B.chol(self.prec), noise) # Cholsolve, wrong
+
+        # Non-centered, precision parameterization
+        sample = self.mean + B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
 
         del noise
         if not structured(sample):

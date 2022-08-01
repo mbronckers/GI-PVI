@@ -47,34 +47,26 @@ class GI_OberConfig(Config):
     batch_size: int = 40
 
     # Learning rates
-    sep_lr = False
-    lr_global: float = 0.005
+    lr_global: float = 0.02
 
     # Communication settings
-    global_iters: int = 1  # server iterations
-    local_iters: int = 5000  # client-local iterations
+    global_iters: int = 2  # server iterations
+    local_iters: int = 1000  # client-local iterations
 
     split_type: str = None
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 2
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
         # Precisions of the inducing points per layer
+        self.nz_inits: list[float] = [1e-3 for _ in range(len(self.dims) - 1)]
 
-        # Looseer
-        # self.nz_inits: list[float] = [1e-3 for _ in range(len(self.dims) - 1)]
-
-        # Loose
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
-
-        #  Tight
         # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
-
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         self.name = set_experiment_name(self)
         # Homogeneous, equal-sized split.
@@ -113,6 +105,8 @@ class MFVI_OberConfig(Config):
 
     sep_lr: bool = False  # True => use seperate learning rates
     lr_global: float = 0.02
+    lr_nz: float = 0.10
+    lr_yz: float = 0.10
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = True

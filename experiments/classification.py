@@ -147,9 +147,9 @@ def main(args, config, logger):
             # Save scores
             score_name = "local_vfe"
             scores = {score_name: []}
-            # min_improvement = 0.0
-            # patience = 50
-            # stop = EarlyStopping(patience=patience, verbose=True, score_name=score_name, delta=min_improvement)
+            min_improvement = 0.0
+            patience = args.patience
+            stop = EarlyStopping(patience=patience, verbose=True, score_name=score_name, delta=min_improvement)
             for client_iter in range(max_local_iters):
 
                 # Construct client_iter-th minibatch {x, y} training data.
@@ -165,14 +165,13 @@ def main(args, config, logger):
                 curr_client.update_nz()
                 opt.zero_grad()
 
-                scores["local_vfe"].append(local_vfe.item())
-
                 if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
                     logger.info(
                         f"CLIENT - {curr_client.name} - global {iter+1:2}/{max_global_iters} - local [{client_iter+1:4}/{max_local_iters:4}] - local vfe: {round(local_vfe.item(), 3):13.3f}, ll: {round(exp_ll.item(), 3):13.3f}, kl: {round(kl.item(), 3):8.3f}, error: {round(error.item(), 5):8.5f}"
                     )
 
                     # Save client metrics.
+                    scores["local_vfe"].append(local_vfe.item())
                     curr_client.update_log(
                         {
                             "global_iteration": iter,
@@ -185,11 +184,12 @@ def main(args, config, logger):
                         }
                     )
 
-                    # if stop(scores):
-                    #     logger.info(
-                    #         f"CLIENT - {curr_client.name} - early stopping at {client_iter+1}: {scores[score_name][-patience:]} not lower than {scores[score_name][-patience - 1]}"
-                    #     )
-                    #     break
+                    # If score hasn't improved in past (patience*log_step) iterations, stop.
+                    if stop(scores):
+                        logger.info(
+                            f"CLIENT - {curr_client.name} - early stopping at {client_iter+1}: {scores[score_name][-patience:]} not lower than {scores[score_name][-patience - 1]}"
+                        )
+                        break
 
                 else:
                     logger.debug(
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--split", type=str, help="dataset split", nargs="?", choices=["A", "B"])
     parser.add_argument("--damp", type=float, default=None)
     parser.add_argument("--lr", type=float)
-    parser.add_argument("--batch", type=float, default=128)
+    parser.add_argument("--batch", type=int, default=128)
     parser.add_argument("--local_iters", "-l", type=int, help="client-local optimization iterations", default=1000)
     parser.add_argument("--global_iters", "-g", type=int, help="server iters (running over all clients <iters> times)", default=10)
     parser.add_argument("--num_clients", "-c", type=int, help="number clients", default=10)
@@ -306,6 +306,7 @@ if __name__ == "__main__":
     parser.add_argument("--random_z", action="store_true", help="Init GI z randomly", default=False)
     parser.add_argument("--linspace_yz", action="store_true", help="Init GI yz linearly", default=False)
     parser.add_argument("--rand_mean", action="store_true", help="Init MFVI weights N(0,1)", default=True)
+    parser.add_argument("--patience", type=float, help="Init MFVI weights N(0,1)", default=10)
 
     args = parser.parse_args()
 
