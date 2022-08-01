@@ -71,10 +71,6 @@ def main(args, config, logger):
 
     pd.DataFrame({"x_tr": x_tr.squeeze().detach().cpu(), "y_tr": y_tr.squeeze().detach().cpu()}).to_csv(os.path.join(config.results_dir, "model/training_data.csv"), index=False)
 
-    # Code to save/load data
-    # torch.save(x_tr, os.path.join(file_dir, "data/mfvi_x_tr.pt"))
-    # torch.save(y_tr, os.path.join(file_dir, "data/mfvi_y_tr.pt"))
-
     # Build prior.
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)

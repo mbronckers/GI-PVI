@@ -171,7 +171,12 @@ class NaturalNormal:
         # sample = self.mean + B.cholsolve(B.chol(self.prec), noise) # Cholsolve, wrong
 
         # Non-centered, precision parameterization
-        sample = self.mean + B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
+        if type(self.prec) == Diagonal:
+            sample = self.mean + B.mm(B.pd_inv(B.chol(self.prec)), noise)
+        else:
+            sample = self.mean + B.triangular_solve(B.dense(B.T(B.chol(self.prec))), noise, lower_a=False)
+
+        # sample = self.mean + dW
 
         del noise
         if not structured(sample):
