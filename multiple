@@ -2,7 +2,7 @@
 #SBATCH -J GI-B
 #SBATCH -A MLMI-MOJB2-SL2-GPU
 #SBATCH --nodes=1
-#SBATCH --ntasks=1
+#SBATCH --ntasks=2
 #SBATCH --gres=gpu:1
 ##SBATCH --exclusive
 #SBATCH --time=12:00:00
@@ -27,14 +27,12 @@ module purge                               # Removes all modules still loaded
 module load rhel8/default-amp              # REQUIRED - loads the basic environment
 
 #! Insert additional module load commands after this line if needed:
+module load parallel
 module load python/3.8 cuda/11.2 cudnn/8.1_cuda-11.2  
 source /home/mojb2/GI-PVI/venv/bin/activate
 
 #! Full path to application executable: 
 application="python experiments/classification.py"
-
-#! Run options for the application:
-options="-q GI -d B --server SYNC --split A --lr 0.0005 -l 1000 -g 10 -M 10"
 
 #! Work directory (i.e. where the job will run):
 workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
@@ -86,6 +84,21 @@ echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks
 
 echo -e "\nExecuting command:\n==================\n$CMD\n" >> $LOG
 
-eval $CMD >> $LOG
+# Alloc one node per task; uses n_tasks to determine alloc
+# parallel="parallel --delay 0.2 -j $SLURM_NTASKS --joblog runtask.log --resume"
+srun="srun --exclusive -N1 -n1"
+
+$srun $application --q GI -d B --server SYNC --split A --lr 0.005 -l 2000 -g 10 -M 10 --damp 0.1 &
+$srun $application --q GI -d B --server SYNC --split A --lr 0.005 -l 1000 -g 10 -M 10 --damp 0.1 &
+$srun $application --q GI -d B --server SYNC --split A --lr 0.0005 -l 1000 -g 10 -M 10 --damp 0.1 &
+
+# should be good results for Bank/Seq/B
+$srun $application --q GI -d B --server SYNC --split B --lr 0.001 -l 1000 -g 10 -M 10 &
+
+$srun $application --q MFVI -d B --server SYNC --split B --lr 0.01 -l 1000 -g 10 --damp 0.1 &
+$srun $application --q MFVI -d B --server SYNC --split B --lr 0.01 -l 1000 -g 10 --damp 0.5 &
+$srun $application --q MFVI -d B --server SYNC --split B --lr 0.005 -l 1000 -g 10 --damp 0.5 &
+
+wait
 
 echo "Time: `date`" >> $LOG
