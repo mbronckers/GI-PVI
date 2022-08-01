@@ -172,9 +172,12 @@ class NaturalNormal:
 
         # Non-centered, precision parameterization
         if type(self.prec) == Diagonal:
-            sample = self.mean + B.mm(B.pd_inv(B.chol(self.prec)), noise)
+            # sample = self.mean + B.mm(B.pd_inv(B.chol(self.prec)), noise)
+            sample = self.mean + B.mm(B.chol(self.var), noise)
         else:
-            sample = self.mean + B.triangular_solve(B.dense(B.T(B.chol(self.prec))), noise, lower_a=False)
+            sample = self.mean + B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
+
+        # sample = self.mean + B.triangular_solve(B.dense(B.T(B.chol(self.prec))), noise, lower_a=False)
 
         # sample = self.mean + dW
 

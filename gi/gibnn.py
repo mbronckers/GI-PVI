@@ -140,7 +140,7 @@ class GIBNN_Regression(GIBNN):
     def compute_ell(self, out, y):
         if y.device != out.device:
             y = y.to(out.device)
-        return self.likelihood(out).log_prob(y).sum(-1).mean(-1)
+        return self.likelihood(out).log_prob(y).sum(-1).mean(-1)  # [S x N x Dout]
 
     def compute_error(self, out, y):
         if y.device != out.device:
@@ -174,7 +174,7 @@ class GIBNN_Classification(GIBNN):
     def compute_ell(self, out, y):
         _y = B.tile(B.to_active_device(y), out.shape[0], 1, 1)  # reshape y into [S x N x Dout]
         assert _y.shape == out.shape, "These need to be the same shape."
-        
+
         # Return ELL averaged per data pt.
         return torch.distributions.Categorical(logits=out).log_prob(torch.argmax(_y, dim=-1)).mean(-1)  # [S x N] => [S]
 

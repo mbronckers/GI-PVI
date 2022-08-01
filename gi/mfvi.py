@@ -71,7 +71,7 @@ class MFVI_Regression(MFVI):
     def compute_ell(self, out, y):
         if y.device != out.device:
             y = y.to(out.device)
-        return self.likelihood(out).log_prob(y).sum(-1).mean(-1)
+        return self.likelihood(out).log_prob(y).sum(-1).mean(-1)  # [S x N x Dout]
 
     def compute_error(self, out, y):
         if y.device != out.device:

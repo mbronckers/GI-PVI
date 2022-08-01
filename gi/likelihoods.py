@@ -10,11 +10,11 @@ import lab as B
 
 
 class NormalLikelihood:
-    def __init__(self, var):
-        self.var = var
+    def __init__(self, scale):
+        self.scale = scale
 
     def __call__(self, x):
-        return torch.distributions.normal.Normal(loc=x, scale=self.var)
+        return torch.distributions.normal.Normal(loc=x, scale=self.scale)
 
     def __repr__(self) -> str:
         return f"var: {self.var}"
