@@ -73,7 +73,7 @@ def rebuild(vs, likelihood):
     """
 
     _idx = vs.name_to_index["output_var"]
-    likelihood.var = vs.transforms[_idx](vs.get_vars()[_idx])
+    likelihood.scale = vs.transforms[_idx](vs.get_vars()[_idx])
     return likelihood
 
 

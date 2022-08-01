@@ -16,6 +16,7 @@ from scipy.stats import multivariate_normal as mvn
 
 logger = logging.getLogger()
 
+
 def approx(x, y, **kwargs):
     x = B.to_numpy(B.dense(x))
     y = B.to_numpy(B.dense(y))
@@ -23,9 +24,9 @@ def approx(x, y, **kwargs):
 
 
 def _test_logpdf_normal(likelihood: gi.likelihoods.NormalLikelihood, mean, y):
-    
+
     normal = likelihood(mean)
-    normal_sp = mvn(mean[:, 0], likelihood.var)
+    normal_sp = mvn(mean[:, 0], likelihood.scale)
 
     np.testing.assert_allclose(normal.mean, normal_sp.mean[:, None])
 
@@ -39,6 +40,7 @@ def _test_logpdf_normal(likelihood: gi.likelihoods.NormalLikelihood, mean, y):
     np.testing.assert_allclose(nlpdf, splpdf)
 
     return True
+
 
 # @pytest.fixture()
 # def normal1():
@@ -62,17 +64,18 @@ def _test_logpdf_normal(likelihood: gi.likelihoods.NormalLikelihood, mean, y):
 
 def test_ll():
     key = B.create_random_state(B.default_dtype, seed=0)
-    
+
     n = 10
     # key, var = B.randn(key, B.default_dtype, 1)
     var = 0.1
     key, y = B.randn(key, B.default_dtype, n)
     key, y_pred = B.randn(key, B.default_dtype, n)
-    
+
     l1 = gi.likelihoods.NormalLikelihood(var)
-    
+
     assert _test_logpdf_normal(l1, mean=y_pred[:, None], y=y[:, None]) == True
-    
+
+
 if __name__ == "__main__":
     logger.info("Starting tests...")
 

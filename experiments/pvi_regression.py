@@ -76,9 +76,9 @@ def main(args, config, logger):
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
 
     # Likelihood variance is fixed in PVI.
-    ll_scale = 3 / scale if config.fix_ll else config.ll_var
+    ll_scale = 3 / scale if config.fix_ll else config.ll_scale
     likelihood = gi.likelihoods.NormalLikelihood(ll_scale)
-    logger.info(f"Likelihood variance: {likelihood.var}")
+    logger.info(f"Likelihood variance: {likelihood.scale}")
     logger.info(f"LR: {config.lr_global}")
 
     # Define model and clients.

@@ -78,7 +78,7 @@ def main(args, config, logger):
     # Likelihood variance is fixed in multi-client PVI.
     ll_scale = 3 / scale if config.fix_ll else config.ll_scale
     likelihood = gi.likelihoods.NormalLikelihood(ll_scale)
-    logger.info(f"Likelihood variance: {likelihood.var}")
+    logger.info(f"Likelihood variance: {likelihood.scale}")
     logger.info(f"LR: {config.lr_global}")
 
     # Optimizer parameters.

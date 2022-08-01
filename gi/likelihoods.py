@@ -17,4 +17,4 @@ class NormalLikelihood:
         return torch.distributions.normal.Normal(loc=x, scale=self.scale)
 
     def __repr__(self) -> str:
-        return f"var: {self.var}"
+        return f"scale: {self.scale}"

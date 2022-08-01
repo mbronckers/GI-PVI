@@ -91,11 +91,11 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # Model architecture
     N: int = 40  # train_split
-    S: int = 2
+    S: int = 10
     I: int = 50
     dims = [1, 50, 50, 1]
     batch_size: int = 40
@@ -106,7 +106,7 @@ class MFVI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 50000  # client-local iterations
+    local_iters: int = 5000  # client-local iterations
 
     split_type: str = None
 
@@ -116,10 +116,10 @@ class MFVI_OberConfig(Config):
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.2
 
     # Initialize weight layer mean from N(0,1)
-    random_mean_init: bool = True
+    random_mean_init: bool = False
 
     def __post_init__(self):
         # Precisions of weights per layer
