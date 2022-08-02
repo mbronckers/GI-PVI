@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -40,8 +40,8 @@ class GI_OberConfig(Config):
 
     # Model architecture
     N: int = 40  # train_split
-    M: int = 20
-    S: int = 2
+    M: int = 40
+    S: int = 10
     I: int = 50
     dims = [1, 50, 50, 1]
     batch_size: int = 40
@@ -51,11 +51,11 @@ class GI_OberConfig(Config):
 
     # Learning rates
     sep_lr = False
-    lr_global: float = 0.05
+    lr_global: float = 0.01
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 2000  # client-local iterations
+    local_iters: int = 5000  # client-local iterations
 
     split_type: str = None
 
