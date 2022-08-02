@@ -124,10 +124,10 @@ class MFVI_OberConfig(Config):
     def __post_init__(self):
         # Precisions of weights per layer
         # Tight => low variance
-        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
         # Medium => reasonable variance
-        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         # Loose => high variance
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]

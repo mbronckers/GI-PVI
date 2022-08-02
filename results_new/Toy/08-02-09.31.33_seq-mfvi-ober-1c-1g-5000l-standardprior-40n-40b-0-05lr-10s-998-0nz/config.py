@@ -91,7 +91,7 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # Model architecture
     N: int = 40  # train_split

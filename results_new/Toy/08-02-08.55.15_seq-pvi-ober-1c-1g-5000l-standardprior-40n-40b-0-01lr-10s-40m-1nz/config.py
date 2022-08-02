@@ -116,7 +116,7 @@ class MFVI_OberConfig(Config):
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.01
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = False

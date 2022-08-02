@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -116,7 +116,7 @@ class MFVI_OberConfig(Config):
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.01
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = False
