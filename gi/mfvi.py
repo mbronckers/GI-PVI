@@ -35,7 +35,6 @@ class MFVI(BaseBNN):
         key,
         ps: dict[str, NaturalNormal],
         ts: dict[str, dict[str, MeanFieldFactor]],
-        zs: dict[str, B.Numeric],
         S: B.Int,
         cavity_client: Optional[str] = None,
         **kwargs,

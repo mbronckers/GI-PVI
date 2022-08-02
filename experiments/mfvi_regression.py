@@ -119,7 +119,7 @@ def main(args, config, logger):
         # Log performance of global server model.
         with torch.no_grad():
             # Resample <S> inference weights
-            key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
+            key, _ = model.sample_posterior(key=key, ps=ps, ts=frozen_ts, S=args.inference_samples)
 
             server.evaluate_performance()
 
@@ -206,7 +206,7 @@ def main(args, config, logger):
     server.curr_iter += 1
     with torch.no_grad():
         frozen_ts, _ = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
+        key, _ = model.sample_posterior(key=key, ps=ps, ts=frozen_ts, S=args.inference_samples)
 
         server.evaluate_performance()
 
@@ -254,7 +254,7 @@ def main(args, config, logger):
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
         ts, zs = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, ts, S=args.inference_samples)
+        key, _ = model.sample_posterior(key=key, ps=ps, ts=ts, S=args.inference_samples)
         y_pred = model.propagate(x_te)
 
         # Log and plot results

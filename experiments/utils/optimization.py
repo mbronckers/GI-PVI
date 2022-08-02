@@ -142,7 +142,7 @@ def estimate_local_vfe(
     N: B.Int,
 ):
     # Sample from posterior.
-    key, _ = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
+    key, _ = model.sample_posterior(key=key, ps=ps, ts=ts, zs=zs, S=S, cavity_client=client.name)
 
     out = model.propagate(x)  # out : [S x N x Dout]
 
