@@ -274,10 +274,11 @@ class MeanField(NaturalNormal):
     def from_factor(cls, factor: MeanFieldFactor):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
         MIN_PREC = 1e-4
-        if B.any(factor.prec.diag < 0).item():
-            logger.debug(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
-            factor.prec.mat[factor.prec.diag < 0] = MIN_PREC
-
+        # if B.any(factor.prec.diag < 0).item():
+        # logger.info(f"MeanField.from_factor: negative precision detected. Setting to {MIN_PREC}")
+        # factor.prec.mat[factor.prec.diag < 0] = MIN_PREC
+        # if B.any(factor.prec.diag > 1e3).item():
+        # logger.info(f"MeanField.from_factor: large precision detected: {B.max(factor.prec.diag)}")
         return cls(lam=factor.lam, prec=factor.prec)
 
     def kl(self, other: "MeanField"):
