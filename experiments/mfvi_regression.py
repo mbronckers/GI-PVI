@@ -173,8 +173,8 @@ def main(args, config, logger):
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
-                opt.zero_grad()
                 curr_client.update_nz()
+                opt.zero_grad()
 
                 # Log results.
                 if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
