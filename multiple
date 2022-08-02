@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -J GI-B
+#SBATCH -J Bank-Std
 #SBATCH -A MLMI-MOJB2-SL2-GPU
 #SBATCH --nodes=1
-#SBATCH --ntasks=2
+#SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
 ##SBATCH --exclusive
-#SBATCH --time=12:00:00
-#SBATCH --mail-type=FAIL
+#SBATCH --time=4:00:00
+#SBATCH --mail-type=ALL
 #! Uncomment this to prevent the job from being requeued (e.g. if
 #! interrupted by node failure or system downtime):
 ##SBATCH --no-requeue
@@ -49,7 +49,7 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 #! Choose this for a pure shared-memory OpenMP parallel program on a single node:
 #! (OMP_NUM_THREADS threads will be created):
-CMD="$application $options"
+
 
 #! Choose this for a MPI code using OpenMPI:
 #CMD="mpirun -npernode $mpi_tasks_per_node -np $np $application $options"
@@ -89,11 +89,13 @@ echo -e "\nExecuting command:\n==================\n$CMD\n" >> $LOG
 srun="srun --exclusive -N1 -n1"
 
 #### BANK 
-$srun $application --q GI -d B --server SEQ --split A --lr 0.005 -l 10000 -g 10 -M 100 &
-$srun $application --q GI -d B --server SEQ --split A --num_clients=1 --lr 0.005 -l 10000 -g 1 -M 100 &
+$srun $application --q GI -d B --prior std --server SEQ --split A --lr 0.001 -l 10000 -g 10 --batch 256 -M 100 &
+# $srun $application --q GI -d B --prior std --server SYNC --split A --lr 0.001 -l 10000 -g 10 --batch 256 -M 100 &
+# $srun $application --q GI -d B --prior std --num_clients=1 --server SEQ --split A --lr 0.001 -l 10000 -g 10 --batch 256 -M 100 &
 
-$srun $application --q MFVI -d B --server SEQ --split A --lr 0.005 -l 10000 -g 10 &
-$srun $application --q MFVI -d B --server SEQ --split A --num_clients=1 --lr 0.005 -l 10000 -g 1 &
+# $srun $application --q MFVI -d B --prior std --server SEQ --split A --lr 0.001 -l 10000 -g 10 &
+# $srun $application --q MFVI -d B --prior std --server SEQ --split A --num_clients=1 --lr 0.001 -l 10000 -g 1 &
+# $srun $application --q MFVI -d B --prior std --server SYNC --split A --lr 0.001 -l 10000 -g 10 &
 
 wait
 

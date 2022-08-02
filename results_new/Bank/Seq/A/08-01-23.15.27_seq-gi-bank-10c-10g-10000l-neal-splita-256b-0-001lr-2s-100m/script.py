@@ -277,8 +277,6 @@ def set_experiment_name(args):
     if args.damp:
         name += f"_damp_{args.damp}"
 
-    name += f"_{args.patience}p"
-
     return name
 
 
@@ -308,7 +306,7 @@ if __name__ == "__main__":
     parser.add_argument("--random_z", action="store_true", help="Init GI z randomly", default=False)
     parser.add_argument("--linspace_yz", action="store_true", help="Init GI yz linearly", default=False)
     parser.add_argument("--rand_mean", action="store_true", help="Init MFVI weights N(0,1)", default=True)
-    parser.add_argument("--patience", type=int, help="Init MFVI weights N(0,1)", default=20)
+    parser.add_argument("--patience", type=float, help="Init MFVI weights N(0,1)", default=20)
 
     args = parser.parse_args()
 

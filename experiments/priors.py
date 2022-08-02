@@ -30,7 +30,7 @@ class Prior(enum.IntEnum):
             return "NealPrior"
 
 def parse_prior_arg(arg: str):
-    if arg.lower().__contains__("standard") or arg.lower().__contains__("normal"):
+    if arg.lower().__contains__("std") or arg.lower().__contains__("standard") or arg.lower().__contains__("normal"):
         return Prior.StandardPrior
     elif arg.lower().__contains__("neal"):
         return Prior.NealPrior
