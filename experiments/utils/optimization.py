@@ -142,12 +142,7 @@ def estimate_local_vfe(
     N: B.Int,
 ):
     # Sample from posterior.
-    if isinstance(model, gi.GIBNN):
-        key, _ = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
-    elif isinstance(model, gi.MFVI):
-        key, _ = model.sample_posterior(key, ps, ts, S=S)
-    else:
-        raise NotImplementedError
+    key, _ = model.sample_posterior(key, ps, ts, zs, S=S, cavity_client=client.name)
 
     out = model.propagate(x)  # out : [S x N x Dout]
 

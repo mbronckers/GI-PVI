@@ -96,7 +96,7 @@ class GIBNN(BaseBNN):
         # Construct posterior and prior, sample, propagate.
         for i, (layer_name, p) in enumerate(ps.items()):
 
-            # Init posterior to prior
+            # Init posterior and cavity distribution to prior
             q = p
             p_ = p
 

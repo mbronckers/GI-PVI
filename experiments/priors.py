@@ -29,6 +29,7 @@ class Prior(enum.IntEnum):
         elif self.value == 1:
             return "NealPrior"
 
+
 def parse_prior_arg(arg: str):
     if arg.lower().__contains__("std") or arg.lower().__contains__("standard") or arg.lower().__contains__("normal"):
         return Prior.StandardPrior

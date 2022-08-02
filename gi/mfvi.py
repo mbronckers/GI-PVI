@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable
+from typing import Callable, Optional
 import lab as B
 import torch
 import logging
@@ -35,24 +35,32 @@ class MFVI(BaseBNN):
         key,
         ps: dict[str, NaturalNormal],
         ts: dict[str, dict[str, MeanFieldFactor]],
-        S,
+        zs: dict[str, B.Numeric],
+        S: B.Int,
+        cavity_client: Optional[str] = None,
         **kwargs,
     ):
 
         # Construct posterior, sample, and propagate
         for i, (layer_name, p) in enumerate(ps.items()):
-            # Init posterior
+
+            # Init posterior & cavity distribution
             q = p
+            p_ = p  # cavity
 
             # Build posterior. layer_client_q is MeanFieldFactor
-            for layer_client_q in ts[layer_name].values():
+            for client_name, layer_client_q in ts[layer_name].items():
                 q *= layer_client_q
+
+                if cavity_client and client_name != cavity_client:
+                    p_ *= layer_client_q
 
             # Constrain q to have positive precision.
             # Reduce to diagonal
             q = MeanField.from_factor(q)
+            p_ = MeanField.from_factor(p_)
 
-            key, _ = self._sample_posterior(key, q, p, layer_name, S)
+            key, _ = self._sample_posterior(key, q, p_, layer_name, S)
 
         return key, self.cache
 

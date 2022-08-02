@@ -71,13 +71,14 @@
             "args": [
                 "--q=MFVI",
                 "-d=B",
-                "--server=SEQ",
+                "--server=SYNC",
                 "--split=B",
                 "--lr=0.001",
                 "--damp=0.1",
                 "--num_clients=2",
                 "-l=100",
                 "-g=2",
+                "--batch=64",
                 "--name=debug",
             ]
         },
