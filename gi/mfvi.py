@@ -16,19 +16,19 @@ class MFVI(BaseBNN):
     def __init__(self, nonlinearity, bias: bool, kl: KL) -> None:
         super().__init__(nonlinearity, bias, kl)
 
-    def _sample_posterior(self, key, q, p, layer_name, S: int = 1):
-        # Sample weights from the posterior distribution q.
-        key, w = q.sample(key, S)
+    # def _sample_posterior(self, key, q, p, layer_name, S=1):
+    #     # Sample weights from the posterior distribution q.
+    #     key, w = q.sample(key, S)
 
-        kl_qp = compute_kl(self.kl, q, p, w)
-        kl_qp = B.sum(kl_qp, -1)
+    #     kl_qp = compute_kl(self.kl, q, p, w)
+    #     kl_qp = B.sum(kl_qp, -1)
 
-        w = w[..., 0]
+    #     w = w[..., 0]
 
-        # Save posterior w samples and KL to cache
-        self._cache[layer_name] = {"w": w, "kl": kl_qp}
+    #     # Save posterior w samples and KL to cache
+    #     self._cache[layer_name] = {"w": w, "kl": kl_qp}
 
-        return key, w
+    #     return key, w
 
     def sample_posterior(
         self,

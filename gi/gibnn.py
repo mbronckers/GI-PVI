@@ -110,7 +110,10 @@ class GIBNN(BaseBNN):
                         p_ *= _t
 
             # Sample q, compute KL wrt (cavity) prior, and store drawn weights.
-            key, w = self._sample_posterior(key, q, p_, layer_name)
+            if len(q.lam.shape) == 3:  # if no number of S specified (e.g. when q = p)
+                key, w = self._sample_posterior(key, q, p_, layer_name, S)
+            else:
+                key, w = self._sample_posterior(key, q, p_, layer_name)
 
             # Propagate client-local inducing inputs <z> and store prev layer outputs in _zs
             if i < len(ps.keys()) - 1:
