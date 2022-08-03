@@ -150,7 +150,7 @@ def estimate_local_vfe(
     kl = model.get_total_kl()
 
     # Compute the expected log-likelihood.
-    exp_ll = model.compute_ell(out, y)
+    exp_ll = model.compute_ell(out, y)  # [S]
     error = model.compute_error(out, y)
 
     # Mini-batching estimator of ELBO; (N / batch_size)
