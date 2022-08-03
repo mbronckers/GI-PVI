@@ -77,12 +77,12 @@ def rebuild(vs, likelihood):
     return likelihood
 
 
-def collect_vp(clients: dict[str, Client]):
+def collect_vp(clients: dict[str, Client], client_names=None):
     """Collects the variational parameters of all clients in detached (frozen) form
 
     Args:
         clients (dict[str, Client]): dictionary of clients
-        curr_client (Optional[Client], optional): A client whose gradient remains connected to the dictionaries returned. Defaults to None.
+        client_names (Optional[Client], optional): Set of clients to include.
 
     Returns:
         (dict, dict): A tuple of dictionaries of frozen variational parameters.
@@ -92,21 +92,22 @@ def collect_vp(clients: dict[str, Client]):
 
     # Construct from scratch to avoid linked copies.
     for client_name, client in clients.items():
-        if type(client) == GI_Client:
-            tmp_zs[client_name] = client.z.detach().clone()
+        if client_names is None or client_name in client_names:
+            if type(client) == GI_Client:
+                tmp_zs[client_name] = client.z.detach().clone()
 
-        for layer_name, client_layer_t in client.t.items():
-            if layer_name not in tmp_ts:
-                tmp_ts[layer_name] = {}
-            tmp_ts[layer_name][client_name] = copy(client_layer_t)
+            for layer_name, client_layer_t in client.t.items():
+                if layer_name not in tmp_ts:
+                    tmp_ts[layer_name] = {}
+                tmp_ts[layer_name][client_name] = copy(client_layer_t)
+
     return tmp_ts, tmp_zs
 
 
 def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
     """Collects the variational parameters of all clients in detached (frozen) form, except for the provided current client."""
-
-    tmp_ts: dict[str, dict[str, gi.NormalPseudoObservation]] = {}
-    tmp_zs: dict[str, B.Numeric] = {}
+    tmp_zs = {}
+    tmp_ts = {layer_name: {curr_client.name: curr_client_layer_t} for layer_name, curr_client_layer_t in curr_client.t.items()}
 
     # Copy frozen zs except for cur_client
     if isinstance(curr_client, GI_Client):
@@ -115,15 +116,13 @@ def collect_frozen_vp(frozen_ts, frozen_zs, curr_client: Client):
             if client_name != curr_client.name:
                 tmp_zs[client_name] = client_z.detach().clone()
 
-    # Copy frozen ts except for cur_client
+    # Copy frozen zs
     for layer_name, layer_t in frozen_ts.items():
         if layer_name not in tmp_ts:
             tmp_ts[layer_name] = {}
 
         for client_name, client_layer_t in layer_t.items():
-            if client_name == curr_client.name:
-                tmp_ts[layer_name][curr_client.name] = curr_client.t[layer_name]  # client-layer-t is detached, need to take curr_client.t
-            else:
+            if client_name != curr_client.name:
                 tmp_ts[layer_name][client_name] = copy(client_layer_t)
 
     return tmp_ts, tmp_zs
