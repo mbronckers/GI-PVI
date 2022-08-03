@@ -43,7 +43,7 @@ class GIBNN(BaseBNN):
         return _zs
 
     def propagate_z(self, zs: dict, w: B.Numeric, nonlinearity: bool):
-        """Propagate inducing points through the BNN
+        """Propagate all clients' inducing points through the BNN
 
         Args:
             zs (dict): inducing points
