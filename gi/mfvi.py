@@ -48,11 +48,12 @@ class MFVI(BaseBNN):
             p_ = p  # cavity
 
             # Build posterior. layer_client_q is MeanFieldFactor
-            for client_name, layer_client_q in ts[layer_name].items():
-                q *= layer_client_q
+            if ts != {}:
+                for client_name, layer_client_q in ts[layer_name].items():
+                    q *= layer_client_q
 
-                if cavity_client and client_name != cavity_client:
-                    p_ *= layer_client_q
+                    if cavity_client and client_name != cavity_client:
+                        p_ *= layer_client_q
 
             # Constrain q to have positive precision.
             # Reduce to diagonal

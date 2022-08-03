@@ -37,6 +37,9 @@ class Server:
         self.max_iters: int = None
         self.curr_iter: int = 0
 
+        # List of all clients' names that have been optimized at least once.
+        self.optimized_clients = set()
+
     def __iter__(self):
         return self
 
@@ -78,6 +81,12 @@ class Server:
             metrics = {**train_metrics, **test_metrics}
             for k, v in metrics.items():
                 self.log[k].append(v.item())
+
+    def update_optimized_clients(self, clients):
+        """Updates the list of optimized clients if not all clients have been seen yet."""
+
+        if len(self.optimized_clients) != len(self.clients):
+            self.optimized_clients.update([c.name for c in clients])
 
 
 class SynchronousServer(Server):

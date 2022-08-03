@@ -101,12 +101,13 @@ class GIBNN(BaseBNN):
             p_ = p
 
             # Compute new posterior by multiplying client factors
-            for client_name, t in ts[layer_name].items():
-                _t = t(_zs[client_name])
-                q *= _t  # propagate prev layer's inducing outputs
+            if ts != {}:
+                for client_name, t in ts[layer_name].items():
+                    _t = t(_zs[client_name])
+                    q *= _t  # propagate prev layer's inducing outputs
 
-                if cavity_client and client_name != cavity_client:
-                    p_ *= _t
+                    if cavity_client and client_name != cavity_client:
+                        p_ *= _t
 
             # Sample q, compute KL wrt (cavity) prior, and store drawn weights.
             key, w = self._sample_posterior(key, q, p_, layer_name)

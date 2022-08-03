@@ -117,8 +117,8 @@ def main(args, config, logger):
     for iter in range(max_global_iters):
         server.curr_iter = iter
 
-        # Construct frozen zs, ts of all clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, frozen_zs = collect_vp(clients)
+        # Construct frozen zs, ts of all optimized clients. Automatically links back the previously updated clients' t & z.
+        frozen_ts, frozen_zs = collect_vp(clients, server.optimized_clients)
 
         # Log performance of global server model.
         with torch.no_grad():
@@ -154,13 +154,8 @@ def main(args, config, logger):
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
             # Compute global (frozen) posterior to communicate to clients.
-            if iter == 0:
-                # In 1st iter, only prior is communicated to clients.
-                tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
-                tmp_zs = {curr_client.name: curr_client.z}
-            else:
-                # All detached except current client.
-                tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)
+            # Frozen zs/ts only include clients that have been optimized at least once.
+            tmp_ts, tmp_zs = collect_frozen_vp(frozen_ts, frozen_zs, curr_client)  # All detached except current client.
 
             # Run client-local optimization.
             client_data_size = curr_client.x.shape[0]
@@ -209,6 +204,9 @@ def main(args, config, logger):
 
             if config.dampening_factor:
                 dampen_updates(curr_client, config.dampening_factor, frozen_ts, frozen_zs)
+
+            # Add optimized clients to list of clients that have been optimized at least once
+            server.update_optimized_clients(curr_clients)
 
     # Log global/server model post training
     server.curr_iter += 1

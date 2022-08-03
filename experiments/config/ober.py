@@ -40,7 +40,7 @@ class GI_OberConfig(Config):
 
     # Model architecture
     N: int = 40  # train_split
-    M: int = 40
+    M: int = 6
     S: int = 10
     I: int = 50
     dims = [1, 50, 50, 1]
@@ -55,13 +55,13 @@ class GI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 5000  # client-local iterations
+    local_iters: int = 1000  # client-local iterations
 
     split_type: str = None
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 3
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
@@ -91,14 +91,14 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # Model architecture
-    N: int = 40  # train_split
+    N: int = 1000  # train_split
     S: int = 10
     I: int = 50
     dims = [1, 50, 50, 1]
-    batch_size: int = 40
+    batch_size: int = 256
 
     deterministic: bool = False  # deterministic client training
     fix_ll: bool = False  # true => fix ll variance
@@ -106,28 +106,29 @@ class MFVI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 5000  # client-local iterations
+    local_iters: int = 10000  # client-local iterations
 
     split_type: str = None
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 3
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.05
+    lr_global: float = 0.005
 
     # Initialize weight layer mean from N(0,1)
-    random_mean_init: bool = False
+    random_mean_init: bool = True
 
     def __post_init__(self):
         # Precisions of weights per layer
         # Tight => low variance
-        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1e3 for i in range(len(self.dims) - 1)]
 
         # Medium => reasonable variance
-        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         # Loose => high variance
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
