@@ -159,16 +159,11 @@ class NaturalNormal:
         # Sampling from MVN: s = mean + chol(variance)*eps (affine transformation property)
         # dW = torch.triangular_solve(noise, B.dense(B.chol(self.prec)), upper=False, transpose=True).solution  # Ober sampling
 
-        # This samples weirdly!
-        # dW = torch.linalg.solve_triangular(B.dense(B.T(B.chol(self.prec))), noise, upper=False, left=False)  # new torch version
-
         # Precision parameterization:
         # U = B.T(B.chol(self.prec))  # upper triangular
         # B.triangular_solve(U, noise, lower_a=True) ## wrong, bc U & lower_a
 
         # dW = B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
-
-        # sample = self.mean + B.cholsolve(B.chol(self.prec), noise) # Cholsolve, wrong
 
         # Non-centered, precision parameterization
         if type(self.prec) == Diagonal:
