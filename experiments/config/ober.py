@@ -33,10 +33,8 @@ class GI_OberConfig(Config):
     deterministic: bool = False  # deterministic client training
     random_z: bool = False  # random inducing point initialization
     linspace_yz: bool = False  # True => use linspace(-1, 1) for yz initialization
-    fix_ll: bool = True  # true => fix ll variance
 
     # Ober fixes ll variance to 3/scale(x_tr)
-    # ll_var: float = 0.10  # likelihood variance
 
     # Model architecture
     N: int = 40  # train_split
@@ -46,6 +44,7 @@ class GI_OberConfig(Config):
     dims = [1, 50, 50, 1]
     batch_size: int = 40
 
+    # Likelihood settings
     fix_ll: bool = False  # true => fix ll variance
     ll_scale: float = 0.1
 
@@ -61,23 +60,20 @@ class GI_OberConfig(Config):
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 3
+    num_clients: int = 1
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
         # Precisions of the inducing points per layer
-
-        # Looseer
-        # self.nz_inits: list[float] = [1e-3 for _ in range(len(self.dims) - 1)]
 
         # Loose
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
         #  Tight
-        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         self.name = set_experiment_name(self)
         # Homogeneous, equal-sized split.
@@ -112,11 +108,11 @@ class MFVI_OberConfig(Config):
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 3
+    num_clients: int = 1
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.005
+    lr_global: float = 0.01
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = True
