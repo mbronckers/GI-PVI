@@ -12,9 +12,22 @@ class BaseBNN:
         self.bias = bias
         self.kl = kl
 
-    def _sample_posterior(self, key, q, p, layer_name):
+    def _sample_posterior(self, key, q, p, layer_name, S=1):
+        """Sample weights from the posterior distribution q. Computes KL and saves to cache.
+
+        Args:
+            key: random generator key
+            q: posterior
+            p: prior
+            layer_name (str): layer_name
+            S (int, optional): If specified, will draw S samples from q. Defaults to 1.
+
+        Returns:
+            key, weights
+        """
+
         # Sample weights from posterior distribution q. q already has S passed in its parameters.
-        key, w = q.sample(key)  # w is [S, Dout, Din] of layer i.
+        key, w = q.sample(key, S)  # w is [S, Dout, Din] of layer i.
 
         # Compute KL divergence between prior and posterior
         kl_qp = compute_kl(self.kl, q, p, w)

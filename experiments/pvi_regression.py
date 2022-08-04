@@ -51,6 +51,8 @@ def main(args, config, logger):
     # Setup regression dataset.
     N = args.N  # num/fraction training points
     key, x, y, x_tr, y_tr, x_te, y_te, scale = generate_data(key, args.data, N, xmin=-4.0, xmax=4.0)
+    logger.info(f"Y_scale: {scale}")
+    N = x_tr.shape[0]
 
     # Normalize data.
     if args.data == DGP.ober_regression:
@@ -65,8 +67,6 @@ def main(args, config, logger):
 
     train_loader = DataLoader(TensorDataset(x_tr, y_tr), batch_size=config.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(TensorDataset(x_te, y_te), batch_size=config.batch_size, shuffle=True, num_workers=0)
-    logger.info(f"Y_scale: {scale}")
-    N = x_tr.shape[0]
 
     pd.DataFrame({"x_tr": x_tr.squeeze().detach().cpu(), "y_tr": y_tr.squeeze().detach().cpu()}).to_csv(os.path.join(config.results_dir, "model/training_data.csv"), index=False)
 
@@ -80,6 +80,10 @@ def main(args, config, logger):
     likelihood = gi.likelihoods.NormalLikelihood(ll_scale)
     logger.info(f"Likelihood variance: {likelihood.scale}")
     logger.info(f"LR: {config.lr_global}")
+
+    # Optimizer parameters.
+    S = args.training_samples  # number of training inference samples
+    log_step = config.log_step
 
     # Define model and clients.
     model = gi.GIBNN_Regression(nn.functional.relu, config.bias, config.kl, likelihood)
@@ -102,10 +106,6 @@ def main(args, config, logger):
     # Plot initial inducing points.
     if args.data == DGP.ober_regression:
         plot_all_inducing_pts(clients, config.plot_dir)
-
-    # Optimizer parameters.
-    S = args.training_samples  # number of training inference samples
-    log_step = config.log_step
 
     # Construct server.
     server = config.server_type(clients, model, args.global_iters)
