@@ -38,10 +38,10 @@ class GI_OberConfig(Config):
 
     # Model architecture
     N: int = 40  # train_split
-    M: int = 6
-    S: int = 10
+    M: int = 5
+    S: int = 2
     I: int = 50
-    dims = [1, 50, 50, 1]
+    dims = [1, 50, 1]
     batch_size: int = 40
 
     # Likelihood settings
@@ -71,9 +71,9 @@ class GI_OberConfig(Config):
         # self.nz_inits[-1] = 1.0  # According to paper, last layer precision gets initialized to 1
 
         #  Tight
-        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
 
-        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         self.name = set_experiment_name(self)
         # Homogeneous, equal-sized split.
@@ -90,11 +90,11 @@ class MFVI_OberConfig(Config):
     prior: Prior = Prior.StandardPrior
 
     # Model architecture
-    N: int = 1000  # train_split
-    S: int = 10
+    N: int = 40  # train_split
+    S: int = 2
     I: int = 50
-    dims = [1, 50, 50, 1]
-    batch_size: int = 256
+    dims = [1, 10, 10, 1]
+    batch_size: int = 40
 
     deterministic: bool = False  # deterministic client training
     fix_ll: bool = False  # true => fix ll variance
@@ -121,10 +121,10 @@ class MFVI_OberConfig(Config):
         # Precisions of weights per layer
         # Tight => low variance
         # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
-        # self.nz_inits: list[float] = [1e3 for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 for i in range(len(self.dims) - 1)]
 
         # Medium => reasonable variance
-        self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
 
         # Loose => high variance
         # self.nz_inits: list[float] = [B.exp(-4) for _ in range(len(self.dims) - 1)]
