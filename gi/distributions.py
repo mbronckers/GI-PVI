@@ -113,6 +113,7 @@ class NaturalNormal:
     def mean(self):
         """column vector: Mean."""
         if self._mean is None:
+            # Cholsolve solves the linear system L x = b where L is a lower-triangular cholesky factorization
             self._mean = B.cholsolve(B.chol(self.prec), self.lam)
         return self._mean
 
@@ -164,6 +165,7 @@ class NaturalNormal:
             # sample = self.mean + B.mm(B.pd_inv(B.chol(self.prec)), noise)
             sample = self.mean + B.mm(B.chol(self.var), noise)
         else:
+            # Trisolve solves Ux = y, where U is an upper triangular matrix
             sample = self.mean + B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
 
         del noise
@@ -323,7 +325,7 @@ class NormalPseudoObservation:
         prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))  # zT @ prec_yz @ z = XLX = XiT @ Lambda @ Xi
 
         # (S, Dout, Din, 1)
-        # lambda \\propto prec*mean, mean_w = (prec^-1) * XLY => lambda = XLY
+        # lam \\propto prec*mean, mean_w = (prec^-1) * XLY => lam_w = XLY
         lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))  # @ _z * _nz @ _yz = XLY
 
         del _prec_yz, _z, _yz

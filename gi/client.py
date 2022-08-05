@@ -24,6 +24,9 @@ class Client:
 
         self.log = defaultdict(list)
 
+        # Keep track of current iteration; also used for batch creation
+        self.curr_iter = 0
+
     @property
     def vs(self):
         return self._vs

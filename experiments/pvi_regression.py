@@ -165,9 +165,10 @@ def main(args, config, logger):
             for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.
-                inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
+                inds = (B.range(batch_size) + batch_size * curr_client.curr_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
+                curr_client.curr_iter += 1
 
                 key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, tmp_zs, S, N=client_data_size)
                 loss = -local_vfe
@@ -187,7 +188,7 @@ def main(args, config, logger):
                         {
                             "global_iteration": iter,
                             "local_iteration": client_iter,
-                            "total_iteration": iter * max_local_iters + client_iter,
+                            "total_iteration": curr_client.curr_iter,
                             "vfe": local_vfe.item(),
                             "ll": exp_ll.item(),
                             "kl": kl.item(),
