@@ -277,7 +277,7 @@ def set_experiment_name(args):
 
     name += f"_{args.patience}p"
 
-    name += f"_{args.name}"
+    name += "-" + args.name
 
     return name
 

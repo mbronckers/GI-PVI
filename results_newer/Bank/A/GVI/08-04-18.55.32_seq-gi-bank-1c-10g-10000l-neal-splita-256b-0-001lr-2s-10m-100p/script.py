@@ -40,7 +40,7 @@ from utils.optimization import EarlyStopping, collect_frozen_vp, collect_vp, con
 
 def main(args, config, logger):
     # Lab variable initialization
-    B.default_dtype = torch.float32
+    B.default_dtype = torch.float64
     B.epsilon = 0.0
     key = B.create_random_state(B.default_dtype, seed=args.seed)
     torch.set_printoptions(precision=10, sci_mode=False)
@@ -276,8 +276,6 @@ def set_experiment_name(args):
         name += f"_damp_{args.damp}"
 
     name += f"_{args.patience}p"
-
-    name += f"_{args.name}"
 
     return name
 

@@ -172,10 +172,6 @@ class NaturalNormal:
         else:
             sample = self.mean + B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
 
-        # sample = self.mean + B.triangular_solve(B.dense(B.T(B.chol(self.prec))), noise, lower_a=False)
-
-        # sample = self.mean + dW
-
         del noise
         if not structured(sample):
             sample = B.dense(sample)  # transform Dense to Transform matrix
