@@ -97,7 +97,11 @@ class GI_Client(Client):
         # Classification related issue
         if self.z.requires_grad != True:
             self.z = self.vs[f"zs.{self.name}_z"]
+
             self.t["layer2"].yz = self.vs[f"ts.{self.name}_layer2_yz"]
+
+            # for layer_name, _t in self.t.items():
+            #     _t.yz = self.vs[f"ts.{self.name}_{layer_name}_yz"]
 
         self.update_nz()
 
