@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -54,7 +54,7 @@ class GI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 1000  # client-local iterations
+    local_iters: int = 10000  # client-local iterations
 
     split_type: str = None
 
@@ -87,13 +87,13 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # Model architecture
     N: int = 40  # train_split
     S: int = 2
     I: int = 50
-    dims = [1, 10, 10, 1]
+    dims = [1, 50, 1]
     batch_size: int = 40
 
     deterministic: bool = False  # deterministic client training
@@ -102,7 +102,7 @@ class MFVI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 10000  # client-local iterations
+    local_iters: int = 30000  # client-local iterations
 
     split_type: str = None
 
