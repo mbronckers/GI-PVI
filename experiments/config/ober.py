@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
