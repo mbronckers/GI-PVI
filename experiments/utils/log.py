@@ -50,7 +50,11 @@ def plot_client_vp(config, curr_client, iter, epoch):
         proj_x = torch.matmul(curr_client.x, V[:, :1])
         scatterplot(proj_x, curr_client.y, label=f"Training data - {curr_client.name} (PCA)", ax=_ax)
     if curr_client.z.shape[-1] == 1:
-        scatterplot(curr_client.z, curr_client.get_final_yz(), label=f"Initial inducing points - {curr_client.name}", ax=_ax)
+        if curr_client.z.shape[0] == 1:
+            df = pd.DataFrame({"x": curr_client.z.squeeze().item(), "y": curr_client.get_final_yz().squeeze().item()}, index=[0])
+            scatterplot(data=df, x="x", y="y", label=f"Initial inducing points - {curr_client.name}", ax=_ax)
+        else:
+            scatterplot(curr_client.z, curr_client.get_final_yz(), label=f"Initial inducing points - {curr_client.name}", ax=_ax)
     else:
         # Take PCA.
         U, S, V = torch.pca_lowrank(curr_client.z)
@@ -70,7 +74,11 @@ def plot_all_inducing_pts(clients, _plot_dir):
     _ax.set_ylabel("y")
     for i, (name, c) in enumerate(clients.items()):
         scatterplot(c.x, c.y, label=f"Training data - {name}", ax=_ax)
-        scatterplot(c.z, c.get_final_yz(), label=f"Initial inducing points - {name}", ax=_ax)
+        if c.z.shape[0] == 1:
+            df = pd.DataFrame({"x": c.z.squeeze().item(), "y": c.get_final_yz().squeeze().item()}, index=[0])
+            scatterplot(data=df, x="x", y="y", label=f"Initial inducing points - {name}", ax=_ax)
+        else:
+            scatterplot(c.z, c.get_final_yz(), label=f"Initial inducing points - {name}", ax=_ax)
 
     plot.tweak(_ax)
     plt.savefig(os.path.join(_plot_dir, "init_zs.png"), pad_inches=0.2, bbox_inches="tight")

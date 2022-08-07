@@ -38,10 +38,10 @@ class GI_OberConfig(Config):
 
     # Model architecture
     N: int = 40  # train_split
-    M: int = 5
+    M: int = 1
     S: int = 2
     I: int = 50
-    dims = [1, 50, 1]
+    dims = [1, 20, 20, 1]
     batch_size: int = 40
 
     # Likelihood settings
@@ -59,8 +59,8 @@ class GI_OberConfig(Config):
     split_type: str = None
 
     # Server & clients
-    server_type: Server = SynchronousServer
-    num_clients: int = 2
+    server_type: Server = SequentialServer
+    num_clients: int = 1
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
@@ -87,7 +87,7 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # Model architecture
     N: int = 40  # train_split
@@ -108,11 +108,11 @@ class MFVI_OberConfig(Config):
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 1
+    num_clients: int = 2
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates
-    lr_global: float = 0.01
+    lr_global: float = 0.05
 
     # Initialize weight layer mean from N(0,1)
     random_mean_init: bool = True
@@ -120,8 +120,8 @@ class MFVI_OberConfig(Config):
     def __post_init__(self):
         # Precisions of weights per layer
         # Tight => low variance
-        # self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
-        self.nz_inits: list[float] = [1e3 for i in range(len(self.dims) - 1)]
+        self.nz_inits: list[float] = [1e3 - (self.dims[i] + 1) for i in range(len(self.dims) - 1)]
+        # self.nz_inits: list[float] = [1e3 for i in range(len(self.dims) - 1)]
 
         # Medium => reasonable variance
         # self.nz_inits: list[float] = [1 for _ in range(len(self.dims) - 1)]
