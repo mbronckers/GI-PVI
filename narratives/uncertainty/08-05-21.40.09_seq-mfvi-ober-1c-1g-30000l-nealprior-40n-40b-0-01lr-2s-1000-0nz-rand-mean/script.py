@@ -71,18 +71,14 @@ def main(args, config, logger):
 
     pd.DataFrame({"x_tr": x_tr.squeeze().detach().cpu(), "y_tr": y_tr.squeeze().detach().cpu()}).to_csv(os.path.join(config.results_dir, "model/training_data.csv"), index=False)
 
-    # Code to save/load data
-    # torch.save(x_tr, os.path.join(file_dir, "data/mfvi_x_tr.pt"))
-    # torch.save(y_tr, os.path.join(file_dir, "data/mfvi_y_tr.pt"))
-
     # Build prior.
     dims = config.dims
     ps = build_prior(*dims, prior=args.prior, bias=config.bias)
 
     # Likelihood variance is fixed in multi-client PVI.
-    ll_var = 3 / scale if config.fix_ll else config.ll_var
-    likelihood = gi.likelihoods.NormalLikelihood(ll_var)
-    logger.info(f"Likelihood variance: {likelihood.var}")
+    ll_scale = 3 / scale if config.fix_ll else config.ll_scale
+    likelihood = gi.likelihoods.NormalLikelihood(ll_scale)
+    logger.info(f"Likelihood variance: {likelihood.scale}")
     logger.info(f"LR: {config.lr_global}")
 
     # Optimizer parameters.
@@ -117,13 +113,13 @@ def main(args, config, logger):
     for iter in range(max_global_iters):
         server.curr_iter = iter
 
-        # Construct frozen zs, ts of all clients. Automatically links back the previously updated clients' t & z.
-        frozen_ts, _ = collect_vp(clients)
+        # Construct frozen zs, ts of all *optimized* clients. Automatically links back the previously updated clients' t & z.
+        frozen_ts, _ = collect_vp(clients, server.optimized_clients)
 
         # Log performance of global server model.
         with torch.no_grad():
             # Resample <S> inference weights
-            key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
+            key, _ = model.sample_posterior(key=key, ps=ps, ts=frozen_ts, S=args.inference_samples)
 
             server.evaluate_performance()
 
@@ -153,13 +149,8 @@ def main(args, config, logger):
             # Construct optimiser of only client's parameters.
             opt = construct_optimizer(args, config, curr_client, pvi=True)
 
-            # Compute global (frozen) posterior to communicate to clients.
-            if iter == 0:
-                # In 1st iter, only prior is communicated to clients.
-                tmp_ts = {k: {curr_client.name: curr_client.t[k]} for k, _ in frozen_ts.items()}
-            else:
-                # All detached except current client.
-                tmp_ts, _ = collect_frozen_vp(frozen_ts, None, curr_client)
+            # Frozen_ts includes only the clients that have been optimized at least once
+            tmp_ts, _ = collect_frozen_vp(frozen_ts, None, curr_client)  # All detached except current client.
 
             # Run client-local optimization.
             client_data_size = curr_client.x.shape[0]
@@ -169,16 +160,17 @@ def main(args, config, logger):
             for client_iter in range(max_local_iters):
 
                 # Construct epoch-th minibatch {x, y} training data.
-                inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
+                inds = (B.range(batch_size) + batch_size * curr_client.curr_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
+                curr_client.curr_iter += 1
 
                 key, local_vfe, exp_ll, kl, error = estimate_local_vfe(key, model, curr_client, x_mb, y_mb, ps, tmp_ts, {}, S=S, N=client_data_size)
                 loss = -local_vfe
                 loss.backward()
                 opt.step()
-                opt.zero_grad()
                 curr_client.update_nz()
+                opt.zero_grad()
 
                 # Log results.
                 if client_iter == 0 or (client_iter + 1) % log_step == 0 or (client_iter + 1) == max_local_iters:
@@ -191,7 +183,7 @@ def main(args, config, logger):
                         {
                             "global_iteration": iter,
                             "local_iteration": client_iter,
-                            "total_iteration": iter * max_local_iters + client_iter,
+                            "total_iteration": curr_client.curr_iter,
                             "vfe": local_vfe.item(),
                             "ll": exp_ll.item(),
                             "kl": kl.item(),
@@ -206,11 +198,14 @@ def main(args, config, logger):
             if config.dampening_factor:
                 dampen_updates(curr_client, config.dampening_factor, frozen_ts, {})
 
+        # Add optimized clients to list of clients that have been optimized at least once
+        server.update_optimized_clients(curr_clients)
+
     # Log global/server model post training
     server.curr_iter += 1
     with torch.no_grad():
         frozen_ts, _ = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, frozen_ts, S=args.inference_samples)
+        key, _ = model.sample_posterior(key=key, ps=ps, ts=frozen_ts, S=args.inference_samples)
 
         server.evaluate_performance()
 
@@ -258,7 +253,7 @@ def main(args, config, logger):
 def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps, clients):
     with torch.no_grad():
         ts, zs = collect_vp(clients)
-        key, _ = model.sample_posterior(key, ps, ts, S=args.inference_samples)
+        key, _ = model.sample_posterior(key=key, ps=ps, ts=ts, S=args.inference_samples)
         y_pred = model.propagate(x_te)
 
         # Log and plot results

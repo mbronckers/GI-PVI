@@ -12,6 +12,6 @@
     "python.analysis.extraPaths": [
         "./experiments"
     ],
-    "window.zoomLevel": 0,
+    "window.zoomLevel": -1,
     "explorer.autoReveal": false
 }

@@ -53,14 +53,14 @@ class GI_OberConfig(Config):
     lr_global: float = 0.01
 
     # Communication settings
-    global_iters: int = 2  # server iterations
+    global_iters: int = 1  # server iterations
     local_iters: int = 10000  # client-local iterations
 
     split_type: str = None
 
     # Server & clients
-    server_type: Server = SynchronousServer
-    num_clients: int = 2
+    server_type: Server = SequentialServer
+    num_clients: int = 1
     dampening_factor = None  # 0.25
 
     def __post_init__(self):
@@ -93,7 +93,7 @@ class MFVI_OberConfig(Config):
     N: int = 40  # train_split
     S: int = 2
     I: int = 50
-    dims = [1, 20, 20, 1]
+    dims = [1, 50, 1]
     batch_size: int = 40
 
     deterministic: bool = False  # deterministic client training
@@ -102,7 +102,7 @@ class MFVI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 30000  # client-local iterations
+    local_iters: int = 10000  # client-local iterations
 
     split_type: str = None
 
