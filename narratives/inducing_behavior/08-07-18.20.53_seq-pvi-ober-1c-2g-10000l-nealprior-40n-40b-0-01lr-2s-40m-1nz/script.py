@@ -236,12 +236,9 @@ def main(args, config, logger):
 
     # Save inducing points for all clients.
     for _c in clients.values():
-        if _c.z.shape[0] == 1:
-            df = pd.DataFrame({"z": _c.z.squeeze().item(), "yz": _c.get_final_yz().squeeze().item()}, index=[0])
-        else:
-            df = pd.DataFrame({"z": _c.z.squeeze().detach().cpu(), "yz": _c.get_final_yz().squeeze().detach().cpu()})
-        df.to_csv(os.path.join(config.results_dir, f"model/inducing_{_c.name}.csv"), index=False)
-        del df
+        pd.DataFrame({"z": _c.z.squeeze().detach().cpu(), "yz": _c.get_final_yz().squeeze().detach().cpu()}).to_csv(
+            os.path.join(config.results_dir, f"model/inducing_{_c.name}.csv"), index=False
+        )
 
     # Save var state
     _global_vs_state_dict = {}
@@ -249,7 +246,6 @@ def main(args, config, logger):
         _vs_state_dict = dict(zip(_c.vs.names, [_c.vs[_name] for _name in _c.vs.names]))
         _global_vs_state_dict.update(_vs_state_dict)
     torch.save(_global_vs_state_dict, os.path.join(_results_dir, "model/_vs.pt"))
-    del _global_vs_state_dict
 
     # Save model metrics.
     metrics = pd.DataFrame(server.log)
@@ -258,7 +254,6 @@ def main(args, config, logger):
         # Save client log.
         metrics = pd.DataFrame(_c.log)
         metrics.to_csv(os.path.join(config.metrics_dir, f"{client_name}_log.csv"), index=False)
-    del metrics
 
     if args.plot:
         for c_name in clients.keys():

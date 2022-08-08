@@ -325,11 +325,11 @@ class NormalPseudoObservation:
         prec_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _z))  # zT @ prec_yz @ z = XLX = XiT @ Lambda @ Xi
 
         # (S, Dout, Din, 1)
-        # lam \\propto prec*mean, mean_w = (prec^-1) * XLY => lam_w = XLY
         lam_w = B.mm(B.transpose(_z), B.mm(_prec_yz, _yz))  # @ _z * _nz @ _yz = XLY
+        # lam \\propto prec*mean, mean_w = (prec^-1) * XLY => lam_w = XLY
 
         del _prec_yz, _z, _yz
-        return NaturalNormal(lam_w, prec_w)
+        return NaturalNormal(lam_w, prec_w)  # N(w; [S x Dout x Din x 1], [S x Dout x Din x Din])
 
     def __repr__(self) -> str:
         return f"yz: {self.yz.shape}, nz: {self.nz.shape}"
