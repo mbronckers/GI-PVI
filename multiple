@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -J BA/GI/SYNC/20K
+#SBATCH -J AA/MF/SEQ/20K
 #SBATCH -A MLMI-MOJB2-SL2-GPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
-#SBATCH --time=5:00:00
+#SBATCH --time=2:00:00
 #SBATCH --mail-type=ALL
 #! Uncomment this to prevent the job from being requeued (e.g. if
 #! interrupted by node failure or system downtime):
@@ -88,7 +88,7 @@ echo -e "\nExecuting command:\n==================\n$CMD\n" >> $LOG
 srun="srun -N1 -n1"
 
 #### BANK 
-$srun $application --q GI -d B --prior neal --server SYNC --split A --lr 0.001 -l 20000 -g 10 --batch 256 -M 100 &
+$srun $application --q MFVI -d B --prior neal --server SEQ --split A --lr 0.001 -l 20000 -g 10 --batch 256 --num_clients=1 &
 
 # $srun $application --q MFVI -d B --prior neal --server SYNC --split A --lr 0.001 -l 10000 -g 10 --batch 256 --damp=0.2 &
 wait
