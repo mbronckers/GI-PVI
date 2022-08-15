@@ -13,7 +13,7 @@ from dgp import DGP
 import lab as B
 import torch
 from gi.server import SequentialServer, Server, SynchronousServer
-from kl import KL
+from gi.kl import KL
 
 
 @dataclass

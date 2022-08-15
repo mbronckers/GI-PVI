@@ -2,7 +2,7 @@ import lab as B
 import torch
 import logging
 
-from experiments.kl import KL, compute_kl
+from gi.kl import KL, compute_kl
 
 
 class BaseBNN:
