@@ -23,6 +23,7 @@ import torch
 import torch.nn as nn
 from gi.client import Client, GI_Client, MFVI_Client
 from gi.gibnn import GIBNN_Classification
+from gi.kl import parse_kl_arg
 from gi.mfvi import MFVI_Classification
 from gi.server import SequentialServer, SynchronousServer
 from matplotlib import pyplot as plt
@@ -310,6 +311,7 @@ if __name__ == "__main__":
     parser.add_argument("--linspace_yz", action="store_true", help="Init GI yz linearly", default=False)
     parser.add_argument("--rand_mean", action="store_true", help="Init MFVI weights N(0,1)", default=True)
     parser.add_argument("--patience", type=int, help="Init MFVI weights N(0,1)", default=20)
+    parser.add_argument("--KL", type=str, help="KL estimate type", default="analytic", choices=["analytic", "MC"])
 
     args = parser.parse_args()
 
@@ -347,6 +349,7 @@ if __name__ == "__main__":
     config.nz_inits = [1e3 - (dims[i] + 1) for i in range(len(dims) - 1)]
     config.optimizer_params: dict = {"lr": args.lr}
     config.sep_lr = False
+    config.kl = parse_kl_arg(args.KL)
     set_partition_factors(args.split, config)
 
     # Create experiment directories

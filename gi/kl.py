@@ -36,6 +36,16 @@ class KL(enum.IntEnum):
             return "MC"
 
 
+def parse_kl_arg(arg: str):
+    if arg.lower().__contains__("analytic") or arg.lower().__contains__("exact"):
+        return KL.Analytical
+    elif arg.lower().__contains__("MC") or arg.lower().__contains__("approx"):
+        return KL.MC
+    else:
+        logger.warning("KL type not recognized, defaulting to Analytical.")
+        return KL.Analytical
+
+
 def compute_kl(kl: KL, q, p, w):
     """Compute KL divergence between prior and posterior
 
