@@ -53,8 +53,8 @@ class GI_OberConfig(Config):
     lr_global: float = 0.02
 
     # Communication settings
-    global_iters: int = 2  # server iterations
-    local_iters: int = 10000  # client-local iterations
+    global_iters: int = 1  # server iterations
+    local_iters: int = 1000  # client-local iterations
 
     split_type: str = None
 

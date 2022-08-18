@@ -8,6 +8,15 @@ import torch
 
 logger = logging.getLogger()
 
+# check for line_profiler or memory_profiler in the local scope, both
+# are injected by their respective tools or they're absent
+# if these tools aren't being used (in which case we need to substitute
+# a dummy @profile decorator)
+if "line_profiler" not in dir() and "profile" not in dir():
+
+    def profile(func):
+        return func
+
 
 class Normal:
     def __init__(self, mean, var):
@@ -90,6 +99,7 @@ class NaturalNormal:
 
         self._mean = None
         self._var = None
+        self._chol_prec = None
 
     @property
     def dtype(self):
@@ -114,16 +124,23 @@ class NaturalNormal:
         """column vector: Mean."""
         if self._mean is None:
             # Cholsolve solves the linear system L x = b where L is a lower-triangular cholesky factorization
-            self._mean = B.cholsolve(B.chol(self.prec), self.lam)
+            self._mean = B.cholsolve(self.chol_prec, self.lam)
         return self._mean
 
     @property
     def var(self):
         """matrix: Variance."""
         if self._var is None:
-            self._var = B.pd_inv(self.prec)
+            self._var = B.pd_inv(self.chol_prec)
         return self._var
 
+    @property
+    def chol_prec(self):
+        if self._chol_prec is None:
+            self._chol_prec = B.chol(self.prec)
+        return self._chol_prec
+
+    @profile
     def kl(self, other: "NaturalNormal"):
         """Compute the Kullback-Leibler divergence with respect to another normal
         parametrised by its natural parameters.
@@ -134,19 +151,27 @@ class NaturalNormal:
 
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        ratio = B.triangular_solve(B.chol(self.prec), B.chol(other.prec))  # M in wiki
+        if type(other.prec) == Diagonal:
+            ratio = Diagonal(other.prec.diag / B.diag(self.prec))
+            logdet = B.logdet(ratio)  # bc ratio is lower triangular
+            sum_r = ratio.diag
+        else:
+            ratio = B.triangular_solve(self.chol_prec, other.chol_prec)  # M in wiki => other/self
+            logdet = B.logdet(B.mm(ratio, ratio, tr_a=True))  # bc ratio is lower triangular
+            sum_r = B.sum(ratio**2, -1)
+
         diff = self.mean - other.mean  # mu1 - mu0
         dT_prec_d = B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)
-        logdet = B.logdet(B.mm(ratio, ratio, tr_a=True))
-        sum_r = B.sum(ratio**2, -1)
 
+        _kl = 0.5 * (B.sum(sum_r, -1) - logdet + dT_prec_d - B.cast(self.dtype, self.dim))  # ratio^T @ ratio  # (diff)^T @ prec @ diff;  subtract dimension |K| scalar
         del diff, ratio
-        _kl = 0.5 * (B.sum(sum_r, -1) - logdet + dT_prec_d - B.cast(self.dtype, self.dim))  # ratio^T @ ratio  # (diff)^T @ prec @ diff  # subtract dimension |K| scalar
+
         return _kl
 
     def logpdf(self, x):
         return Normal.from_naturalnormal(self).logpdf(x)
 
+    @profile
     def sample(self, key: B.RandomState, num: B.Int = 1):
         """
         Sample from distribution using the natural parameters
@@ -166,7 +191,7 @@ class NaturalNormal:
             sample = self.mean + B.mm(B.chol(self.var), noise)
         else:
             # Trisolve solves Ux = y, where U is an upper triangular matrix
-            sample = self.mean + B.triangular_solve(B.T(B.chol(self.prec)), noise, lower_a=False)
+            sample = self.mean + B.triangular_solve(B.T(self.chol_prec), noise, lower_a=False)
 
         del noise
         if not structured(sample):
@@ -256,6 +281,7 @@ class MeanField(NaturalNormal):
 
         self._mean = None
         self._var = None
+        self._chol_prec = None
 
     @classmethod
     def from_factor(cls, factor: MeanFieldFactor):

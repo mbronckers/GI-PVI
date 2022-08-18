@@ -28,7 +28,7 @@ class Config:
     bias: bool = True
 
     load: str = None
-    log_step: int = 50
+    log_step: int = 1000
 
     start = None
     start_time = None
