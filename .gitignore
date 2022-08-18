@@ -153,3 +153,4 @@ train-log*
 .vscode/*
 saved_results/*
 results_new/*
+*multiple

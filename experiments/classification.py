@@ -148,7 +148,8 @@ def main(args, config, logger):
             for client_iter in range(max_local_iters):
 
                 # Construct client_iter-th minibatch {x, y} training data.
-                inds = (B.range(batch_size) + batch_size * client_iter) % client_data_size
+                curr_client.curr_iter += 1
+                inds = (B.range(batch_size) + batch_size * curr_client.curr_iter) % client_data_size
                 x_mb = B.take(curr_client.x, inds)
                 y_mb = B.take(curr_client.y, inds)
 
@@ -336,7 +337,7 @@ if __name__ == "__main__":
         dim_in = 46
 
     config = Config()
-    dims = [dim_in, 50, 50, 2]
+    dims = [dim_in, 100, 100, 2]
     config.model_type = model_type
     config.server_type = server_type
     config.dims = dims
