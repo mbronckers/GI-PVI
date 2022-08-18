@@ -351,12 +351,10 @@ def model_eval(args, config, key, x, y, x_tr, y_tr, x_te, y_te, scale, model, ps
 if __name__ == "__main__":
     import warnings
     from config.ober import MFVI_OberConfig
-    from config.protein import MFVI_ProteinConfig
 
     warnings.filterwarnings("ignore")
 
     config = MFVI_OberConfig()
-    # config = MFVI_ProteinConfig()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", "-s", type=int, help="seed", nargs="?", default=config.seed)

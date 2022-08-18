@@ -13,7 +13,7 @@ from dgp import DGP
 import lab as B
 import torch
 from gi.server import SequentialServer, Server, SynchronousServer
-from kl import KL
+from gi.kl import KL
 
 from .config import Config, set_experiment_name
 
@@ -27,7 +27,7 @@ class GI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.NealPrior
+    prior: Prior = Prior.StandardPrior
 
     # GI settings
     deterministic: bool = False  # deterministic client training
@@ -38,8 +38,8 @@ class GI_OberConfig(Config):
 
     # Model architecture
     N: int = 40  # train_split
-    M: int = 1
-    S: int = 10
+    M: int = 40
+    S: int = 2
     I: int = 50
     dims = [1, 20, 20, 1]
     batch_size: int = 40
@@ -50,10 +50,10 @@ class GI_OberConfig(Config):
 
     # Learning rates
     sep_lr = False
-    lr_global: float = 0.05
+    lr_global: float = 0.02
 
     # Communication settings
-    global_iters: int = 1  # server iterations
+    global_iters: int = 2  # server iterations
     local_iters: int = 10000  # client-local iterations
 
     split_type: str = None

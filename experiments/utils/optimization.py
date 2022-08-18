@@ -62,21 +62,6 @@ def construct_optimizer(args, config: Config, curr_client: Client, pvi: bool, vs
     return opt
 
 
-def rebuild(vs, likelihood):
-    """
-    For positive (constrained) variables in vs,
-        we need to re-initialize the values of the objects
-        to the latest vars in vs for gradient purposes
-
-    :param likelihood: update the output variance
-    :param clients: update the pseudo precision
-    """
-
-    _idx = vs.name_to_index["output_var"]
-    likelihood.scale = vs.transforms[_idx](vs.get_vars()[_idx])
-    return likelihood
-
-
 def collect_vp(clients: dict[str, Client], client_names=None):
     """Collects the variational parameters of all clients in detached (frozen) form
 
