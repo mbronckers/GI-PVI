@@ -38,7 +38,7 @@ class GI_OberConfig(Config):
 
     # Model architecture
     N: int = 40  # train_split
-    M: int = 40
+    M: int = 5
     S: int = 2
     I: int = 50
     dims = [1, 20, 20, 1]
@@ -54,7 +54,7 @@ class GI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 1000  # client-local iterations
+    local_iters: int = 10000  # client-local iterations
 
     split_type: str = None
 
@@ -87,7 +87,7 @@ class MFVI_OberConfig(Config):
     location = os.path.basename(__file__)
     dgp: DGP = DGP.ober_regression
 
-    prior: Prior = Prior.StandardPrior
+    prior: Prior = Prior.NealPrior
 
     # Model architecture
     N: int = 40  # train_split
@@ -102,13 +102,13 @@ class MFVI_OberConfig(Config):
 
     # Communication settings
     global_iters: int = 1  # server iterations
-    local_iters: int = 30000  # client-local iterations
+    local_iters: int = 20000  # client-local iterations
 
     split_type: str = None
 
     # Server & clients
     server_type: Server = SequentialServer
-    num_clients: int = 2
+    num_clients: int = 1
     dampening_factor = None
 
     sep_lr: bool = False  # True => use seperate learning rates

@@ -66,12 +66,11 @@ def test_ll():
     key = B.create_random_state(B.default_dtype, seed=0)
 
     n = 10
-    # key, var = B.randn(key, B.default_dtype, 1)
-    var = 0.1
+    key, scale = B.randn(key, B.default_dtype, 1)
     key, y = B.randn(key, B.default_dtype, n)
     key, y_pred = B.randn(key, B.default_dtype, n)
 
-    l1 = gi.likelihoods.NormalLikelihood(var)
+    l1 = gi.likelihoods.NormalLikelihood(scale)
 
     assert _test_logpdf_normal(l1, mean=y_pred[:, None], y=y[:, None]) == True
 

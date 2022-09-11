@@ -151,14 +151,14 @@ class NaturalNormal:
 
         See https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence#Multivariate_normal_distributions for more info
         """
-        if type(other.prec) == Diagonal:
-            ratio = Diagonal(other.prec.diag / B.diag(self.prec))
-            logdet = B.logdet(ratio)  # bc ratio is lower triangular
-            sum_r = ratio.diag
-        else:
-            ratio = B.triangular_solve(self.chol_prec, other.chol_prec)  # M in wiki => other/self
-            logdet = B.logdet(B.mm(ratio, ratio, tr_a=True))  # bc ratio is lower triangular
-            sum_r = B.sum(ratio**2, -1)
+        # if type(other.prec) == Diagonal:
+        #     ratio = Diagonal(self.prec.diag / other.prec.diag) if type(self.prec) == Diagonal else Diagonal(B.diag(self.prec) / other.prec.diag)
+        #     logdet = B.logdet(ratio)  # bc ratio is lower triangular
+        #     sum_r = ratio.diag
+        # else:
+        ratio = B.triangular_solve(self.chol_prec, other.chol_prec)  # M in wiki => other/self
+        logdet = B.logdet(B.mm(ratio, ratio, tr_a=True))  # bc ratio is lower triangular
+        sum_r = B.sum(ratio**2, -1)
 
         diff = self.mean - other.mean  # mu1 - mu0
         dT_prec_d = B.sum(B.sum(B.mm(other.prec, diff) * diff, -1), -1)
@@ -187,7 +187,6 @@ class NaturalNormal:
 
         # Non-centered, precision parameterization
         if type(self.prec) == Diagonal:
-            # sample = self.mean + B.mm(B.pd_inv(B.chol(self.prec)), noise)
             sample = self.mean + B.mm(B.chol(self.var), noise)
         else:
             # Trisolve solves Ux = y, where U is an upper triangular matrix
@@ -215,8 +214,8 @@ class NaturalNormal:
 
     def __copy__(self):
         return NaturalNormal(
-            deepcopy(self.lam.detach().clone()),
-            deepcopy(B.dense(self.prec).detach().clone()),
+            (self.lam.detach().clone()),
+            (B.dense(self.prec).detach().clone()),
         )
 
     def __repr__(self) -> str:
@@ -288,6 +287,7 @@ class MeanField(NaturalNormal):
         """Converts NaturalNormalFactor into NaturalNormal distribution"""
         return cls(lam=factor.lam, prec=factor.prec)
 
+    @profile
     def kl(self, other: "MeanField"):
         """Compute the Kullback-Leibler divergence with respect to another normal
         parametrised by its natural parameters.
